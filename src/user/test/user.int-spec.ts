@@ -3,11 +3,13 @@ import { AppModule } from "../../app.module";
 import { DbService } from "../../db/db.service";
 import { UserService } from "../user.service";
 import { updateProfileDto } from "../dto/user.dto";
+import { ConfigService } from "@nestjs/config";
 
 describe('User Service', () => {
   let prisma: DbService;
   let userService: UserService;
   let userId: number;
+  let config: ConfigService;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -23,6 +25,7 @@ describe('User Service', () => {
 
     // Instantiate user service
     userService = app.get(UserService)
+    config = app.get(ConfigService)
   });
 
   describe('Update Profile', () => {
@@ -31,6 +34,7 @@ describe('User Service', () => {
         data: {
           email: 'example@gmail.com',
           password: 'password',
+          profileImage: config.get<string>('DEFAULT_IMAGE')
         }
       })
 

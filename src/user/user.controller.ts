@@ -10,22 +10,31 @@ import { UserService } from './user.service';
 export class UserController {
   constructor(private userService: UserService) {};
 
-  @Get('/profile')
+  @Get('profile')
   profile(@GetUser() user: User): { user: User } {
     return { user };
   }
 
-  @Patch('/profile/update')
+  @Patch('profile/update')
   async updateProfile(
     @GetUser() user: User,
     @Body() dto: updateProfileDto
   ): Promise<{ user: User }> {
-    return { user: await this.userService.updateProfile(user.id, dto) }
+    try {
+      return { user: await this.userService.updateProfile(user.id, dto) }
+    } catch (error) {
+      throw error;
+    }
   }
 
-  @Delete('/profile/delete')
-  async deleteAccount(@GetUser() user: User): Promise<{ message: string }> {
-    await this.userService.deleteAccount(user.id);
-    return { message: 'Account deleted successfully' };
+  @Delete('profile/delete')
+  async deleteAccount(@GetUser() user: User)
+  : Promise<{ message: string }> {
+    try {
+      await this.userService.deleteAccount(user.id);
+      return { message: 'Account deleted successfully' };
+    } catch (error) {
+      throw error;
+    }
   }
 }

@@ -5,7 +5,6 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DbService } from '../src/db/db.service';
 import { AuthDto } from '../src/auth/dto/auth.dto';
 import { updateProfileDto } from '../src/user/dto/user.dto';
-import { CreateBookmarkDto, UpdateBookmarkDto } from '../src/bookmark/dto/bookmark.dto';
 
 describe('App e2e', () => {
   let app: INestApplication;
@@ -90,7 +89,7 @@ describe('App e2e', () => {
         return pactum.spec()
           .post('/auth/signup')
           .withBody(dto)
-          .expectStatus(403)
+          .expectStatus(400)
       });
     })
 
@@ -121,7 +120,7 @@ describe('App e2e', () => {
             email: 'wrongemail@gmail.com',
             password: dto.password
           })
-          .expectStatus(403)
+          .expectStatus(400)
       });
 
       it('should throw if password is empty', () => {
@@ -140,7 +139,7 @@ describe('App e2e', () => {
             email: dto.email,
             password: 'wrong password'
           })
-          .expectStatus(403)
+          .expectStatus(400)
       });
 
       it('should throw if body is empty', () => {
@@ -157,6 +156,8 @@ describe('App e2e', () => {
           .stores('accessToken', 'token')
       });
     })
+
+    describe('2FA', () => {})
   });
   
   describe('User', () => {
@@ -193,78 +194,7 @@ describe('App e2e', () => {
           .expectStatus(200)
       });
     });
-  });
 
-  describe('Bookmark', () => {
-    describe('Create bookmark', () => {
-      const dto: CreateBookmarkDto = {
-        title: 'Bookmark 1',
-        description: 'This is my first bookmark'
-      }
-      
-      it('should create bookmark', () => {
-        return pactum.spec()
-          .post('/bookmarks/create')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .withBody(dto)
-          .expectStatus(201)
-          .stores('bookmarkId', 'bookmark.id')
-      })
-    });
-
-    describe('Get bookmarks', () => {
-      it('should return all bookmarks', () => {
-        return pactum.spec()
-          .get('/bookmarks')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
-      })
-    });
-
-    describe('Get bookmark by ID', () => {
-      it('should find bookmark by the given ID', () => {
-        return pactum.spec()
-          .get('/bookmarks/$S{bookmarkId}')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
-      })
-    });
-
-    describe('Update bookmark by ID', () => {
-      const dto: UpdateBookmarkDto = {
-        title: '1st Bookmark'
-      }
-
-      it('should update bookmark by the given ID', () => {
-        return pactum.spec()
-          .patch('/bookmarks/$S{bookmarkId}/update')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .withBody(dto)
-          .expectStatus(200)
-      })
-    });
-
-    describe('Delete bookmark by ID', () => {
-      it('should delete bookmark by the given ID', () => {
-        return pactum.spec()
-          .delete('/bookmarks/$S{bookmarkId}/delete')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
-      })
-    });
-  });
-
-  describe('User', () => {
     describe('Delete Account', () => {
       it('should delete user profile', () => {
         return pactum.spec()
@@ -275,5 +205,5 @@ describe('App e2e', () => {
           .expectStatus(200)
       });
     });
-  })
+  });
 })

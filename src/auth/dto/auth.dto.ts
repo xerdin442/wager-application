@@ -17,3 +17,9 @@ export class AuthDto {
   @IsString()
   lastName?: string
 }
+
+export class Verify2FADto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}

@@ -8,18 +8,26 @@ export class UserService {
   constructor (private prisma: DbService) {};
 
   async updateProfile(userId: number, dto: updateProfileDto): Promise<User> {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { ...dto }
-    })
-
-    delete user.password
-    return user;
+    try {
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { ...dto }
+      })
+  
+      delete user.password
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  async deleteAccount(userId: number) {
-    return this.prisma.user.delete({
-      where: { id: userId }
-    })
+  async deleteAccount(userId: number): Promise<void> {
+    try {
+      await this.prisma.user.delete({
+        where: { id: userId }
+      })
+    } catch (error) {
+      throw error;
+    }
   }
 }

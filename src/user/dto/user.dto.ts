@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsEmail, IsOptional, IsString } from "class-validator";
 
 export class updateProfileDto {
   @IsEmail()
@@ -16,4 +16,12 @@ export class updateProfileDto {
   @IsOptional()
   @IsString()
   profileImage?: string
+
+  @IsOptional()
+  @IsString()
+  twoFASecret?: string
+
+  @IsOptional()
+  @IsBoolean()
+  twoFAEnabled?: boolean
 }

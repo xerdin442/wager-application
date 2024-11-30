@@ -23,12 +23,21 @@ export class AuthController {
     @Body() dto: AuthDto,
     @UploadedFile() file: Express.Multer.File
   ): Promise<{ user: User }> {
-    const newUser = await this.authService.signup(dto);
-    const user = await this.userService.updateProfile(newUser.id, {
-      profileImage: file.path
-    });
+    try {
+      const newUser = await this.authService.signup(dto);
+      const user = await this.userService.updateProfile(newUser.id, {
+        profileImage: file.path
+      });
+  
+      return { user };
+    } catch (error) {
+      if (file.path) {
+        const upload = new UploadConfig();
+        upload.deleteFile(file.path);
 
-    return { user };
+        console.log(error)
+      }
+    }
   }
 
   @HttpCode(HttpStatus.OK)

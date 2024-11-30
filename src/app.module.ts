@@ -14,20 +14,20 @@ import { APP_GUARD } from '@nestjs/core';
     ConfigModule.forRoot({
       isGlobal: true
     }),
-    // ThrottlerModule.forRoot([{
-    //   name: 'Seconds',
-    //   ttl: 1000,
-    //   limit: 3  // Not more than 3 requests in any one second
-    // }, {
-    //   name: 'Minutes',
-    //   ttl: 60000,
-    //   limit: 75 // Not more than 75 requests in any one minute
-    // }])
+    ThrottlerModule.forRoot([{
+      name: 'Seconds',
+      ttl: 1000,
+      limit: 3  // Not more than 3 requests in any one second
+    }, {
+      name: 'Minutes',
+      ttl: 60000,
+      limit: 75 // Not more than 75 requests in any one minute
+    }])
   ],
 
-  // providers: [{
-  //   provide: APP_GUARD,
-  //   useClass: ThrottlerGuard
-  // }]
+  providers: [{
+    provide: APP_GUARD,
+    useClass: ThrottlerGuard
+  }]
 })
 export class AppModule {}

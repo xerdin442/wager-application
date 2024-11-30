@@ -1,15 +1,34 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { User } from '@prisma/client';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UserService } from '../user/user.service';
+import { UploadConfig } from '../config/upload';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService
+  ) { }
 
   @Post('signup')
-  async signup(@Body() dto: AuthDto): Promise<{ user: User }> {
-    return { user: await this.authService.signup(dto) }
+  @UseInterceptors(FileInterceptor('profileImage', {
+    fileFilter: new UploadConfig().fileFilter,    
+    limits: { fieldSize: 5 * 1024 * 1024 }, // File sizes must be less than 5MB
+    storage: new UploadConfig().storage('profile-images', 'image')
+  }))
+  async signup(
+    @Body() dto: AuthDto,
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<{ user: User }> {
+    const newUser = await this.authService.signup(dto);
+    const user = await this.userService.updateProfile(newUser.id, {
+      profileImage: file.path
+    });
+
+    return { user };
   }
 
   @HttpCode(HttpStatus.OK)

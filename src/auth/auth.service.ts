@@ -22,13 +22,14 @@ export class AuthService {
         data: {
           email: dto.email,
           password: hash,
+          profileImage: '',
           firstName: dto.firstName || null,
           lastName: dto.lastName || null
         }
       })
   
       delete user.password;
-      return user;  
+      return user;
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -57,7 +58,7 @@ export class AuthService {
       }
       
       const payload = { sub: user.id, email: user.email }
-      const options = { expiresIn: '1h', secret: this.config.get('JWT_SECRET') }
+      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') }
       
       return this.jwt.signAsync(payload, options);
     } catch (error) {

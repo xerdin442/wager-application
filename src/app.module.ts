@@ -24,7 +24,7 @@ import { APP_GUARD } from '@nestjs/core';
       name: 'Minutes',
       ttl: 60000,
       limit: 75 // Not more than 75 requests in any one minute
-    }]),
+    }])
   ],
 
   providers: [{

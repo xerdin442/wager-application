@@ -3,12 +3,12 @@ import * as pactum from 'pactum';
 import { AppModule } from '../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DbService } from '../src/db/db.service';
-import { AuthDto } from '../src/auth/dto/auth.dto';
+import { AuthDto, Verify2FADto } from '../src/auth/dto/auth.dto';
 import { updateProfileDto } from '../src/user/dto/user.dto';
 
 describe('App e2e', () => {
   let app: INestApplication;
-  let prisma: DbService
+  let prisma: DbService;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -40,8 +40,8 @@ describe('App e2e', () => {
       email: 'example@gmail.com',
       password: 'password',
       firstName: 'Xerdin',
-      lastName: null
-    }
+      lastName: null,
+    };
 
     describe('Signup', () => {
       it('should throw if email is empty', () => {
@@ -91,7 +91,7 @@ describe('App e2e', () => {
           .withBody(dto)
           .expectStatus(400)
       });
-    })
+    });
 
     describe('Login', () => {
       it('should throw if email is empty', () => {
@@ -155,11 +155,43 @@ describe('App e2e', () => {
           .expectStatus(200)
           .stores('accessToken', 'token')
       });
-    })
+    });
 
-    describe('2FA', () => {})
-  });
+    describe('2FA', () => {
+      it('should enable two factor authentication', () => {
+        return pactum.spec()
+          .post('/auth/2fa/enable')
+          .withHeaders({
+            Authorization: 'Bearer $S{accessToken}'
+          })
+          .expectStatus(200)
+      });
   
+      it('should verify 2FA token', () => {
+        const verifyDto: Verify2FADto = {
+          token: '123456'
+        };
+  
+        return pactum.spec()
+          .post('/auth/2fa/verify')
+          .withHeaders({
+            Authorization: 'Bearer $S{accessToken}'
+          })
+          .withBody(verifyDto)
+          .expectStatus(400)
+      });
+  
+      it('should disable two factor authentication', () => {
+        return pactum.spec()
+          .post('/auth/2fa/disable')
+          .withHeaders({
+            Authorization: 'Bearer $S{accessToken}'
+          })
+          .expectStatus(200)
+      });
+    })
+  });
+
   describe('User', () => {
     describe('Profile', () => {
       it('should throw if access token is missing', () => {

@@ -17,7 +17,8 @@ export class AuthService {
     private readonly config: ConfigService
   ) {}
 
-  async signup(dto: AuthDto, filePath: string | undefined): Promise<User> {
+  async signup(dto: AuthDto, filePath: string | undefined)
+  : Promise<{ user: User, token: string }> {
     try {
       const hash = await argon.hash(dto.password)
       const user = await this.prisma.user.create({
@@ -29,9 +30,12 @@ export class AuthService {
           lastName: dto.lastName || null
         }
       });
-  
-      delete user.password;
-      return user;
+
+      const payload = { sub: user.id, email: user.email }
+      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
+      const token = await this.jwt.signAsync(payload, options);
+
+      return { user, token }
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -43,7 +47,8 @@ export class AuthService {
     }
   }
 
-  async login(dto: AuthDto): Promise<string> {
+  async login(dto: AuthDto)
+  : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -60,9 +65,10 @@ export class AuthService {
       }
       
       const payload = { sub: user.id, email: user.email }
-      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') }
-      
-      return this.jwt.signAsync(payload, options);
+      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };  
+      const token = await this.jwt.signAsync(payload, options);
+
+      return { token, twoFactorAuth: user.twoFAEnabled };
     } catch (error) {
       throw error;
     }
@@ -104,7 +110,7 @@ export class AuthService {
       const user = await this.prisma.user.findUnique({
         where: { id: userId }
       });
-  
+
       return speakeasy.totp.verify({
         secret: user.twoFASecret,
         token: dto.token,

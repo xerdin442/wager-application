@@ -35,7 +35,7 @@ describe('Auth Service', () => {
 
   describe('Signup', () => {
     it('should signup a new user', async () => {
-      const user = await authService.signup(dto, config.get<string>('DEFAULT_IMAGE'));
+      const { user } = await authService.signup(dto, config.get<string>('DEFAULT_IMAGE'));
       userId = user.id;
     });
   });

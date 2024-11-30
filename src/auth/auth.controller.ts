@@ -3,9 +3,9 @@ import { AuthService } from './auth.service';
 import { AuthDto, Verify2FADto } from './dto/auth.dto';
 import { User } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UploadConfig } from '../config/upload';
+import { UploadConfig } from '../common/config/upload';
 import { AuthGuard } from '@nestjs/passport';
-import { GetUser } from '../user/decorators/user.decorator';
+import { GetUser } from '../common/decorators/user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -20,11 +20,18 @@ export class AuthController {
   async signup(
     @Body() dto: AuthDto,
     @UploadedFile() file: Express.Multer.File
-  ): Promise<{ user: User }> {
+  ): Promise<object> {
     try {
-      return { user: await this.authService.signup(dto, file.path) };
+      let response: object;
+      if (file) {
+        response = await this.authService.signup(dto, file.path)
+      } else {
+        response = await this.authService.signup(dto, undefined)
+      }
+
+      return response;
     } catch (error) {
-      if (file.path) {
+      if (file) {
         new UploadConfig().deleteFile(file.path);
       }
 
@@ -35,9 +42,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(@Body() dto: AuthDto)
-  : Promise<{ token: string }> {
+  : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
-      return { token: await this.authService.login(dto) };
+      return await this.authService.login(dto)
     } catch (error) {
       throw error;
     }
@@ -77,11 +84,11 @@ export class AuthController {
   ): Promise<{ message: string }> {
     try {
       const verified = await this.authService.verify2FA(user.id, dto);
-      
+
       if (verified) {
-        return { message: '2FA token verified successfully' };
+        return { message: '2FA token verified successfully' }
       } else {
-        return new BadRequestException('Invalid token')
+        throw new BadRequestException('Invalid token')
       }
     } catch (error) {
       throw error;

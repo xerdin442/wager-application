@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Patch, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
-import { GetUser } from './decorators/user.decorator';
+import { GetUser } from '../common/decorators/user.decorator';
 import { updateProfileDto } from './dto/user.dto';
 import { UserService } from './user.service';
 

@@ -1,4 +1,14 @@
-import { BadRequestException, Body, Controller, ForbiddenException, HttpCode, HttpStatus, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDto, Verify2FADto } from './dto/auth.dto';
 import { User } from '@prisma/client';

@@ -1,4 +1,11 @@
-import { Body, Controller, Delete, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  UseGuards
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '../common/decorators/user.decorator';

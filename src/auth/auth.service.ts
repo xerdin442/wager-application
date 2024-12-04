@@ -8,13 +8,16 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: DbService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    @InjectQueue('mail-queue') private readonly mailQueue: Queue
   ) {}
 
   async signup(dto: AuthDto, filePath: string | undefined)
@@ -35,6 +38,11 @@ export class AuthService {
       const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
       const token = await this.jwt.signAsync(payload, options);
 
+      await this.mailQueue.add('signup', {
+        email: dto.email,
+        firstName: dto.firstName
+      })
+      
       return { user, token }
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {

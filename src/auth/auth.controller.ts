@@ -16,9 +16,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadConfig } from '../common/config/upload';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../common/decorators/user.decorator';
+import logger from '../common/logger';
 
 @Controller('auth')
 export class AuthController {
+  private context = AuthController.name;
+
   constructor(private readonly authService: AuthService) { };
 
   @Post('signup')
@@ -39,11 +42,15 @@ export class AuthController {
         response = await this.authService.signup(dto, undefined)
       }
 
+      logger.info(`[${this.context}] User signup successful.\n\t Email: ${dto.email}`);
       return response;
     } catch (error) {
       if (file) {
-        new UploadConfig().deleteFile(file.path);
+        new UploadConfig().deleteFile(file.path, 'Signup');
       }
+
+      logger.error(`[${this.context}] An error occured during user signup.
+        \n\t Error: ${error.message}`);
 
       throw error;
     }
@@ -54,8 +61,14 @@ export class AuthController {
   async login(@Body() dto: AuthDto)
   : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
-      return await this.authService.login(dto)
+      const response = await this.authService.login(dto)
+
+      logger.info(`[${this.context}] User login successful.\n\t Email: ${dto.email}`);
+      return response;
     } catch (error) {
+      logger.error(`[${this.context}] An error occured during user login.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }
@@ -66,8 +79,14 @@ export class AuthController {
   async enable2FA(@GetUser() user: User)
   : Promise<{ qrcode: string }> {
     try {
-      return { qrcode: await this.authService.enable2FA(user.id) }
+      const qrcode = await this.authService.enable2FA(user.id);
+
+      logger.info(`[${this.context}] ${user.email} enabled two factor authentication`);
+      return { qrcode };
     } catch (error) {
+      logger.error(`[${this.context}] An error occured while enabling two factor authentication.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }
@@ -79,8 +98,13 @@ export class AuthController {
   : Promise<{ message: string }> {
     try {
       await this.authService.disable2FA(user.id);
+
+      logger.info(`[${this.context}] ${user.email} disabled two factor authentication`);     
       return { message: '2FA disabled successfully' };
     } catch (error) {
+      logger.error(`[${this.context}] An error occured while disabling two factor authentication.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }
@@ -96,11 +120,20 @@ export class AuthController {
       const verified = await this.authService.verify2FA(user.id, dto);
 
       if (verified) {
-        return { message: '2FA token verified successfully' }
+        logger.info(`[${this.context}] 2FA token verified successfully.
+          \n\t Email: ${user.email}`);
+
+        return { message: '2FA token verified successfully' };
       } else {
-        throw new BadRequestException('Invalid token')
+        logger.error(`[${this.context}] Invalid 2FA token could not be verified.
+          \n\t Email: ${user.email}`);
+
+        throw new BadRequestException('Invalid token');
       }
     } catch (error) {
+      logger.error(`[${this.context}] An error occured while verifying 2FA token.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }

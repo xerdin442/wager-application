@@ -2,8 +2,11 @@ import { v2 } from "cloudinary";
 import { Request } from "express";
 import { FileFilterCallback } from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
+import logger from "../logger";
 
 export class UploadConfig {
+  private context = UploadConfig.name;
+
   constructor() {
     v2.config({
       cloud_name: process.env.CLOUD_NAME,
@@ -38,16 +41,17 @@ export class UploadConfig {
     }
   }
 
-  deleteFile(filePath: string) {
+  deleteFile(filePath: string, externalContext: string) {
     // Extract the public ID of the image from the file path
     const publicId = filePath.split('/').slice(-2).join('/').replace(/\.[^/.]+$/, "");
 
     // Delete the uploaded image from Cloudinary
     v2.uploader.destroy(publicId, (error, result) => {
       if (error) {
-        console.error('Failed to delete image from Cloudinary:', error);
+        logger.error(`[${this.context}] Failed to delete file from Cloudinary.
+          \n\t Error: ${error.message}`);
       } else {
-        console.log('Image deleted from Cloudinary');
+        logger.info(`[${this.context}] File deleted from Cloudinary due to error in ${externalContext}`);
       }
     })
   }

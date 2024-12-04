@@ -3,6 +3,7 @@
 /node_modules
 /build
 
+# Database migrations
 /prisma/migrations/
 
 # Logs

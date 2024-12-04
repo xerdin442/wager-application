@@ -8,16 +8,32 @@ export class MailProcessor {
   private context = MailProcessor.name
 
   @Process('signup')
-  async signupEmail(job: Job) {
+  async signup(job: Job) {
     try {
+      const receiver = job.data
       const subject = 'Welcome Onboard!'
       const content = 'Thanks for signing up'
-      const receiver = job.data
   
-      await sendEmail(receiver, subject, content)
+      await sendEmail(receiver, subject, content);
     } catch (error) {
       logger.error(`[${this.context}] An error occured while processing ${job.name}, Job ID: ${job.id}.
-        \n\t Error: ${error.message}`)
+        \n\t Error: ${error.message}`);
+
+      throw error;
+    }
+  }
+
+  @Process('otp')
+  async passwordReset(job: Job) {
+    try {
+      const receiver = job.data
+      const subject = 'Password Reset'
+      const content = `This is your OTP: ${receiver.otp}. It is valid for one hour.`
+  
+      await sendEmail(receiver, subject, content);
+    } catch (error) {
+      logger.error(`[${this.context}] An error occured while processing ${job.name}, Job ID: ${job.id}.
+        \n\t Error: ${error.message}`);
 
       throw error;
     }

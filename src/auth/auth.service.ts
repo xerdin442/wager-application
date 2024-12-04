@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import * as argon from 'argon2'
-import { AuthDto, Verify2FADto } from './dto/auth.dto';
+import { AuthDto, NewPasswordDto, PasswordResetDto, Verify2FADto, VerifyOTPDto } from './dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -18,11 +18,12 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     @InjectQueue('mail-queue') private readonly mailQueue: Queue
-  ) {}
+  ) { }
 
   async signup(dto: AuthDto, filePath: string | undefined)
-  : Promise<{ user: User, token: string }> {
+    : Promise<{ user: User, token: string }> {
     try {
+      // Hash password and create new user
       const hash = await argon.hash(dto.password)
       const user = await this.prisma.user.create({
         data: {
@@ -34,15 +35,17 @@ export class AuthService {
         }
       });
 
+      // Create and sign JWT payload
       const payload = { sub: user.id, email: user.email }
       const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
       const token = await this.jwt.signAsync(payload, options);
 
+      // Send an onboarding email to the new user
       await this.mailQueue.add('signup', {
         email: dto.email,
         firstName: dto.firstName
       })
-      
+
       return { user, token }
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -56,24 +59,27 @@ export class AuthService {
   }
 
   async login(dto: AuthDto)
-  : Promise<{ token: string, twoFactorAuth: boolean }> {
+    : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
           email: dto.email
         }
       })
+      // Check if user is found with given email address
       if (!user) {
         throw new BadRequestException('Invalid email address')
       }
-  
+
+      // Check if password is valid
       const checkPassword = await argon.verify(user.password, dto.password)
       if (!checkPassword) {
         throw new BadRequestException('Invalid password')
       }
-      
+
+      // Create and sign JWT payload
       const payload = { sub: user.id, email: user.email }
-      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };  
+      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
       const token = await this.jwt.signAsync(payload, options);
 
       return { token, twoFactorAuth: user.twoFAEnabled };
@@ -92,7 +98,8 @@ export class AuthService {
           twoFASecret: secret.base32
         }
       });
-  
+
+      // Create a QRcode image with the generated secret
       return await qrCode.toDataURL(secret.otpauth_url, { errorCorrectionLevel: 'high' });
     } catch (error) {
       throw error;
@@ -108,6 +115,8 @@ export class AuthService {
           twoFASecret: null
         }
       });
+
+      return;
     } catch (error) {
       throw error;
     }
@@ -125,7 +134,115 @@ export class AuthService {
         encoding: 'base32'
       });
     } catch (error) {
-      throw error; 
+      throw error;
+    }
+  }
+
+  async requestPasswordReset(dto: PasswordResetDto, session: Record<string, any>)
+    : Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email: dto.email }
+      });
+
+      if (user) {
+        // Set OTP value and expiration time, and store them in session
+        const otp: string = `${Math.random() * 10 ** 16}`.slice(3, 7);
+        session.email = dto.email;
+        session.otp = +otp;
+        session.otpExpiration = Date.now() + (60 * 60 * 1000);
+
+        // Send the OTP via email
+        await this.mailQueue.add('otp', {
+          email: dto.email,
+          otp: session.otp
+        })
+
+        return;
+      } else {
+        throw new BadRequestException('No user found with that email')
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async resendOTP(session: Record<string, any>)
+    : Promise<void> {
+    try {
+      if (session.email) {
+        // Reset the OTP value and expiration time
+        const otp: string = `${Math.random() * 10 ** 16}`.slice(3, 7);
+        session.otp = +otp;
+        session.otpExpiration = Date.now() + (60 * 60 * 1000);
+
+        // Send another email with the new OTP
+        await this.mailQueue.add('otp', {
+          email: session.email,
+          otp: session.otp
+        })
+
+        return;
+      } else {
+        throw new BadRequestException('Email not found')
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  verifyOTP(dto: VerifyOTPDto, session: Record<string, any>)
+    : void {
+    try {
+      // Check if OTP is invalid or expired
+      if (dto.otp !== session.otp) {
+        throw new BadRequestException('Invalid OTP')
+      };
+      if (session.otpExpiration < Date.now()) {
+        throw new BadRequestException('This OTP has expired')
+      };
+
+      // Clear the session after verifying the OTP
+      delete session.otp;
+      delete session.otpExpiration;
+
+      return;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async changePassword(dto: NewPasswordDto, session: Record<string, any>)
+    : Promise<void> {
+    try {
+      // Find user with email stored in session
+      const user = await this.prisma.user.findUnique({
+        where: { email: session.email }
+      });
+
+      if (user) {
+        // Check if the previous password is same as the new password
+        const samePassword = await argon.verify(user.password, dto.newPassword);
+        if (samePassword) {
+          throw new BadRequestException('New password cannot be the same value as previous password');
+        };
+
+        // Hash new password and update the user's password
+        const hash = await argon.hash(dto.newPassword);
+        await this.prisma.user.update({
+          where: { email: session.email },
+          data: { password: hash }
+        });
+
+        // Clear session after completing password reset
+        delete session.email;
+
+        return;
+      } else {
+        throw new BadRequestException('Email not found');
+      }
+    } catch (error) {
+      throw error;
     }
   }
 }

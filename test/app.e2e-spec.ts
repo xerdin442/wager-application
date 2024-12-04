@@ -3,8 +3,8 @@ import * as pactum from 'pactum';
 import { AppModule } from '../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DbService } from '../src/db/db.service';
-import { AuthDto, Verify2FADto } from '../src/auth/dto/auth.dto';
-import { updateProfileDto } from '../src/user/dto/user.dto';
+import { AuthDto, Verify2FADto } from '../src/auth/dto';
+import { updateProfileDto } from '../src/user/dto';
 
 describe('App e2e', () => {
   let app: INestApplication;

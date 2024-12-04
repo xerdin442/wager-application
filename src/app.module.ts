@@ -18,7 +18,9 @@ import { BullModule } from '@nestjs/bull';
     BullModule.forRoot({
       redis: {
         host: new ConfigService().get<string>('REDIS_HOST'),
-        port: new ConfigService().get<number>('REDIS_PORT')
+        port: new ConfigService().get<number>('REDIS_PORT'),
+        db: 0,
+        password: new ConfigService().get<string>('REDIS_PASSWORD')
       }
     }),
     ThrottlerModule.forRoot([{

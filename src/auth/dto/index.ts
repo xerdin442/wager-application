@@ -23,3 +23,21 @@ export class Verify2FADto {
   @IsNotEmpty()
   token: string;
 }
+
+export class PasswordResetDto {
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class VerifyOTPDto {
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class NewPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  newPassword: string;
+}

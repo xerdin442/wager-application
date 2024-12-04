@@ -8,17 +8,21 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
-import { GetUser } from '../common/decorators/user.decorator';
-import { updateProfileDto } from './dto/user.dto';
+import { GetUser } from '../common/decorators';
+import { updateProfileDto } from './dto';
 import { UserService } from './user.service';
+import logger from '../common/logger';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('users')
 export class UserController {
+  private context = UserController.name;
+
   constructor(private userService: UserService) {};
 
   @Get('profile')
   profile(@GetUser() user: User): { user: User } {
+    logger.info(`[${this.context}] User profile viewed by ${user.email}`);
     return { user };
   }
 
@@ -28,8 +32,14 @@ export class UserController {
     @Body() dto: updateProfileDto
   ): Promise<{ user: User }> {
     try {
-      return { user: await this.userService.updateProfile(user.id, dto) }
+      const updatedUser = await this.userService.updateProfile(user.id, dto);
+      logger.info(`[${this.context}] User profile updated by ${user.email}.`);
+      
+      return { user: updatedUser };
     } catch (error) {
+      logger.error(`[${this.context}] An error occurred while updating profile details.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }
@@ -39,8 +49,13 @@ export class UserController {
   : Promise<{ message: string }> {
     try {
       await this.userService.deleteAccount(user.id);
+      logger.info(`[${this.context}] User profile deleted by ${user.email}.`);
+
       return { message: 'Account deleted successfully' };
     } catch (error) {
+      logger.error(`[${this.context}] An error occurred while deleting user profile.
+        \n\t Error: ${error.message}`);
+
       throw error;
     }
   }

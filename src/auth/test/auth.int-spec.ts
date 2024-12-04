@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import { AppModule } from "../../app.module";
 import { DbService } from "../../db/db.service";
 import { AuthService } from "../auth.service";
-import { AuthDto, Verify2FADto } from "../dto/auth.dto";
+import { AuthDto, Verify2FADto } from "../dto";
 import { ConfigService } from "@nestjs/config";
 
 describe('Auth Service', () => {

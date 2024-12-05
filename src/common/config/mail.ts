@@ -35,10 +35,9 @@ export const sendEmail = async (receiver: any, subject: string, content: string)
       },
     });
 
-    logger.info(`[${context}] "${subject}" email sent to ${receiver.email}. Email ID: ${response.data}`);
+    logger.info(`[${context}] "${subject}" email sent to ${receiver.email}. Email ID: ${response.data}\n`);
   } catch (error) {
-    logger.error(`[${context}] An error occured while sending "${subject}" email to ${receiver.email}.
-      \n\t Error: ${error.message}`);
+    logger.error(`[${context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${error.message}\n`);
     
     throw error;
   }

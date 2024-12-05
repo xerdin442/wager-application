@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import * as argon from 'argon2'
-import { AuthDto, NewPasswordDto, PasswordResetDto, Verify2FADto, VerifyOTPDto } from './dto';
+import {
+  AuthDto,
+  NewPasswordDto,
+  PasswordResetDto,
+  Verify2FADto,
+  VerifyOTPDto
+} from './dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +16,7 @@ import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { SessionData, SessionService } from '../common/session';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +24,7 @@ export class AuthService {
     private readonly prisma: DbService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly sessionService: SessionService,
     @InjectQueue('mail-queue') private readonly mailQueue: Queue
   ) { }
 
@@ -88,6 +96,14 @@ export class AuthService {
     }
   }
 
+  async logout(email: string): Promise<void> {
+    try {
+      await this.sessionService.delete(email);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async enable2FA(userId: number): Promise<string> {
     try {
       const secret = speakeasy.generateSecret();
@@ -138,27 +154,27 @@ export class AuthService {
     }
   }
 
-  async requestPasswordReset(dto: PasswordResetDto, session: Record<string, any>)
-    : Promise<void> {
+  async requestPasswordReset(dto: PasswordResetDto, data: SessionData): Promise<string> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email }
       });
 
       if (user) {
-        // Set OTP value and expiration time, and store them in session
-        const otp: string = `${Math.random() * 10 ** 16}`.slice(3, 7);
-        session.email = dto.email;
-        session.otp = +otp;
-        session.otpExpiration = Date.now() + (60 * 60 * 1000);
+        // Set the OTP value and expiration time, and store them in session
+        data.email = dto.email;
+        data.otp = `${Math.random() * 10 ** 16}`.slice(3, 7);
+        data.otpExpiration = Date.now() + (60 * 60 * 1000);
+
+        await this.sessionService.set(dto.email, data);
 
         // Send the OTP via email
         await this.mailQueue.add('otp', {
-          email: dto.email,
-          otp: session.otp
+          email: data.email,
+          otp: data.otp
         })
 
-        return;
+        return data.otp;
       } else {
         throw new BadRequestException('No user found with that email')
       }
@@ -167,22 +183,23 @@ export class AuthService {
     }
   }
 
-  async resendOTP(session: Record<string, any>)
-    : Promise<void> {
+  async resendOTP(data: SessionData): Promise<string> {
     try {
+      // Retrieve existing session data
+      const session = await this.sessionService.get(data.email);
       if (session.email) {
         // Reset the OTP value and expiration time
-        const otp: string = `${Math.random() * 10 ** 16}`.slice(3, 7);
-        session.otp = +otp;
-        session.otpExpiration = Date.now() + (60 * 60 * 1000);
+        data.otp = `${Math.random() * 10 ** 16}`.slice(3, 7);
+        data.otpExpiration = Date.now() + (60 * 60 * 1000);
+        await this.sessionService.set(data.email, data);
 
         // Send another email with the new OTP
         await this.mailQueue.add('otp', {
-          email: session.email,
-          otp: session.otp
+          email: data.email,
+          otp: data.otp
         })
 
-        return;
+        return data.otp;
       } else {
         throw new BadRequestException('Email not found')
       }
@@ -191,20 +208,20 @@ export class AuthService {
     }
   }
 
-  verifyOTP(dto: VerifyOTPDto, session: Record<string, any>)
-    : void {
+  async verifyOTP(dto: VerifyOTPDto, data: SessionData): Promise<void> {
     try {
+      // Retrieve existing session data
+      const session = await this.sessionService.get(data.email);
       // Check if OTP is invalid or expired
-      if (dto.otp !== session.otp) {
-        throw new BadRequestException('Invalid OTP')
-      };
-      if (session.otpExpiration < Date.now()) {
-        throw new BadRequestException('This OTP has expired')
-      };
+      if (session.email) {
+        if (session.otp !== dto.otp) {
+          throw new BadRequestException('Invalid OTP')
+        };
 
-      // Clear the session after verifying the OTP
-      delete session.otp;
-      delete session.otpExpiration;
+        if (session.otpExpiration < Date.now()) {
+          throw new BadRequestException('This OTP has expired')
+        };
+      }
 
       return;
     } catch (error) {
@@ -212,9 +229,10 @@ export class AuthService {
     }
   }
 
-  async changePassword(dto: NewPasswordDto, session: Record<string, any>)
-    : Promise<void> {
+  async changePassword(dto: NewPasswordDto, data: SessionData): Promise<void> {
     try {
+      // Retrieve existing session data
+      const session = await this.sessionService.get(data.email);
       // Find user with email stored in session
       const user = await this.prisma.user.findUnique({
         where: { email: session.email }
@@ -234,8 +252,11 @@ export class AuthService {
           data: { password: hash }
         });
 
-        // Clear session after completing password reset
-        delete session.email;
+        // Clear session data after completing password reset
+        delete data.email;
+        delete data.otp;
+        delete data.otpExpiration;
+        await this.sessionService.set(user.email, data);
 
         return;
       } else {

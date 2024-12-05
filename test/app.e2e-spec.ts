@@ -3,13 +3,21 @@ import * as pactum from 'pactum';
 import { AppModule } from '../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DbService } from '../src/db/db.service';
-import { AuthDto, Verify2FADto } from '../src/auth/dto';
+import {
+  AuthDto,
+  NewPasswordDto,
+  PasswordResetDto,
+  Verify2FADto,
+  VerifyOTPDto
+} from "../src/auth/dto";
 import { updateProfileDto } from '../src/user/dto';
+import { SessionService } from '../src/common/session';
 
 describe('App e2e', () => {
   let app: INestApplication;
   let prisma: DbService;
-
+  let session: SessionService;
+  
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -25,9 +33,13 @@ describe('App e2e', () => {
     await app.init();
     await app.listen(3333);
 
-    // Database teardown logic before running tests
+    // Cleaning database and session store before running tests
     prisma = app.get(DbService)
     await prisma.cleanDb();
+    
+    session = app.get(SessionService)
+    await session.clear();
+
 
     // Set base URL for testing endpoints
     pactum.request.setBaseUrl('http://localhost:3333/api')
@@ -187,6 +199,47 @@ describe('App e2e', () => {
           .withHeaders({
             Authorization: 'Bearer $S{accessToken}'
           })
+          .expectStatus(200)
+      });
+    });
+
+    describe('Password Reset', () => {
+      it('should send password reset OTP to user email', () => {
+        const dto: PasswordResetDto = {
+          email: 'example@gmail.com'
+        };
+
+        return pactum.spec()
+          .post('/auth/password/reset')
+          .withBody(dto)
+          .expectStatus(200)
+      });
+  
+      it('should re-send password reset OTP to user email', () => {  
+        return pactum.spec()
+          .post('/auth/password/resend-otp')
+          .expectStatus(200)
+      });
+  
+      it('should verify password reset OTP', () => {
+        const dto: VerifyOTPDto = { 
+          otp: '1234'
+        };
+
+        return pactum.spec()
+          .post('/auth/password/verify-otp')
+          .withBody(dto)
+          .expectStatus(400)
+      });
+
+      it('should should change password and complete reset', () => {
+        const dto: NewPasswordDto = {
+          newPassword: 'PassWord'
+        };
+
+        return pactum.spec()
+          .post('/auth/password/new')
+          .withBody(dto)
           .expectStatus(200)
       });
     })

@@ -22,7 +22,7 @@ export class UserController {
 
   @Get('profile')
   profile(@GetUser() user: User): { user: User } {
-    logger.info(`[${this.context}] User profile viewed by ${user.email}`);
+    logger.info(`[${this.context}] User profile viewed by ${user.email}\n`);
     return { user };
   }
 
@@ -33,12 +33,11 @@ export class UserController {
   ): Promise<{ user: User }> {
     try {
       const updatedUser = await this.userService.updateProfile(user.id, dto);
-      logger.info(`[${this.context}] User profile updated by ${user.email}.`);
+      logger.info(`[${this.context}] User profile updated by ${user.email}.\n`);
       
       return { user: updatedUser };
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while updating profile details.
-        \n\t Error: ${error.message}`);
+      logger.error(`[${this.context}] An error occurred while updating profile details. Error: ${error.message}\n`);
 
       throw error;
     }
@@ -49,12 +48,11 @@ export class UserController {
   : Promise<{ message: string }> {
     try {
       await this.userService.deleteAccount(user.id);
-      logger.info(`[${this.context}] User profile deleted by ${user.email}.`);
+      logger.info(`[${this.context}] User profile deleted by ${user.email}.\n`);
 
       return { message: 'Account deleted successfully' };
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while deleting user profile.
-        \n\t Error: ${error.message}`);
+      logger.error(`[${this.context}] An error occurred while deleting user profile. Error: ${error.message}\n`);
 
       throw error;
     }

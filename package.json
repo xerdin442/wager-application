@@ -8,7 +8,7 @@
   "scripts": {
     "migrate": "prisma migrate dev --name init",
     "deploy": "prisma migrate deploy",
-    "migrate:test": "dotenv -e .env.test -- prisma migrate deploy",
+    "deploy:test": "dotenv -e .env.test -- prisma migrate deploy",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -20,9 +20,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "pretest:e2e": "npm run migrate:test",
+    "pretest:e2e": "npm run deploy:test",
     "test:e2e": "dotenv -e .env.test -- jest --watch --no-cache --config ./test/jest-e2e.json",
-    "pretest:int": "npm run migrate:test",
+    "pretest:int": "npm run deploy:test",
     "test:int": "dotenv -e .env.test -- jest -i --no-cache --watch --config jest-int.json"
   },
   "dependencies": {
@@ -36,7 +36,7 @@
     "@nestjs/throttler": "^6.2.1",
     "@prisma/client": "^5.22.0",
     "argon2": "^0.41.1",
-    "axios": "^1.7.8",
+    "axios": "^1.7.9",
     "bull": "^4.16.4",
     "cheerio": "^1.0.0",
     "class-transformer": "^0.5.1",
@@ -60,7 +60,6 @@
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
-    "@types/axios": "^0.9.36",
     "@types/cheerio": "^0.22.35",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",

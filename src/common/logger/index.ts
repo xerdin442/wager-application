@@ -31,5 +31,8 @@ if (process.env.NODE_ENV === 'production') {
 if (process.env.NODE_ENV === 'development') {
   logger = newLogger('DEV')
 }
+if (process.env.NODE_ENV === 'test') {
+  logger = newLogger('TEST')
+}
 
 export default logger;

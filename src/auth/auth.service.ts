@@ -106,7 +106,13 @@ export class AuthService {
 
   async enable2FA(userId: number): Promise<string> {
     try {
-      const secret = speakeasy.generateSecret();
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId }
+      });
+      const secret = speakeasy.generateSecret({
+        name: `${this.config.get('APP_NAME')}:${user.email}`,
+      });
+
       await this.prisma.user.update({
         where: { id: userId },
         data: {

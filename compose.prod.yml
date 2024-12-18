@@ -4,7 +4,6 @@ services:
       context: .
       args:
         - NODE_ENV=production
-    restart: always
     environment:
       - NODE_ENV=production
     command: >

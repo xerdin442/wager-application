@@ -23,7 +23,7 @@ export class SessionService {
     this.redis.connect()
       .then(() => logger.info('Application is connected to Redis\n'))
       .catch(error => {
-        logger.error(`Redis error: ${error.message}\n`);
+        logger.error(`[${this.context}] Redis connection error: ${error.message}\n`);
         throw error;
       })
   }

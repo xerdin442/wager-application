@@ -1,4 +1,4 @@
-import { createLogger, format, transports } from "winston";
+import { createLogger, format, Logger, transports } from "winston";
 
 const { combine, timestamp, label, printf } = format;
 
@@ -6,7 +6,7 @@ const myFormat = printf(({ level, message, timestamp, label }) => {
   return `${timestamp} ${label} ${level} ${message}`
 })
 
-const newLogger = (env: string) => {
+const newLogger = (env: string): Logger => {
   return createLogger({
     level: 'debug',
     format: combine(
@@ -23,7 +23,7 @@ const newLogger = (env: string) => {
   })
 }
 
-let logger = null;
+let logger: Logger;
 
 if (process.env.NODE_ENV === 'production') {
   logger = newLogger('PROD')

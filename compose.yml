@@ -4,6 +4,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    networks:
+      - backend-network
     env_file:
       - ./.env
     depends_on:
@@ -15,6 +17,8 @@ services:
     restart: always
     ports:
       - "5432:5432"
+    networks:
+      - backend-network
     environment:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
@@ -26,7 +30,12 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    networks:
+      - backend-network
     command: [ "redis-server", "--requirepass", "password" ]
 
 volumes:
   db-data:
+
+networks:
+  backend-network:

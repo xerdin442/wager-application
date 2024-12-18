@@ -4,9 +4,12 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DbService } from '../../db/db.service';
 import { User } from '@prisma/client';
+import logger from '../logger';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly context = JwtStrategy.name
+
   constructor(
     config: ConfigService,
     private prisma: DbService
@@ -19,18 +22,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any): Promise<User> {
-    // Prompt user to login if token has expired
-    const expirationTime = payload.exp * 1000
-    const currentTime = new Date().getTime()
-    if (currentTime > expirationTime) {
-      throw new UnauthorizedException('Session expired. Please log in.')
+    try {
+      // Prompt user to login if token has expired
+      const expirationTime = payload.exp * 1000
+      const currentTime = new Date().getTime()
+      if (currentTime > expirationTime) {
+        throw new UnauthorizedException('Session expired. Please log in.')
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub }
+      })
+
+      delete user.password;
+      return user;
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while validating authorization token. Error: ${error.message}\n`)
     }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub }
-    })
-
-    delete user.password;
-    return user;
   }
 }

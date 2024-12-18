@@ -1,24 +1,4 @@
 services:
-  backend:
-    build:
-      context: .
-      args:
-        - NODE_ENV=development
-    restart: always
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./.env.test
-    environment:
-      - NODE_ENV=test
-    volumes:
-      - ./:/usr/src/app:rw
-    depends_on:
-      - test-db
-      - test-redis
-    command: >
-      sh -c "npm run deploy && npm run start:dev"
-
   test-db:
     image: postgres:latest
     restart: always

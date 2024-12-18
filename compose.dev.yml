@@ -6,7 +6,6 @@ services:
         - NODE_ENV=development
     volumes:
       - ./:/usr/src/app:rw
-    restart: always
     environment:
       - NODE_ENV=development
     command: >

@@ -1,0 +1,11 @@
+services:
+  backend:
+    build:
+      context: .
+      args:
+        - NODE_ENV=production
+    restart: always
+    environment:
+      - NODE_ENV=production
+    command: >
+      sh -c "npm run deploy && npm run start:prod"

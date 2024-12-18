@@ -1,32 +1,38 @@
 services:
   backend:
-    build: .
+    build:
+      context: .
+      args:
+        - NODE_ENV=development
     restart: always
     ports:
       - "3000:3000"
     env_file:
-      - ./.env
+      - ./.env.test
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - ./:/usr/src/app:rw
     depends_on:
-      - database
-      - redis
+      - test-db
+      - test-redis
+    command: >
+      sh -c "npm run deploy && npm run start:dev"
 
-  database:
+  test-db:
     image: postgres:latest
     restart: always
     ports:
       - "5432:5432"
+    env_file:
+      - ./.env.test
     environment:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
-    volumes:
-      - db-data:/var/lib/postgresql/data
-  
-  redis:
+
+  test-redis:
     image: redis:latest
     restart: always
     ports:
       - "6379:6379"
     command: [ "redis-server", "--requirepass", "password" ]
-
-volumes:
-  db-data:

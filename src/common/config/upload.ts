@@ -48,8 +48,7 @@ export class UploadConfig {
     // Delete the uploaded image from Cloudinary
     v2.uploader.destroy(publicId, (error, result) => {
       if (error) {
-        logger.error(`[${this.context}] Failed to delete file from Cloudinary.
-          \n\t Error: ${error.message}`);
+        logger.error(`[${this.context}] Failed to delete file from Cloudinary. Error: ${error.message}`);
       } else {
         logger.info(`[${this.context}] File deleted from Cloudinary due to error in ${externalContext}`);
       }

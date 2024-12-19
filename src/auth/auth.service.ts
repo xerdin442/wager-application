@@ -17,6 +17,8 @@ import * as qrCode from 'qrcode';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { SessionData, SessionService } from '../common/session';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { Gauge } from 'prom-client';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +27,8 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly sessionService: SessionService,
-    @InjectQueue('mail-queue') private readonly mailQueue: Queue
+    @InjectQueue('mail-queue') private readonly mailQueue: Queue,
+    @InjectMetric('2FA_enabled_users') public twoFactorAuthMetric: Gauge
   ) { }
 
   async signup(dto: AuthDto, filePath: string | undefined)
@@ -43,10 +46,8 @@ export class AuthService {
         }
       });
 
-      // Create and sign JWT payload
+      // Create JWT payload
       const payload = { sub: user.id, email: user.email }
-      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
-      const token = await this.jwt.signAsync(payload, options);
 
       // Send an onboarding email to the new user
       await this.mailQueue.add('signup', {
@@ -54,7 +55,7 @@ export class AuthService {
         firstName: dto.firstName
       })
 
-      return { user, token }
+      return { user, token: await this.jwt.signAsync(payload) }
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -85,12 +86,13 @@ export class AuthService {
         throw new BadRequestException('Invalid password')
       }
 
-      // Create and sign JWT payload
+      // Create JWT payload
       const payload = { sub: user.id, email: user.email }
-      const options = { expiresIn: '1h', secret: this.config.get<string>('JWT_SECRET') };
-      const token = await this.jwt.signAsync(payload, options);
 
-      return { token, twoFactorAuth: user.twoFAEnabled };
+      return { 
+        token: await this.jwt.signAsync(payload),
+        twoFactorAuth: user.twoFAEnabled
+      };
     } catch (error) {
       throw error;
     }
@@ -121,6 +123,8 @@ export class AuthService {
         }
       });
 
+      this.twoFactorAuthMetric.inc(); // Update metrics value
+
       // Create a QRcode image with the generated secret
       return await qrCode.toDataURL(secret.otpauth_url, { errorCorrectionLevel: 'high' });
     } catch (error) {
@@ -138,6 +142,7 @@ export class AuthService {
         }
       });
 
+      this.twoFactorAuthMetric.dec(); // Update metrics value
       return;
     } catch (error) {
       throw error;

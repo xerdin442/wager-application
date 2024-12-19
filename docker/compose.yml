@@ -1,0 +1,85 @@
+services:
+  backend:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - backend-network
+    env_file:
+      - ../.env
+    depends_on:
+      - database
+      - redis
+
+  database:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - backend-network
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - backend-network
+    command: >
+      sh -c redis-server --requirepass ${REDIS_PASSWORD}
+
+  prometheus:
+    image: prom/prometheus:v2.1.1.1
+    restart: always
+    ports:
+      - "9090:9090"
+    networks:
+      - backend-network
+      - monitoring
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - metrics-data:/data/prometheus
+  
+  grafana:
+    image: grafana/grafana-oss:latest
+    restart: always
+    ports:
+      - "3333:3000"
+    networks:
+      - monitoring
+    volumes:
+      - grafana-data:/var/lib/grafana
+  
+  container-advisor:
+    image: gcr.io/cadvisor/cadvisor:v0.1.1.1
+    restart: always
+    ports:
+      - "8098"
+    networks:
+      - monitoring
+    volumes:
+      - ./:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+
+volumes:
+  db-data:
+  metrics-data:
+  grafana-data:
+
+networks:
+  backend-network:
+  monitoring:

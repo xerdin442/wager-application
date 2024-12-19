@@ -1,17 +1,17 @@
 import { Test } from '@nestjs/testing';
 import * as pactum from 'pactum';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { DbService } from '../src/db/db.service';
+import { DbService } from '../../src/db/db.service';
 import {
   AuthDto,
   NewPasswordDto,
   PasswordResetDto,
   Verify2FADto,
   VerifyOTPDto
-} from "../src/auth/dto";
-import { updateProfileDto } from '../src/user/dto';
-import { SessionService } from '../src/common/session';
+} from "../../src/auth/dto";
+import { updateProfileDto } from '../../src/user/dto';
+import { SessionService } from '../../src/common/session';
 
 describe('App e2e', () => {
   let app: INestApplication;

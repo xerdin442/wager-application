@@ -1,8 +1,10 @@
+import { Injectable } from "@nestjs/common";
 import { Process, Processor } from "@nestjs/bull";
 import { Job } from "bull";
 import { sendEmail } from "../config/mail";
 import logger from "../logger";
 
+@Injectable()
 @Processor('mail-queue')
 export class MailProcessor {
   private context = MailProcessor.name
@@ -14,7 +16,7 @@ export class MailProcessor {
       const subject = 'Welcome Onboard!'
       const content = 'Thanks for signing up'
   
-      await sendEmail(receiver, subject, content);
+      await sendEmail(receiver, subject, content, null);
     } catch (error) {
       logger.error(`[${this.context}] An error occured while processing "${job.name}", Job ID: ${job.id}. Error: ${error.message}\n`);
 
@@ -29,7 +31,7 @@ export class MailProcessor {
       const subject = 'Password Reset'
       const content = `This is your OTP: ${receiver.otp}. It is valid for one hour.`
   
-      await sendEmail(receiver, subject, content);
+      await sendEmail(receiver, subject, content, null);
     } catch (error) {
       logger.error(`[${this.context}] An error occured while processing "${job.name}", Job ID: ${job.id}. Error: ${error.message}\n`);
 

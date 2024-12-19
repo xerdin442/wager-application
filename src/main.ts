@@ -9,13 +9,12 @@ async function bootstrap() {
   
   app.enableCors();
   app.use(helmet());
-  app.use("trust proxy")
   app.setGlobalPrefix('/api');
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true
   }));
   
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0', () => console.log('Nginx works!'));
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
   logger.info(`Application is running on port ${process.env.PORT ?? 3000}\n`)
 }
 bootstrap();

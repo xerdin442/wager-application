@@ -3,18 +3,17 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { DbModule } from './db/db.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import  { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bull';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 
 @Module({
   imports: [
     AuthModule,
     UserModule,
     DbModule,
-    ConfigModule.forRoot({
-      isGlobal: true
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     BullModule.forRoot({
       redis: {
         host: new ConfigService().get<string>('REDIS_HOST'),
@@ -23,14 +22,18 @@ import { BullModule } from '@nestjs/bull';
         password: new ConfigService().get<string>('REDIS_PASSWORD')
       }
     }),
+    PrometheusModule.register({
+      global: true,
+      defaultLabels: { app: new ConfigService().get<string>('APP_NAME') }
+    }),
     ThrottlerModule.forRoot([{
       name: 'Seconds',
       ttl: 1000,
-      limit: 3  // Not more than 3 requests in any one second
+      limit: new ConfigService().get<number>('RATE_LIMITING_PER_SECOND')
     }, {
       name: 'Minutes',
       ttl: 60000,
-      limit: 75 // Not more than 75 requests in any one minute
+      limit: new ConfigService().get<number>('RATE_LIMITING_PER_MINUTE')
     }]),
   ],
 
@@ -39,4 +42,4 @@ import { BullModule } from '@nestjs/bull';
     useClass: ThrottlerGuard
   }]
 })
-export class AppModule {}
+export class AppModule { }

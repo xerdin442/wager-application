@@ -3,7 +3,17 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import logger from '../logger';
 
-export const sendEmail = async (receiver: any, subject: string, content: string): Promise<void> => {  
+export type EmailAttachment = {
+  name: string
+  content: string
+}
+
+export const sendEmail = async (
+  receiver: any,
+  subject: string,
+  content: string,
+  attachment: EmailAttachment[] | null
+): Promise<void> => {  
   const context = sendEmail.name
 
   // Generate HTML from email content
@@ -22,7 +32,8 @@ export const sendEmail = async (receiver: any, subject: string, content: string)
       },
     ],
     subject,
-    htmlContent
+    htmlContent,
+    attachment
   };
 
   try {

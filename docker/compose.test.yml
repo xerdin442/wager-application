@@ -5,7 +5,7 @@ services:
     ports:
       - "5432:5432"
     env_file:
-      - ./.env.test
+      - ../.env.test
     environment:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
@@ -15,4 +15,7 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: [ "redis-server", "--requirepass", "password" ]
+    env_file:
+      - ../.env.test
+    command: >
+      sh -c redis-server --requirepass ${REDIS_PASSWORD}

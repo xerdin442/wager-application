@@ -1,7 +1,7 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsStrongPassword } from "class-validator";
 
 export class AuthDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Please enter a valid email address' })
   @IsNotEmpty()
   email: string;
 
@@ -13,7 +13,7 @@ export class AuthDto {
     minUppercase: 1,
     minNumbers: 1,
     minSymbols: 1
-  })
+  }, { message: 'Password must contain at least one uppercase letter, one lowercase letter, one digit and one symbol' })
   password: string
 
   @IsOptional()
@@ -52,6 +52,6 @@ export class NewPasswordDto {
     minUppercase: 1,
     minNumbers: 1,
     minSymbols: 1
-  })
+  }, { message: 'Password must contain at least one uppercase letter, one lowercase letter, one digit and one symbol' })
   newPassword: string;
 }

@@ -1,6 +1,6 @@
 FROM node:latest
 WORKDIR /usr/src/app
-COPY ../package.json ./
+COPY package.json .
 
 ARG NODE_ENV
 RUN if [ "$NODE_ENV" = "development" ]; \
@@ -8,6 +8,6 @@ RUN if [ "$NODE_ENV" = "development" ]; \
       else npm install -f --only=production; \
       fi
 
-COPY ../ ./
+COPY . .
 EXPOSE 3000
 CMD [ "npm", "start" ]

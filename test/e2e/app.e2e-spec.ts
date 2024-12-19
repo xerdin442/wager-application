@@ -50,7 +50,7 @@ describe('App e2e', () => {
   describe('Auth', () => {
     const dto: AuthDto = {
       email: 'example@gmail.com',
-      password: 'password',
+      password: 'Xerdin442!',
       firstName: 'Xerdin',
       lastName: null,
     };
@@ -234,7 +234,7 @@ describe('App e2e', () => {
 
       it('should should change password and complete reset', () => {
         const dto: NewPasswordDto = {
-          newPassword: 'PassWord'
+          newPassword: 'PassWord12!'
         };
 
         return pactum.spec()

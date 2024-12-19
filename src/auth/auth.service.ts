@@ -27,7 +27,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sessionService: SessionService,
     @InjectQueue('mail-queue') private readonly mailQueue: Queue,
-    @InjectMetric('2FA_enabled_users') public twoFactorAuthMetric: Gauge
+    @InjectMetric('two_fa_enabled_users') public twoFactorAuthMetric: Gauge
   ) { }
 
   async signup(dto: AuthDto, filePath: string | undefined)

@@ -1,8 +1,8 @@
 import { Test } from "@nestjs/testing";
-import { AppModule } from "../../src/app.module";
-import { DbService } from "../../src/db/db.service";
-import { UserService } from "../../src/user/user.service";
-import { updateProfileDto } from "../../src/user/dto";
+import { AppModule } from "../../../src/app.module";
+import { DbService } from "../../../src/db/db.service";
+import { UserService } from "../../../src/user/user.service";
+import { updateProfileDto } from "../../../src/user/dto";
 import { ConfigService } from "@nestjs/config";
 
 describe('User Service', () => {

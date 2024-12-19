@@ -36,7 +36,7 @@ services:
       sh -c redis-server --requirepass ${REDIS_PASSWORD}
 
   prometheus:
-    image: prom/prometheus:v2.1.1.1
+    image: prom/prometheus:v2.47.0
     restart: always
     ports:
       - "9090:9090"
@@ -47,10 +47,10 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - metrics-data:/data/prometheus
+      - metrics-data:/data
   
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss:10.2.3
     restart: always
     ports:
       - "3333:3000"
@@ -60,20 +60,17 @@ services:
       - grafana-data:/var/lib/grafana
   
   container-advisor:
-    image: gcr.io/cadvisor/cadvisor:v0.1.1.1
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
     restart: always
     ports:
-      - "8098"
+      - "8098:8080"
     networks:
       - monitoring
     volumes:
-      - ./:/rootfs:ro
+      - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker
-      - /dev/disk:/dev/disk:ro
-    devices:
-      - /dev/kmsg
 
 volumes:
   db-data:

@@ -2,4 +2,6 @@ node_modules/
 docker/
 .git
 .gitignore
-.env.example
+.env*
+logs/
+dist/

@@ -1,7 +1,7 @@
-import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import logger from '../logger';
+import { Secrets } from '../env';
 
 export type EmailAttachment = {
   name: string
@@ -22,8 +22,8 @@ export const sendEmail = async (
 
   const data = {
     sender: {
-      name: new ConfigService().get<string>('APP_NAME'),
-      email: new ConfigService().get<string>('APP_EMAIL'),
+      name: Secrets.APP_NAME,
+      email: Secrets.APP_EMAIL,
     },
     to: [
       {
@@ -41,7 +41,7 @@ export const sendEmail = async (
     const response = await axios.post(url, data, {
       headers: {
         'accept': 'application/json',
-        'api-key': new ConfigService().get<string>('BREVO_API_KEY'),
+        'api-key': Secrets.BREVO_API_KEY,
         'content-type': 'application/json'
       },
     });

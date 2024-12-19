@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsStrongPassword } from "class-validator";
 
 export class AuthDto {
   @IsEmail()
@@ -7,6 +7,13 @@ export class AuthDto {
 
   @IsString()
   @IsNotEmpty()
+  @IsStrongPassword({
+    minLength: 8,
+    minLowercase: 1,
+    minUppercase: 1,
+    minNumbers: 1,
+    minSymbols: 1
+  })
   password: string
 
   @IsOptional()
@@ -39,5 +46,12 @@ export class VerifyOTPDto {
 export class NewPasswordDto {
   @IsString()
   @IsNotEmpty()
+  @IsStrongPassword({
+    minLength: 8,
+    minLowercase: 1,
+    minUppercase: 1,
+    minNumbers: 1,
+    minSymbols: 1
+  })
   newPassword: string;
 }

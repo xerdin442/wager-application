@@ -10,7 +10,6 @@ import {
 } from './dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
@@ -19,13 +18,13 @@ import { Queue } from 'bull';
 import { SessionData, SessionService } from '../common/session';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Gauge } from 'prom-client';
+import { Secrets } from '../common/env';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: DbService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService,
     private readonly sessionService: SessionService,
     @InjectQueue('mail-queue') private readonly mailQueue: Queue,
     @InjectMetric('2FA_enabled_users') public twoFactorAuthMetric: Gauge
@@ -40,7 +39,7 @@ export class AuthService {
         data: {
           email: dto.email,
           password: hash,
-          profileImage: filePath || this.config.get<string>('DEFAULT_IMAGE'),
+          profileImage: filePath || Secrets.DEFAULT_IMAGE,
           firstName: dto.firstName || null,
           lastName: dto.lastName || null
         }
@@ -112,7 +111,7 @@ export class AuthService {
         where: { id: userId }
       });
       const secret = speakeasy.generateSecret({
-        name: `${this.config.get('APP_NAME')}:${user.email}`,
+        name: `${Secrets.APP_NAME}:${user.email}`,
       });
 
       await this.prisma.user.update({

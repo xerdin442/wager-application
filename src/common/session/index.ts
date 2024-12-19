@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { createClient, RedisClientType } from "redis";
 import logger from "../logger";
+import { Secrets } from "../env";
 
 export type SessionData = {
   email?: string
@@ -14,10 +14,10 @@ export class SessionService {
   private readonly redis: RedisClientType;
   private readonly context = SessionService.name;
 
-  constructor(config: ConfigService) {
+  constructor() {
     this.redis = createClient({
-      url: config.get<string>('REDIS_URL'),
-      database: 1
+      url: Secrets.REDIS_URL,
+      database: Secrets.SESSION_STORE_INDEX
     });
 
     this.redis.connect()

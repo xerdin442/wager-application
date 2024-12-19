@@ -3,9 +3,11 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import logger from './common/logger';
+import { Secrets } from './common/env';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const port = Secrets.PORT ?? 3000
   
   app.enableCors();
   app.use(helmet());
@@ -14,7 +16,7 @@ async function bootstrap() {
     whitelist: true
   }));
   
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
-  logger.info(`Application is running on port ${process.env.PORT ?? 3000}\n`)
+  await app.listen(port, '0.0.0.0');
+  logger.info(`Application is running on port ${port}\n`)
 }
 bootstrap();

@@ -7,12 +7,12 @@ import { BullModule } from '@nestjs/bull';
 import { MailProcessor } from '../common/workers/mail.processor';
 import { SessionService } from '../common/session';
 import { makeCounterProvider } from '@willsoto/nestjs-prometheus';
-import { ConfigService } from '@nestjs/config';
+import { Secrets } from '../common/env';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: new ConfigService().get<string>('JWT_SECRET'),
+      secret: Secrets.JWT_SECRET,
       signOptions: { expiresIn: '1h' }
     }),
     BullModule.registerQueue({

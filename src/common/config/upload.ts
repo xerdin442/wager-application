@@ -3,15 +3,16 @@ import { Request } from "express";
 import { FileFilterCallback } from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import logger from "../logger";
+import { Secrets } from "../env";
 
 export class UploadConfig {
   private context = UploadConfig.name;
 
   constructor() {
     v2.config({
-      cloud_name: process.env.CLOUD_NAME,
-      api_key: process.env.CLOUD_API_KEY,
-      api_secret: process.env.CLOUD_API_SECRET,
+      cloud_name: Secrets.CLOUD_NAME,
+      api_key: Secrets.CLOUD_API_KEY,
+      api_secret: Secrets.CLOUD_API_SECRET,
       secure: true
     });
   };

@@ -1,4 +1,5 @@
 import { createLogger, format, Logger, transports } from "winston";
+import { Secrets } from "../env";
 
 const { combine, timestamp, label, printf } = format;
 
@@ -25,13 +26,13 @@ const newLogger = (env: string): Logger => {
 
 let logger: Logger;
 
-if (process.env.NODE_ENV === 'production') {
+if (Secrets.NODE_ENV === 'production') {
   logger = newLogger('PROD')
 }
-if (process.env.NODE_ENV === 'development') {
+if (Secrets.NODE_ENV === 'development') {
   logger = newLogger('DEV')
 }
-if (process.env.NODE_ENV === 'test') {
+if (Secrets.NODE_ENV === 'test') {
   logger = newLogger('TEST')
 }
 

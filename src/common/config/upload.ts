@@ -1,9 +1,10 @@
 import { v2 } from "cloudinary";
 import { Request } from "express";
 import { FileFilterCallback } from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { CloudinaryStorage } from "@fluidjs/multer-cloudinary";
 import logger from "../logger";
 import { Secrets } from "../env";
+import { v4 as uuidv4 } from "uuid";
 
 export class UploadConfig {
   private context = UploadConfig.name;
@@ -17,16 +18,11 @@ export class UploadConfig {
     });
   };
 
-  storage(folder: string, type: 'image' | 'raw'): CloudinaryStorage {
+  storage(folder: string, resource_type: 'image' | 'raw'): CloudinaryStorage {
+    const public_id = new Date().toISOString().replace(/:/g, '-') + '-' + uuidv4().replace(/-/g, '');
     const storage = new CloudinaryStorage({
       cloudinary: v2,
-      params: (req, file) => {
-        return {
-          folder: folder,
-          public_id: new Date().toISOString().replace(/:/g, '-') + '-' + file.originalname,
-          resource_type: type
-        };
-      }
+      params: { folder, public_id, resource_type }
     })
 
     return storage;

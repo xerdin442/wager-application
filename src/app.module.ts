@@ -6,26 +6,24 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bull';
-import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { Secrets } from './common/env';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
     AuthModule,
     UserModule,
     DbModule,
+    MetricsModule,
     ConfigModule.forRoot({ isGlobal: true }),
     BullModule.forRoot({
       redis: {
         host: Secrets.REDIS_HOST,
         port: Secrets.REDIS_PORT,
         db: Secrets.QUEUE_STORE_INDEX,
-        password: Secrets.REDIS_PASSWORD
+        password: Secrets.REDIS_PASSWORD,
+        family: 0
       }
-    }),
-    PrometheusModule.register({
-      global: true,
-      defaultLabels: { app: Secrets.APP_NAME }
     }),
     ThrottlerModule.forRoot([{
       name: 'Seconds',

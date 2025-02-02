@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { DbService } from '@src/db/db.service';
 import * as argon from 'argon2'
 import {
-  AuthDto,
+  CreateUserDto,
+  LoginDto,
   NewPasswordDto,
   PasswordResetDto,
   Verify2FADto,
@@ -15,10 +16,10 @@ import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { SessionData, SessionService } from '../common/session';
-import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Gauge } from 'prom-client';
-import { Secrets } from '../common/env';
+import { SessionService } from '@src/common/session';
+import { SessionData } from '@src/common/types';
+import { Secrets } from '@src/common/env';
+import { MetricsService } from '@src/metrics/metrics.service';
 
 @Injectable()
 export class AuthService {
@@ -26,22 +27,20 @@ export class AuthService {
     private readonly prisma: DbService,
     private readonly jwt: JwtService,
     private readonly sessionService: SessionService,
-    @InjectQueue('mail-queue') private readonly mailQueue: Queue,
-    @InjectMetric('two_fa_enabled_users') public twoFactorAuthMetric: Gauge
+    private readonly metrics: MetricsService,
+    @InjectQueue('mail-queue') private readonly mailQueue: Queue
   ) { }
 
-  async signup(dto: AuthDto, filePath: string | undefined)
+  async signup(dto: CreateUserDto, filePath: string | undefined)
     : Promise<{ user: User, token: string }> {
     try {
       // Hash password and create new user
       const hash = await argon.hash(dto.password)
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          ...dto,
           password: hash,
           profileImage: filePath || Secrets.DEFAULT_IMAGE,
-          firstName: dto.firstName || null,
-          lastName: dto.lastName || null
         }
       });
 
@@ -66,7 +65,7 @@ export class AuthService {
     }
   }
 
-  async login(dto: AuthDto)
+  async login(dto: LoginDto)
     : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
       const user = await this.prisma.user.findUnique({
@@ -122,7 +121,7 @@ export class AuthService {
         }
       });
 
-      this.twoFactorAuthMetric.inc(); // Update metrics value
+      this.metrics.updateGauge('two_fa_enabled_users', 'inc'); // Update metrics value
 
       // Create a QRcode image with the generated secret
       return await qrCode.toDataURL(secret.otpauth_url, { errorCorrectionLevel: 'high' });
@@ -141,7 +140,7 @@ export class AuthService {
         }
       });
 
-      this.twoFactorAuthMetric.dec(); // Update metrics value
+      this.metrics.updateGauge('two_fa_enabled_users', 'dec'); // Update metrics value
       return;
     } catch (error) {
       throw error;

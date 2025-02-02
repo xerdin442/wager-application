@@ -5,6 +5,7 @@ import { CloudinaryStorage } from "@fluidjs/multer-cloudinary";
 import logger from "../logger";
 import { Secrets } from "../env";
 import { v4 as uuidv4 } from "uuid";
+import { CloudinaryResource } from "../types";
 
 export class UploadConfig {
   private context = UploadConfig.name;
@@ -18,7 +19,7 @@ export class UploadConfig {
     });
   };
 
-  storage(folder: string, resource_type: 'image' | 'raw'): CloudinaryStorage {
+  storage(folder: string, resource_type: 'image' | 'raw' | 'video' | 'auto'): CloudinaryStorage {
     const public_id = new Date().toISOString().replace(/:/g, '-') + '-' + uuidv4().replace(/-/g, '');
     const storage = new CloudinaryStorage({
       cloudinary: v2,
@@ -29,7 +30,18 @@ export class UploadConfig {
   };
 
   fileFilter(req: Request, file: Express.Multer.File, callback: FileFilterCallback): void {
-    const allowedMimetypes: string[] = ['image/png', 'image/heic', 'image/jpeg', 'image/webp', 'image/heif', 'application/pdf'];
+    const allowedMimetypes: string[] = [
+      'image/png',
+      'image/heic',
+      'image/jpeg',
+      'image/webp',
+      'image/heif',
+      'application/pdf',
+      'video/mp4',
+      'video/quicktime',
+      'video/x-msvideo',
+      'video/x-matroska'
+    ];
 
     if (allowedMimetypes.includes(file.mimetype)) {
       callback(null, true);
@@ -51,4 +63,39 @@ export class UploadConfig {
       }
     })
   }
+
+  async deleteResources(resources: string[]): Promise<void> {
+    try {
+      await v2.api.delete_resources(resources);
+      return;
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while deleting Cloudinary resource. Error: ${error.message}\n`);
+      throw error;
+    }
+  }
+
+  async getAllResources(): Promise<string[]> {
+    let allLinks: string[] = [];
+    let nextCursor: string | undefined = undefined;
+  
+    try {
+      do {
+        const result = await v2.api.resources({
+          max_results: 500,
+          next_cursor: nextCursor,
+        });
+  
+        // Extract links from the current batch
+        const links = result.resources.map((resource: CloudinaryResource) => resource.public_id);
+        allLinks = [...allLinks, ...links];
+  
+        nextCursor = result.next_cursor;  // Update the cursor for the next request
+      } while (nextCursor);  // Continue until there's no more resource
+  
+      return allLinks;
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while fetching resources from Cloudinary. Error: ${error.message}\n`);
+      throw error;
+    }
+  }  
 }

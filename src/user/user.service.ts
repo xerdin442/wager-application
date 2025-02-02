@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { DbService } from '@src/db/db.service';
 import { updateProfileDto } from './dto';
 import { User } from '@prisma/client';
 
@@ -7,13 +7,16 @@ import { User } from '@prisma/client';
 export class UserService {
   constructor (private prisma: DbService) {};
 
-  async updateProfile(userId: number, dto: updateProfileDto): Promise<User> {
+  async updateProfile(userId: number, dto: updateProfileDto, filePath?: string): Promise<User> {
     try {
       const user = await this.prisma.user.update({
         where: { id: userId },
-        data: { ...dto }
+        data: {
+          ...dto,
+          ...(filePath && { profileImage: filePath }),        
+        }
       })
-  
+
       delete user.password
       return user;
     } catch (error) {

@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsStrongPassword } from "class-validator";
 
-export class AuthDto {
+export class CreateUserDto {
   @IsEmail({}, { message: 'Please enter a valid email address' })
   @IsNotEmpty()
   email: string;
@@ -23,6 +23,16 @@ export class AuthDto {
   @IsOptional()
   @IsString()
   lastName?: string
+}
+
+export class LoginDto {
+  @IsEmail({}, { message: 'Please enter a valid email address' })
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 }
 
 export class Verify2FADto {

@@ -11,7 +11,8 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
-  AuthDto,
+  CreateUserDto,
+  LoginDto,
   NewPasswordDto,
   PasswordResetDto,
   Verify2FADto,
@@ -19,11 +20,11 @@ import {
 } from './dto';
 import { User } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UploadConfig } from '../common/config/upload';
+import { UploadConfig } from '@src/common/config/upload';
 import { AuthGuard } from '@nestjs/passport';
-import { GetUser } from '../common/decorators';
-import logger from '../common/logger';
-import { SessionData } from '../common/session';
+import { GetUser } from '@src/custom/decorators';
+import logger from '@src/common/logger';
+import { SessionData } from '@src/common/types';
 
 @Controller('auth')
 export class AuthController {
@@ -39,13 +40,13 @@ export class AuthController {
     storage: new UploadConfig().storage('profile-images', 'image')
   }))
   async signup(
-    @Body() dto: AuthDto,
-    @UploadedFile() file: Express.Multer.File
+    @Body() dto: CreateUserDto,
+    @UploadedFile() file?: Express.Multer.File
   ): Promise<object> {
     try {
       let response: object;
       if (file) {
-        response = await this.authService.signup(dto, file.path)
+        response = await this.authService.signup(dto, file?.path)
       } else {
         response = await this.authService.signup(dto, undefined)
       }
@@ -65,7 +66,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() dto: AuthDto)
+  async login(@Body() dto: LoginDto)
     : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
       const response = await this.authService.login(dto);

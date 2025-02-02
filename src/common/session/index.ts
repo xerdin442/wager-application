@@ -1,33 +1,23 @@
-import { Injectable } from "@nestjs/common";
-import { createClient, RedisClientType } from "redis";
+import { Injectable, OnModuleInit } from "@nestjs/common";
+import { RedisClientType } from "redis";
 import logger from "../logger";
 import { Secrets } from "../env";
-
-export type SessionData = {
-  email?: string
-  otp?: string
-  otpExpiration?: number
-}
+import { SessionData } from "../types";
+import { initializeRedis } from "../config/redis-conf";
 
 @Injectable()
-export class SessionService {
-  private readonly redis: RedisClientType;
+export class SessionService implements OnModuleInit {
   private readonly context = SessionService.name;
+  private redis: RedisClientType;
 
-  constructor() {
-    this.redis = createClient({
-      url: Secrets.REDIS_URL,
-      database: Secrets.SESSION_STORE_INDEX
-    });
-
-    this.redis.connect()
-      .then(() => logger.info('Application is connected to Redis\n'))
-      .catch(error => {
-        logger.error(`[${this.context}] Redis connection error: ${error.message}\n`);
-        throw error;
-      })
+  async onModuleInit() {
+    this.redis = await initializeRedis(
+      Secrets.REDIS_URL,
+      this.context,
+      Secrets.SESSION_STORE_INDEX,
+    );
   }
-
+  
   async set(key: string, value: SessionData): Promise<void> {
     try {
       await this.redis.set(key, JSON.stringify(value));

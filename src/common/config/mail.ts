@@ -2,11 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import logger from '../logger';
 import { Secrets } from '../env';
-
-export type EmailAttachment = {
-  name: string
-  content: string
-}
+import { EmailAttachment } from '../types';
 
 export const sendEmail = async (
   receiver: any,

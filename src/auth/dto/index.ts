@@ -13,7 +13,7 @@ export class CreateUserDto {
     minUppercase: 1,
     minNumbers: 1,
     minSymbols: 1
-  }, { message: 'Password must contain at least one uppercase letter, one lowercase letter, one digit and one symbol' })
+  }, { message: 'Password must contain at least one uppercase and lowercase letter, one digit and one symbol' })
   password: string
 
   @IsOptional()
@@ -62,6 +62,6 @@ export class NewPasswordDto {
     minUppercase: 1,
     minNumbers: 1,
     minSymbols: 1
-  }, { message: 'Password must contain at least one uppercase letter, one lowercase letter, one digit and one symbol' })
+  }, { message: 'Password must contain at least one uppercase and lowercase letter, one digit and one symbol' })
   newPassword: string;
 }

@@ -31,7 +31,7 @@ export class AuthService {
     @InjectQueue('mail-queue') private readonly mailQueue: Queue
   ) { }
 
-  async signup(dto: CreateUserDto, filePath: string | undefined)
+  async signup(dto: CreateUserDto, filePath?: string)
     : Promise<{ user: User, token: string }> {
     try {
       // Hash password and create new user
@@ -75,8 +75,8 @@ export class AuthService {
       })
       // Check if user is found with given email address
       if (!user) {
-        throw new BadRequestException('Invalid email address')
-      }
+        throw new BadRequestException('No user found with that email address')
+      };
 
       // Check if password is valid
       const checkPassword = await argon.verify(user.password, dto.password)
@@ -185,7 +185,7 @@ export class AuthService {
 
         return data.otp;
       } else {
-        throw new BadRequestException('No user found with that email')
+        throw new BadRequestException('No user found with that email address')
       }
     } catch (error) {
       throw error;

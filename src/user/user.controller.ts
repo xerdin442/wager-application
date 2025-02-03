@@ -11,7 +11,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '@src/custom/decorators';
-import { updateProfileDto } from './dto';
+import { UpdateProfileDto } from './dto';
 import { UserService } from './user.service';
 import logger from '@src/common/logger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -38,7 +38,7 @@ export class UserController {
   }))
   async updateProfile(
     @GetUser() user: User,
-    @Body() dto: updateProfileDto,
+    @Body() dto: UpdateProfileDto,
     @UploadedFile() file?: Express.Multer.File
   ): Promise<{ user: User }> {
     try {

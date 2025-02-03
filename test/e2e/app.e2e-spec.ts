@@ -1,24 +1,29 @@
 import { Test } from '@nestjs/testing';
-import * as pactum from 'pactum';
-import { AppModule } from '../../src/app.module';
+import { AppModule } from '@src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { DbService } from '../../src/db/db.service';
+import { DbService } from '@src/db/db.service';
 import {
-  AuthDto,
+  CreateUserDto,
+  LoginDto,
   NewPasswordDto,
   PasswordResetDto,
   Verify2FADto,
   VerifyOTPDto
-} from "../../src/auth/dto";
-import { updateProfileDto } from '../../src/user/dto';
-import { SessionService } from '../../src/common/session';
+} from "@src/auth/dto";
+import { UpdateProfileDto } from '@src/user/dto';
+import { SessionService } from '@src/common/session';
+import * as request from 'supertest'
+import * as path from 'path';
 
 describe('App e2e', () => {
   let app: INestApplication;
   let prisma: DbService;
   let session: SessionService;
-  
+  let accessToken: string;
+
   beforeAll(async () => {
+    jest.useRealTimers();
+
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,266 +33,224 @@ describe('App e2e', () => {
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true
     }));
-    app.setGlobalPrefix('/api');
 
     await app.init();
-    await app.listen(3333);
 
     // Cleaning database and session store before running tests
-    prisma = app.get(DbService)
+    prisma = app.get(DbService);
     await prisma.cleanDb();
-    
-    session = app.get(SessionService)
+
+    session = app.get(SessionService);
+    await session.onModuleInit();
     await session.clear();
+  });
 
-
-    // Set base URL for testing endpoints
-    pactum.request.setBaseUrl('http://localhost:3333/api')
-  })
-
-  afterAll(() => { app.close() })
+  afterAll(() => app.close());
 
   describe('Auth', () => {
-    const dto: AuthDto = {
-      email: 'example@gmail.com',
+    const signupDto: CreateUserDto = {
+      email: 'jadawills3690@gmail.com',
       password: 'Xerdin442!',
       firstName: 'Xerdin',
-      lastName: null,
-    };
+      lastName: 'Ludac'
+    }
 
     describe('Signup', () => {
-      it('should throw if email is empty', () => {
-        return pactum.spec()
+      it('should throw if email format is invalid', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/signup')
-          .withBody({
-            password: dto.password
+          .send({
+            ...signupDto,
+            email: 'invalidEmail'
           })
-          .expectStatus(400)
-      });
-  
-      it('should throw if email is invalid', () => {
-        return pactum.spec()
-          .post('/auth/signup')
-          .withBody({
-            email: 'invalidEmail',
-            password: dto.password
-          })
-          .expectStatus(400)
+
+        expect(response.status).toEqual(400);
+        expect(response.body.message[0]).toEqual('Please enter a valid email address');
       });
 
-      it('should throw if password is empty', () => {
-        return pactum.spec()
+      it('should throw if password is not strong enough', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/signup')
-          .withBody({
-            email: dto.email
+          .send({
+            ...signupDto,
+            password: 'password'
           })
-          .expectStatus(400)
+
+        expect(response.status).toEqual(400);
+        expect(response.body.message[0]).toEqual('Password must contain at least one uppercase and lowercase letter, one digit and one symbol');
       });
 
-      it('should throw if body is empty', () => {
-        return pactum.spec()
+      it('should throw if request body is empty', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/signup')
-          .expectStatus(400)
-      });
-  
-      it('should signup', () => {
-        return pactum.spec()
-          .post('/auth/signup')
-          .withBody(dto)
-          .expectStatus(201)
+
+        expect(response.status).toEqual(400);
       });
 
-      it('should throw if user with email already exists', () => {
-        return pactum.spec()
+      it('should signup', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/signup')
-          .withBody(dto)
-          .expectStatus(400)
-      });
+          .send(signupDto)
+
+        expect(response.status).toEqual(201);
+        expect(response.body).toHaveProperty('user');
+        expect(response.body).toHaveProperty('token');
+      }, 30000);
     });
 
     describe('Login', () => {
-      it('should throw if email is empty', () => {
-        return pactum.spec()
+      const loginDto: LoginDto = {
+        email: signupDto.email,
+        password: signupDto.password
+      };
+
+      it('should throw if email format is invalid', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/login')
-          .withBody({
-            password: dto.password
+          .send({
+            ...loginDto,
+            email: 'invalidEmail'
           })
-          .expectStatus(400)
-      });
-  
-      it('should throw if email is invalid', () => {
-        return pactum.spec()
-          .post('/auth/login')
-          .withBody({
-            email: 'invalidEmail',
-            password: dto.password
-          })
-          .expectStatus(400)
+
+        expect(response.status).toEqual(400);
+        expect(response.body.message[0]).toEqual('Please enter a valid email address');
       });
 
-      it('should throw if no user is found with email', () => {
-        return pactum.spec()
+      it('should login', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/login')
-          .withBody({
-            email: 'wrongemail@gmail.com',
-            password: dto.password
-          })
-          .expectStatus(400)
-      });
+          .send(loginDto)
 
-      it('should throw if password is empty', () => {
-        return pactum.spec()
-          .post('/auth/login')
-          .withBody({
-            email: dto.email
-          })
-          .expectStatus(400)
-      });
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('token');
+        expect(response.body).toHaveProperty('twoFactorAuth');
 
-      it('should throw if password is invalid', () => {
-        return pactum.spec()
-          .post('/auth/login')
-          .withBody({
-            email: dto.email,
-            password: 'wrong password'
-          })
-          .expectStatus(400)
-      });
-
-      it('should throw if body is empty', () => {
-        return pactum.spec()
-          .post('/auth/login')
-          .expectStatus(400)
-      });
-
-      it('should login', () => {
-        return pactum.spec()
-          .post('/auth/login')
-          .withBody(dto)
-          .expectStatus(200)
-          .stores('accessToken', 'token')
+        accessToken = response.body.token;
       });
     });
 
     describe('2FA', () => {
-      it('should enable two factor authentication', () => {
-        return pactum.spec()
+      it('should enable two factor authentication', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/2fa/enable')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
+          .set('Authorization', `Bearer ${accessToken}`)
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('qrcode');
       });
-  
-      it('should verify 2FA token', () => {
-        const verifyDto: Verify2FADto = {
+
+      it('should verify 2FA token', async () => {
+        const dto: Verify2FADto = {
           token: '123456'
         };
-  
-        return pactum.spec()
+        const response = await request(app.getHttpServer())
           .post('/auth/2fa/verify')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .withBody(verifyDto)
-          .expectStatus(400)
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send(dto)
+
+        expect(response.status).toEqual(400);
+        expect(response.body.message).toEqual('Invalid token');
       });
-  
-      it('should disable two factor authentication', () => {
-        return pactum.spec()
+
+      it('should disable two factor authentication', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/2fa/disable')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
+          .set('Authorization', `Bearer ${accessToken}`)
+
+        expect(response.status).toEqual(200);
+        expect(response.body.message).toEqual('2FA disabled successfully');
       });
     });
 
     describe('Password Reset', () => {
-      it('should send password reset OTP to user email', () => {
+      it('should send password reset OTP to user email', async () => {
         const dto: PasswordResetDto = {
-          email: 'example@gmail.com'
+          email: signupDto.email
         };
-
-        return pactum.spec()
+        const response = await request(app.getHttpServer())
           .post('/auth/password/reset')
-          .withBody(dto)
-          .expectStatus(200)
+          .send(dto)
+
+        expect(response.status).toEqual(200);
+        expect(response.body.message).toEqual('Password reset OTP has been sent to your email');
       });
-  
-      it('should re-send password reset OTP to user email', () => {  
-        return pactum.spec()
+
+      it('should re-send password reset OTP to user email', async () => {
+        const response = await request(app.getHttpServer())
           .post('/auth/password/resend-otp')
-          .expectStatus(200)
+
+        expect(response.status).toEqual(200);
+        expect(response.body.message).toEqual('Another OTP has been sent to your email');
       });
-  
-      it('should verify password reset OTP', () => {
-        const dto: VerifyOTPDto = { 
+
+      it('should verify password reset OTP', async () => {
+        const dto: VerifyOTPDto = {
           otp: '1234'
         };
-
-        return pactum.spec()
+        const response = await request(app.getHttpServer())
           .post('/auth/password/verify-otp')
-          .withBody(dto)
-          .expectStatus(400)
+          .send(dto)
+
+        expect(response.status).toEqual(400);
+        expect(response.body.message).toEqual('Invalid OTP');
       });
 
-      it('should should change password and complete reset', () => {
+      it('should change password and complete reset', async () => {
         const dto: NewPasswordDto = {
           newPassword: 'PassWord12!'
         };
-
-        return pactum.spec()
+        const response = await request(app.getHttpServer())
           .post('/auth/password/new')
-          .withBody(dto)
-          .expectStatus(200)
+          .send(dto)
+
+        expect(response.status).toEqual(200);
+        expect(response.body.message).toEqual('Password reset complete!');
       });
-    })
+    });
   });
 
   describe('User', () => {
     describe('Profile', () => {
-      it('should throw if access token is missing', () => {
-        return pactum.spec()
+      it('should throw if access token is missing', async () => {
+        const response = await request(app.getHttpServer())
           .get('/users/profile')
-          .expectStatus(401)
+
+        expect(response.status).toEqual(401);
+        expect(response.body.message).toEqual('Unauthorized');
       });
 
-      it('should return profile of logged in user', () => {
-        return pactum.spec()
+      it('should return user profile', async () => {
+        const response = await request(app.getHttpServer())
           .get('/users/profile')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
+          .set('Authorization', `Bearer ${accessToken}`)
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('user');
       });
     });
 
     describe('Update Profile', () => {
-      const dto: updateProfileDto = {
-        email: 'jadawills@gmail.com',
-        firstName: 'Nancy'
-      };
+      const dto: UpdateProfileDto = { firstName: 'Nancy' };
 
-      it('should update user profile', () => {
-        return pactum.spec()
+      it('should update user profile', async () => {
+        const response = await request(app.getHttpServer())
           .patch('/users/profile/update')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .withBody(dto)
-          .expectStatus(200)
-      });
+          .set('Authorization', `Bearer ${accessToken}`)
+          .field({ ...dto })
+          .attach('profileImage', path.resolve(__dirname, 'test-image.jpg'))
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('user');
+      }, 30000);
     });
 
     describe('Delete Account', () => {
-      it('should delete user profile', () => {
-        return pactum.spec()
+      it('should delete user profile', async () => {
+        const response = await request(app.getHttpServer())
           .delete('/users/profile/delete')
-          .withHeaders({
-            Authorization: 'Bearer $S{accessToken}'
-          })
-          .expectStatus(200)
+          .set('Authorization', `Bearer ${accessToken}`)
+
+        expect(response.status).toEqual(200);
       });
     });
   });

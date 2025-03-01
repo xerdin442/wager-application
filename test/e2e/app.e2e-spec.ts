@@ -12,8 +12,8 @@ import {
 } from "@src/auth/dto";
 import { UpdateProfileDto } from '@src/user/dto';
 import { SessionService } from '@src/common/session';
-import * as request from 'supertest'
-import * as path from 'path';
+import request from 'supertest'
+import path from 'path';
 
 describe('App e2e', () => {
   let app: INestApplication;

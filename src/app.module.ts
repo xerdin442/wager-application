@@ -8,6 +8,9 @@ import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bull';
 import { Secrets } from './common/env';
 import { MetricsModule } from './metrics/metrics.module';
+import { WagersModule } from './wagers/wagers.module';
+import { CryptoModule } from './wallet/crypto/crypto.module';
+import { FiatModule } from './wallet/fiat/fiat.module';
 
 @Module({
   imports: [
@@ -34,6 +37,9 @@ import { MetricsModule } from './metrics/metrics.module';
       ttl: 60000,
       limit: Secrets.RATE_LIMITING_PER_MINUTE
     }]),
+    WagersModule,
+    CryptoModule,
+    FiatModule,
   ],
 
   providers: [{

@@ -20,6 +20,8 @@ export const Secrets = {
   APP_EMAIL: config.getOrThrow<string>('APP_EMAIL'),
   RATE_LIMITING_PER_SECOND: config.getOrThrow<number>('RATE_LIMITING_PER_SECOND'),
   RATE_LIMITING_PER_MINUTE: config.getOrThrow<number>('RATE_LIMITING_PER_MINUTE'),
+  PAYSTACK_SECRET_KEY: config.getOrThrow<string>('PAYSTACK_SECRET_KEY'),
   SESSION_STORE_INDEX: config.getOrThrow<number>('SESSION_STORE_INDEX'),
-  QUEUE_STORE_INDEX: config.getOrThrow<number>('QUEUE_STORE_INDEX')
+  QUEUE_STORE_INDEX: config.getOrThrow<number>('QUEUE_STORE_INDEX'),
+  WITHDRAWAL_DETAILS_STORE_INDEX: config.getOrThrow<number>('WITHDRAWAL_DETAILS_STORE_INDEX')
 }

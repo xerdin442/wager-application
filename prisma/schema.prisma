@@ -8,6 +8,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum WagerCategory {
+  FOOTBALL
+  BASKETBALL
+  TENNIS
+  BOXING
+  GAMING
+  POLITICS
+  ENTERTAINMENT
+  FANTASY
+  OTHERS
+}
+
+enum WagerStatus {
+  PENDING
+  ACTIVE
+  SETTLED
+  DISPUTE
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
@@ -20,23 +39,40 @@ model User {
   lastName     String?
   twoFASecret  String?
   twoFAEnabled Boolean @default(false)
-
-  bookmarks Bookmark[]
+  ethAddress   String
+  solAddress   String
+  balance      Int
 
   @@map("users")
 }
 
-model Bookmark {
+model Wager {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  title       String
-  description String
-  link        String?
+  title      String
+  conditions String
+  amount     Int
+  status     WagerStatus   @default(PENDING)
+  category   WagerCategory
+  inviteCode String
+  playerOne  Int
+  playerTwo  Int
+  winner     Int?
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("wagers")
+}
 
-  @@map("bookmarks")
+model Admin {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name     String
+  email    String
+  category WagerCategory
+  disputes Int
+
+  @@map("admins")
 }

@@ -23,5 +23,6 @@ export const Secrets = {
   PAYSTACK_SECRET_KEY: config.getOrThrow<string>('PAYSTACK_SECRET_KEY'),
   SESSION_STORE_INDEX: config.getOrThrow<number>('SESSION_STORE_INDEX'),
   QUEUE_STORE_INDEX: config.getOrThrow<number>('QUEUE_STORE_INDEX'),
+  IDEMPOTENCY_KEYS_STORE_INDEX: config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
   WITHDRAWAL_DETAILS_STORE_INDEX: config.getOrThrow<number>('WITHDRAWAL_DETAILS_STORE_INDEX')
 }

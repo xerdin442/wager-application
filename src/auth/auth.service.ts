@@ -41,6 +41,7 @@ export class AuthService {
           ...dto,
           password: hash,
           profileImage: filePath || Secrets.DEFAULT_IMAGE,
+          balance: 0
         }
       });
 

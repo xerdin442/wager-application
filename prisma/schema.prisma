@@ -16,7 +16,6 @@ enum WagerCategory {
   GAMING
   POLITICS
   ENTERTAINMENT
-  FANTASY
   OTHERS
 }
 
@@ -35,8 +34,9 @@ model User {
   email        String  @unique
   password     String
   profileImage String
-  firstName    String?
-  lastName     String?
+  firstName    String
+  lastName     String
+  username     String
   twoFASecret  String?
   twoFAEnabled Boolean @default(false)
   ethAddress   String
@@ -56,9 +56,9 @@ model Wager {
   amount     Int
   status     WagerStatus   @default(PENDING)
   category   WagerCategory
-  inviteCode String
+  inviteCode String        @unique
   playerOne  Int
-  playerTwo  Int
+  playerTwo  Int?
   winner     Int?
 
   @@map("wagers")
@@ -70,7 +70,7 @@ model Admin {
   updatedAt DateTime @updatedAt
 
   name     String
-  email    String
+  email    String        @unique
   category WagerCategory
   disputes Int
 

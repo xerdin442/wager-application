@@ -22,13 +22,17 @@ export class CreateUserDto {
   }, { message: 'Password must contain at least one uppercase and lowercase letter, one digit and one symbol' })
   password: string
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  firstName?: string
+  firstName: string
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  lastName?: string
+  lastName: string
+
+  @IsString()
+  @IsNotEmpty()
+  username: string;
 }
 
 export class LoginDto {

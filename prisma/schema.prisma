@@ -31,17 +31,18 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email        String  @unique
-  password     String
-  profileImage String
-  firstName    String
-  lastName     String
-  username     String
-  twoFASecret  String?
-  twoFAEnabled Boolean @default(false)
-  ethAddress   String
-  solAddress   String
-  balance      Int
+  email         String  @unique
+  password      String
+  profileImage  String
+  firstName     String
+  lastName      String
+  username      String  @unique
+  twoFASecret   String?
+  twoFAEnabled  Boolean @default(false)
+  ethAddress    String
+  ethPrivateKey String
+  solAddress    String
+  balance       Int
 
   @@map("users")
 }
@@ -61,6 +62,8 @@ model Wager {
   playerTwo  Int?
   winner     Int?
 
+  chat Chat?
+
   @@map("wagers")
 }
 
@@ -71,8 +74,40 @@ model Admin {
 
   name     String
   email    String        @unique
+  passcode String
   category WagerCategory
   disputes Int
 
+  chats Chat[]
+
   @@map("admins")
+}
+
+model Chat {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  adminId Int
+  admin   Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  wagerId Int   @unique
+  wager   Wager @relation(fields: [wagerId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@map("chats")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  author  String
+  content String
+
+  chatId Int
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }

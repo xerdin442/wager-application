@@ -3,6 +3,7 @@ import { WagersController } from './wagers.controller';
 import { WagersService } from './wagers.service';
 import { BullModule } from '@nestjs/bull';
 import { WagersProcessor } from '@src/common/workers/wager.processor';
+import { WagersGateway } from './wagers.gateway';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { WagersProcessor } from '@src/common/workers/wager.processor';
   controllers: [WagersController],
   providers: [
     WagersService,
-    WagersProcessor
+    WagersProcessor,
+    WagersGateway
   ]
 })
 export class WagersModule { }

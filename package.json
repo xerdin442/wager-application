@@ -35,7 +35,9 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/platform-ws": "^10.4.15",
     "@nestjs/throttler": "^6.2.1",
+    "@nestjs/websockets": "^10.4.15",
     "@prisma/client": "^5.22.0",
     "@solana/spl-token": "^0.4.12",
     "@solana/web3.js": "^1.98.0",
@@ -47,7 +49,6 @@
     "class-validator": "^0.14.1",
     "cloudinary": "^2.5.1",
     "connect-redis": "^8.0.0",
-    "ethers": "^6.13.5",
     "express-session": "^1.18.1",
     "helmet": "^8.0.0",
     "nest-winston": "^1.9.7",
@@ -60,7 +61,9 @@
     "rxjs": "^7.8.1",
     "speakeasy": "^2.0.0",
     "uuid": "^11.0.3",
-    "winston": "^3.17.0"
+    "web3": "^4.16.0",
+    "winston": "^3.17.0",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

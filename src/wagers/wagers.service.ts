@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Wager } from '@prisma/client';
+import { Message, Wager } from '@prisma/client';
 import { DbService } from '@src/db/db.service';
-import { CreateWagerDto } from './dto';
+import { CreateWagerDto, WagerInviteDto } from './dto';
 import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -47,11 +47,17 @@ export class WagersService {
     }
   }
 
-  async findWagerByInviteCode(inviteCode: string): Promise<Wager> {
+  async findWagerByInviteCode(dto: WagerInviteDto): Promise<Wager> {
     try {
-      return this.prisma.wager.findUnique({
-        where: { inviteCode }
+      const wager = await this.prisma.wager.findUnique({
+        where: { inviteCode: dto.inviteCode }
       });
+
+      if (!wager) {
+        throw new BadRequestException('Invalid wager invite code')
+      };
+
+      return wager;
     } catch (error) {
       throw error;
     }
@@ -109,7 +115,7 @@ export class WagersService {
     }
   }
 
-  async claimWager(userId: number, wagerId: number): Promise<void> {
+  async claimWager(userId: number, wagerId: number): Promise<string> {
     try {
       const wager = await this.prisma.wager.findUnique({
         where: { id: wagerId }
@@ -139,7 +145,7 @@ export class WagersService {
 
       // Notify the opponent via email
       const subject = 'Accept or Contest Claim';
-      const content = `-username- has claimed the prize in the ${wager.title} wager. Accepting the claim means that you accept defeat and forfeit the prize. Contesting the claim means that you disagree and the claim will be settled through dispute resolution.`;
+      const content = `@${claimant.username} has claimed the prize in the ${wager.title} wager. Accepting the claim means that you accept defeat and forfeit the prize. Contesting the claim means that you disagree and the claim will be settled through dispute resolution.`;
       await sendEmail(opponent, subject, content);
 
       // Automatically settle the wager after 24 hours if the opponent takes no action
@@ -152,7 +158,7 @@ export class WagersService {
         }
       );
 
-      return;
+      return wager.title;
     } catch (error) {
       throw error;
     }
@@ -185,14 +191,71 @@ export class WagersService {
     }
   }
 
-  async contestWagerClaim(userId: number, wagerId: number): Promise<void> {
+  async contestWagerClaim(wagerId: number): Promise<void> {
     try {
+      const wager = await this.prisma.wager.findUnique({
+        where: { id: wagerId }
+      });
+      if (wager.status === 'SETTLED') {
+        throw new BadRequestException('This wager has already been settled!')
+      };
+      await this.wagersQueue.removeJobs(`wager-${wagerId}`);
+
+      // Update wager status and reset winner data
+      await this.prisma.wager.update({
+        where: { id: wagerId },
+        data: {
+          status: 'DISPUTE',
+          winner: null
+        }
+      });
+
+      await this.wagersQueue.add('contest-wager', { wagerId });
+      
+      return;
     } catch (error) {
       throw error;
     }
   }
 
-  async deleteWager(wagerId: number): Promise<void> {
+  async deleteWager(userId: number, wagerId: number): Promise<void> {
+    try {
+      const wager = await this.prisma.wager.findUnique({
+        where: { id: wagerId }
+      });
+
+      if (wager.playerOne !== userId) {
+        throw new BadRequestException('A wager can only be deleted by its creator')
+      };
+      if (wager.status === 'ACTIVE') {
+        throw new BadRequestException('An active wager cannot be deleted')
+      };
+      if (wager.status === 'PENDING') {
+        await this.prisma.wager.delete({
+          where: { id: wagerId }
+        });
+
+        return;
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getDisputeChatMessages(wagerId: number): Promise<Message[]> {
+    try {
+      const chat = await this.prisma.chat.findUnique({
+        where: { wagerId },
+        include: { messages: true }
+      });
+
+      return chat.messages;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async assignWinnerAfterResolution(username: string, wagerId: number): Promise<void> {
     try {
     } catch (error) {
       throw error;

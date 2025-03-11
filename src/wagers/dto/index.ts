@@ -18,3 +18,9 @@ export class CreateWagerDto {
   @IsNotEmpty()
   stake: number
 }
+
+export class WagerInviteDto {
+  @IsString()
+  @IsNotEmpty()
+  inviteCode: string
+}

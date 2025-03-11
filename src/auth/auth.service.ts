@@ -20,6 +20,7 @@ import { SessionService } from '@src/common/session';
 import { SessionData } from '@src/common/types';
 import { Secrets } from '@src/common/env';
 import { MetricsService } from '@src/metrics/metrics.service';
+import { CryptoService } from '@src/wallet/crypto/crypto.service';
 
 @Injectable()
 export class AuthService {
@@ -28,12 +29,25 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sessionService: SessionService,
     private readonly metrics: MetricsService,
+    private readonly cryptoService: CryptoService,
     @InjectQueue('mail-queue') private readonly mailQueue: Queue
   ) { }
 
   async signup(dto: CreateUserDto, filePath?: string)
     : Promise<{ user: User, token: string }> {
     try {
+      // Verify uniqueness of username
+      const usernameCheck = await this.prisma.user.findUnique({
+        where: { username: dto.username }
+      });
+      if (usernameCheck) {
+        throw new BadRequestException('Username already exists!')
+      };
+      
+      // Generate wallets for crypto transactions
+      const ethWallet = this.cryptoService.createEthereumWallet();
+      const solAddress = this.cryptoService.createSolanaWallet();
+
       // Hash password and create new user
       const hash = await argon.hash(dto.password)
       const user = await this.prisma.user.create({
@@ -41,6 +55,9 @@ export class AuthService {
           ...dto,
           password: hash,
           profileImage: filePath || Secrets.DEFAULT_IMAGE,
+          ethAddress: ethWallet.address,
+          ethPrivateKey: ethWallet.privateKey,
+          solAddress,
           balance: 0
         }
       });

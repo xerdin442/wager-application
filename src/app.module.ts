@@ -11,6 +11,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { WagersModule } from './wagers/wagers.module';
 import { CryptoModule } from './wallet/crypto/crypto.module';
 import { FiatModule } from './wallet/fiat/fiat.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { FiatModule } from './wallet/fiat/fiat.module';
     WagersModule,
     CryptoModule,
     FiatModule,
+    AdminModule,
   ],
 
   providers: [{

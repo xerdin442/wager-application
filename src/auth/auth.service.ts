@@ -62,8 +62,7 @@ export class AuthService {
         }
       });
 
-      // Create JWT payload
-      const payload = { sub: user.id, email: user.email }
+      const payload = { sub: user.id, email: user.email, admin: false };  // Create JWT payload
 
       // Send an onboarding email to the new user
       await this.mailQueue.add('signup', {
@@ -87,9 +86,7 @@ export class AuthService {
     : Promise<{ token: string, twoFactorAuth: boolean }> {
     try {
       const user = await this.prisma.user.findUnique({
-        where: {
-          email: dto.email
-        }
+        where: { email: dto.email }
       })
       // Check if user is found with given email address
       if (!user) {
@@ -102,8 +99,7 @@ export class AuthService {
         throw new BadRequestException('Invalid password')
       }
 
-      // Create JWT payload
-      const payload = { sub: user.id, email: user.email }
+      const payload = { sub: user.id, email: user.email, admin: false };  // Create JWT payload
 
       return { 
         token: await this.jwt.signAsync(payload),

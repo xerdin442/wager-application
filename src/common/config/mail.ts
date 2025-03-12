@@ -24,7 +24,7 @@ export const sendEmail = async (
     to: [
       {
         email: `${receiver.email}`,
-        name: `${receiver?.firstName}`
+        name: `${receiver?.firstName ?? receiver?.name}`
       },
     ],
     subject,

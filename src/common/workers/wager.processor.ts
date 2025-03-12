@@ -56,7 +56,10 @@ export class WagersProcessor {
 
       // Assign the resolution chat to the admin in this category with the least number of active disputes
       const admins = await this.prisma.admin.findMany({
-        where: { category: wager.category },
+        where: {
+          category: wager.category,
+          NOT: { id: 1 }  // Excluding the super admin
+        },
       });
       const sortedAdminsList = admins.sort((a, b) => a.disputes - b.disputes);
       const selectedAdmin = sortedAdminsList[0];

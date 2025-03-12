@@ -1,5 +1,5 @@
 import { WagerCategory } from "@prisma/client";
-import { IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreateWagerDto {
   @IsString()
@@ -17,6 +17,20 @@ export class CreateWagerDto {
   @IsNumber()
   @IsNotEmpty()
   stake: number
+}
+
+export class UpdateWagerDto {
+  @IsString()
+  @IsOptional()
+  title?: string
+
+  @IsString()
+  @IsOptional()
+  conditions?: string
+
+  @IsNumber()
+  @IsOptional()
+  stake?: number
 }
 
 export class WagerInviteDto {

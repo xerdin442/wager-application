@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Message, Wager } from '@prisma/client';
 import { DbService } from '@src/db/db.service';
-import { CreateWagerDto, WagerInviteDto } from './dto';
+import {
+  CreateWagerDto,
+  UpdateWagerDto,
+  WagerInviteDto
+} from './dto';
 import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -42,6 +46,31 @@ export class WagersService {
       });
 
       return wager;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateWager(userId: number, wagerId: number, dto: UpdateWagerDto): Promise<void> {
+    try {
+      const wager = await this.prisma.wager.findUnique({
+        where: { id: wagerId }
+      });
+
+      if (wager.playerOne !== userId) {
+        throw new BadRequestException('Details of a wager can only be modified by its creator')
+      };
+      if (wager.status === 'ACTIVE') {
+        throw new BadRequestException('Details of an active wager cannot be modified')
+      };
+      if (wager.status === 'PENDING') {
+        await this.prisma.wager.update({
+          where: { id: wagerId },
+          data: { ...dto }
+        });
+
+        return;
+      };
     } catch (error) {
       throw error;
     }
@@ -255,8 +284,29 @@ export class WagersService {
     }
   }
 
-  async assignWinnerAfterResolution(username: string, wagerId: number): Promise<void> {
+  async assignWinnerAfterResolution(wagerId: number, username: string): Promise<void> {
     try {
+      const user = await this.prisma.user.findUnique({
+        where: { username }
+      });
+      if (!user) {
+        throw new BadRequestException('Invalid username')
+      };
+
+      // Update the status and winner of the wager
+      const wager = await this.prisma.wager.update({
+        where: { id: wagerId },
+        data: {
+          winner: user.id,
+          status: 'SETTLED'
+        }
+      });
+
+      // Update winner's balance
+      await this.prisma.user.update({
+        where: { username },
+        data: { balance: { increment: wager.amount } }
+      });
     } catch (error) {
       throw error;
     }

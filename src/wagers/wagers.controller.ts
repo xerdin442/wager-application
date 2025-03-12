@@ -7,15 +7,22 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
+  Query,
   UseGuards
 } from '@nestjs/common';
 import { WagersService } from './wagers.service';
 import { GetUser } from '@src/custom/decorators';
 import { Message, User, Wager } from '@prisma/client';
-import { CreateWagerDto, WagerInviteDto } from './dto';
+import {
+  CreateWagerDto,
+  UpdateWagerDto,
+  WagerInviteDto
+} from './dto';
 import logger from '@src/common/logger';
 import { AuthGuard } from '@nestjs/passport';
+import { AdminGuard } from '@src/custom/guards';
 
 @Controller('wagers')
 @UseGuards(AuthGuard('jwt'))
@@ -36,6 +43,21 @@ export class WagersController {
       return { wager }
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while creating a new wager. Error: ${error.message}.\n`);
+      throw error;
+    }
+  }
+
+  @Patch(':wagerId')
+  async updateWager(
+    @GetUser() user: User,
+    @Param('wagerId', ParseIntPipe) wagerId: number,
+    @Body() dto: UpdateWagerDto
+  ): Promise<{ message: string }> {
+    try {
+      await this.wagersService.updateWager(user.id, wagerId, dto);
+      return { message: 'Wager updated successfully' };
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while updating wager details. Error: ${error.message}.\n`);
       throw error;
     }
   }
@@ -133,12 +155,28 @@ export class WagersController {
     }
   }
 
-  @Get(':wagerId/chat')
+  @Get(':wagerId/dispute/chat')
   async getDisputeChatMessages(@Param('wagerId', ParseIntPipe) wagerId: number): Promise<{ messages: Message[] }> {
     try {
       return { messages: await this.wagersService.getDisputeChatMessages(wagerId) };
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while retrieving dispute chat messages. Error: ${error.message}.\n`);
+      throw error;
+    }
+  }
+
+  @Post(':wagerId/dispute/resolve')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AdminGuard)
+  async assignWinnerAfterResolution(
+    @Param('wagerId', ParseIntPipe) wagerId: number,
+    @Query('username') username: string
+  ): Promise<{ message: string }> {
+    try {
+      await this.wagersService.assignWinnerAfterResolution(wagerId, username);
+      return { message: 'Dispute resolution successful' };
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while resolving wager dispute. Error: ${error.message}.\n`);
       throw error;
     }
   }

@@ -25,7 +25,6 @@ export const Secrets = {
   QUEUE_STORE_INDEX: config.getOrThrow<number>('QUEUE_STORE_INDEX'),
   IDEMPOTENCY_KEYS_STORE_INDEX: config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
   WITHDRAWAL_DETAILS_STORE_INDEX: config.getOrThrow<number>('WITHDRAWAL_DETAILS_STORE_INDEX'),
-  SUPER_ADMIN_PASSCODE: config.getOrThrow<string>('SUPER_ADMIN_PASSCODE'),
   ETHEREUM_MAINNET_RPC_URL: config.getOrThrow<string>('ETHEREUM_MAINNET_RPC_URL'),
   ETHEREUM_DEVNET_RPC_URL: config.getOrThrow<string>('ETHEREUM_DEVNET_RPC_URL'),
   SOLANA_MAINNET_RPC_URL: config.getOrThrow<string>('SOLANA_MAINNET_RPC_URL'),

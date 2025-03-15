@@ -7,12 +7,13 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   UseGuards
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '@src/custom/decorators';
-import { NairaConversionDto, FiatDepositDto, FiatWithdrawalDto } from './dto';
+import { FiatAmountInputDto, FiatWithdrawalDto } from './dto';
 import { User } from '@prisma/client';
 import { initializeRedis } from '@src/common/config/redis-conf';
 import { Secrets } from '@src/common/env';
@@ -39,15 +40,16 @@ export class FiatController {
   @UseGuards(AuthGuard('jwt'))
   async processDeposit(
     @GetUser() user: User,
-    @Body() dto: FiatDepositDto
+    @Body() dto: FiatAmountInputDto
   ): Promise<{ checkout: string }> {
     try {
+      const depositAmount = await this.fiatService.fiatConversion(dto, 'USD');
       const checkout = await this.fiatService.initializeTransaction(
         user.email,
         dto.amount * 100,
         {
           userId: user.id,
-          amount: dto.amount
+          amount: depositAmount
         }
       );
 
@@ -146,13 +148,14 @@ export class FiatController {
   @Post('convert')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
-  async convertToNaira(
-    @GetUser() user: User,
-    @Body() dto: NairaConversionDto
-  ) {
+  async fiatConversion(
+    @Body() dto: FiatAmountInputDto,
+    @Query('target') targetCurrency: string
+  ): Promise<{ amount: number }> {
     try {
+      return { amount: await this.fiatService.fiatConversion(dto, targetCurrency) };
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while converting user balance to naira. Error: ${error.message}\n`);
+      logger.error(`[${this.context}] An error occurred while processing fiat conversion. Error: ${error.message}\n`);
       throw error;
     }
   }
@@ -171,19 +174,18 @@ export class FiatController {
         if (event.includes('charge')) {
           await this.fiatQueue.add('deposit', {
             event,
-            userId: data.metadata.userId,
-            amount: data.metadata.amount
+            userId: parseInt(data.metadata.userId),
+            amount: parseInt(data.metadata.amount)
           });
         };
 
         // Listen for status of transfers while processing withdrawals
         if (event.includes('transfer')) {
+          const metadata = data.recipient.metadata;
           await this.fiatQueue.add('transfer', {
             event,
-            transferCode: data.transfer_code,
-            metadata: data.recipient.metadata,
-            recipientCode: data.recipient.recipient_code,
-            amount: data.amount,
+            userId: parseInt(metadata.userId),
+            amount: parseInt(metadata.amount),
             date: data.updated_at
           });
         };

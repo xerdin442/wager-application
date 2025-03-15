@@ -3,7 +3,7 @@ import { Secrets } from '@src/common/env';
 import logger from '@src/common/logger';
 import { BankData, AccountDetails } from '@src/common/types';
 import axios from 'axios';
-import { NairaConversionDto } from './dto';
+import { FiatAmountInputDto } from './dto';
 
 @Injectable()
 export class FiatService {
@@ -21,7 +21,7 @@ export class FiatService {
       throw error;
     }
   }
-  
+
   async getBankCode(bankName: string): Promise<string> {
     try {
       const banksPerPage: number = 60;
@@ -69,7 +69,7 @@ export class FiatService {
 
   async createTransferRecipient(details: AccountDetails): Promise<string> {
     try {
-      const bankCode = await this.getBankCode(details.bankName)
+      const bankCode = await this.getBankCode(details.bankName);
 
       const url = 'https://api.paystack.co/transferrecipient';
       const response = await axios.post(url,
@@ -97,7 +97,7 @@ export class FiatService {
 
   async deleteTransferRecipient(recipientCode: string): Promise<void> {
     try {
-      const url = `https://api.paystack.co/transferrecipient/${recipientCode}`
+      const url = `https://api.paystack.co/transferrecipient/${recipientCode}`;
       await axios.delete(url,
         { headers: { 'Authorization': `Bearer ${Secrets.PAYSTACK_SECRET_KEY}` } }
       );
@@ -111,7 +111,7 @@ export class FiatService {
     : Promise<string> {
     const recipient = await this.createTransferRecipient(details);
     try {
-      const url = 'https://api.paystack.co/transfer'
+      const url = 'https://api.paystack.co/transfer';
       const response = await axios.post(url,
         {
           amount,
@@ -127,7 +127,7 @@ export class FiatService {
             'Authorization': `Bearer ${Secrets.PAYSTACK_SECRET_KEY}`
           }
         }
-      )
+      );
 
       return response.data.data.transfer_code;
     } catch (error) {
@@ -141,7 +141,7 @@ export class FiatService {
   async initializeTransaction(email: string, amount: number, metadata: Record<string, any>)
     : Promise<string> {
     try {
-      const url = 'https://api.paystack.co/transaction/initialize'
+      const url = 'https://api.paystack.co/transaction/initialize';
       const response = await axios.post(url,
         { amount, email, metadata },
         {
@@ -150,18 +150,31 @@ export class FiatService {
             'Authorization': `Bearer ${Secrets.PAYSTACK_SECRET_KEY}`
           }
         }
-      )
+      );
 
-      return response.data.data.authorization_url
+      return response.data.data.authorization_url;
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while initializing transaction. Error: ${error.message}\n`);
       throw error;
     }
   }
 
-  async convertToNaira(dto: NairaConversionDto): Promise<number> {
+  async fiatConversion(dto: FiatAmountInputDto, targetCurrency: string): Promise<number> {
     try {
-      return;
+      const response = await axios.get(`https://v6.exchangerate-api.com/v6/${Secrets.EXCHANGE_RATE_API_KEY}/pair/USD/NGN`);
+      const conversionRate: number = response.data.conversion_rate;
+
+      switch (targetCurrency) {
+        case 'NGN':
+          return dto.amount * (conversionRate - 75);
+
+        case 'USD':
+          const amount = (dto.amount / (conversionRate + 100)).toFixed(2);
+          return parseInt(amount);
+
+        default:
+          throw new BadRequestException('Invalid currency code provided in query parameter. Expected "USD" or "NGN"');
+      }
     } catch (error) {
       throw error;
     }

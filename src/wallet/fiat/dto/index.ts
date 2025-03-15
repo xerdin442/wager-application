@@ -1,12 +1,10 @@
 import {
-  IsBoolean,
   IsNotEmpty,
   IsNumber,
-  IsOptional,
   IsString
 } from "class-validator";
 
-export class FiatDepositDto {
+export class FiatAmountInputDto {
   @IsNumber()
   @IsNotEmpty()
   amount: number;
@@ -28,14 +26,4 @@ export class FiatWithdrawalDto {
   @IsString()
   @IsNotEmpty()
   bankName: string;
-}
-
-export class NairaConversionDto {
-  @IsNumber()
-  @IsOptional()
-  amount?: number;
-
-  @IsBoolean()
-  @IsOptional()
-  max?: boolean;
 }

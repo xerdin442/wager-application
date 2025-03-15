@@ -13,7 +13,8 @@ import { AdminService } from './admin.service';
 import logger from '@src/common/logger';
 import { AdminAuthDto, CreateAdminDto } from './dto';
 import { SuperAdminGuard } from '@src/custom/guards';
-import { Admin } from '@prisma/client';
+import { Admin, Chat } from '@prisma/client';
+import { GetAdmin } from '@src/custom/decorators';
 
 @Controller('admin')
 export class AdminController {
@@ -88,6 +89,17 @@ export class AdminController {
       return { message: 'Admin profile deleted successfully' };
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while deleting admin profile. Error: ${error.message}.\n`);
+      throw error;
+    }
+  }
+
+  @Get('disputes')
+  @UseGuards(AuthGuard('jwt'))
+  async getDisputeChats(@GetAdmin() admin: Admin): Promise<{ disputes: Chat[] }> {
+    try {
+      return { disputes: await this.adminService.getDisputeChats(admin.id) };
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while retrieving admin's dispute chats. Error: ${error.message}.\n`);
       throw error;
     }
   }

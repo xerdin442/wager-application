@@ -4,13 +4,17 @@ import { DbService } from "@src/db/db.service";
 import { Job } from "bull";
 import { sendEmail } from "../config/mail";
 import logger from "../logger";
+import { MetricsService } from "@src/metrics/metrics.service";
 
 @Injectable()
 @Processor('wagers-queue')
 export class WagersProcessor {
   private readonly context: string = WagersProcessor.name;
 
-  constructor(private readonly prisma: DbService) {};
+  constructor(
+    private readonly prisma: DbService,
+    private readonly metrics: MetricsService
+  ) {};
 
   @Process('claim-wager')
   async claimWager(job: Job) {
@@ -76,11 +80,14 @@ export class WagersProcessor {
           messages: {
             create: {
               author: 'Bot',
-              content: 'The prize claim in this wager was contested and a dispute resolution chat has been created to settle the contest. An admin will be assigned to this chat shortly. Please ensure to have photos, videos, screenshots, and any other evidence to support your claim as the winner of this wager. Goodluck!'
+              content: 'The prize claim in this wager was contested and this dispute resolution chat has been created to settle the contest. An admin will be assigned to this chat shortly. Please ensure to have photos, videos, screenshots, and any other evidence to support your claim as the winner of this wager. Goodluck!'
             }
           }
         }
       });
+
+      this.metrics.incrementCounter('wager_disputes');  // Update number of wager disputes in the system
+      return;
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while contesting wager claim. Error: ${error.message}.\n`);
       throw error;

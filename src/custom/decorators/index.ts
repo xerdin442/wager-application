@@ -8,3 +8,12 @@ export const GetUser = createParamDecorator(
     return request.user;
   },
 );
+
+export const GetAdmin = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    
+    delete request.admin.passcode;
+    return request.admin;
+  },
+);

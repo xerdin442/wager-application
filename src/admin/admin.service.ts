@@ -6,7 +6,7 @@ import { AdminAuthDto, CreateAdminDto } from './dto';
 import { randomUUID } from 'crypto';
 import { Secrets } from '@src/common/env';
 import { sendEmail } from '@src/common/config/mail';
-import { Admin } from '@prisma/client';
+import { Admin, Chat } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -101,6 +101,17 @@ export class AdminService {
     try {
       await this.prisma.admin.delete({
         where: { email }
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getDisputeChats(adminId: number): Promise<Chat[]> {
+    try {
+      return this.prisma.chat.findMany({
+        where: { adminId },
+        include: { messages: true }
       });
     } catch (error) {
       throw error;

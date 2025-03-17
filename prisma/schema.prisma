@@ -26,6 +26,22 @@ enum WagerStatus {
   DISPUTE
 }
 
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum TransactionMethod {
+  FIAT
+  CRYPTO
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
@@ -43,6 +59,8 @@ model User {
   ethPrivateKey String
   solAddress    String
   balance       Int
+
+  transactions Transaction[]
 
   @@map("users")
 }
@@ -110,4 +128,19 @@ model Message {
   chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@map("messages")
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  type   TransactionType
+  method TransactionMethod
+  status TransactionStatus @default(PENDING)
+  amount Int
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
 }

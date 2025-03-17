@@ -18,7 +18,7 @@ export class WagersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: WebSocket, req: IncomingMessage): Promise<void> {
     try {
       // Extract email and dispute chat ID from the URL
-      const chatId = new URL(req.url).searchParams.get('chatId')
+      const chatId = new URL(req.url).searchParams.get('chatId');
       const email = new URL(req.url).searchParams.get('email');
       if (!email || !chatId) {
         client.close(1008, 'Missing email or chat ID parameter');  // Reject the connection if any of the url parameters are missing

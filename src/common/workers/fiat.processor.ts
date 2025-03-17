@@ -7,9 +7,10 @@ import { Job } from "bull";
 import { RedisClientType } from "redis";
 import { initializeRedis } from "../config/redis-conf";
 import { Secrets } from "../env";
-import { AccountDetails } from "../types";
+import { AccountDetails, TransactionNotification } from "../types";
 import logger from "../logger";
 import { sendEmail } from "../config/mail";
+import { WalletGateway } from "@src/wallet/wallet.gateway";
 
 @Injectable()
 @Processor('fiat-queue')
@@ -17,9 +18,10 @@ export class FiatProcessor {
   private readonly context: string = FiatProcessor.name;
 
   constructor(
-    private readonly payments: FiatService,
+    private readonly fiatService: FiatService,
     private readonly prisma: DbService,
-    private readonly metrics: MetricsService
+    private readonly metrics: MetricsService,
+    private readonly wallet: WalletGateway
   ) { };
 
   @Process('deposit')
@@ -29,6 +31,13 @@ export class FiatProcessor {
       where: { id: userId }
     });
 
+    const depositDetails: TransactionNotification = {
+      amount,
+      method: 'FIAT',
+      status: 'SUCCESS',
+      type: 'DEPOSIT'
+    };
+
     try {
       if (event === 'charge.success') {
         // Update user balance
@@ -37,12 +46,26 @@ export class FiatProcessor {
           data: { balance: { increment: amount } }
         });
 
+        // Notify frontend of deposit transaction status
+        this.wallet.sendTransactionStatus(user.email, { ...depositDetails });
+
+        // Update and store transaction details
+        await this.prisma.transaction.create({
+          data: { ...depositDetails, userId }
+        });
+
         // Notify user of successful deposit
         const content = `${amount} has been deposited in your wallet. Your balance is ${updatedUser.balance}`
         await sendEmail(user, 'Deposit Complete', content);
 
         logger.info(`[${this.context}] Funds deposit by ${user.email} was successful. Amount: ${amount}\n`);
       } else if (event === 'charge.failed') {
+        // Notify frontend of deposit transaction status
+        this.wallet.sendTransactionStatus(
+          user.email,
+          { ...depositDetails, status: 'FAILED' }
+        );
+
         // Notify user of failed deposit
         const content = `Your deposit of ${amount} was unsuccessful. Please try again later.`
         await sendEmail(user, 'Failed Deposit', content);
@@ -53,7 +76,7 @@ export class FiatProcessor {
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while processing funds deposit. Error: ${error.message}\n`);
       throw error;
-    }    
+    }
   }
 
   @Process('withdrawal')
@@ -74,10 +97,10 @@ export class FiatProcessor {
       });
 
       // Verify account details
-      await this.payments.verifyAccountDetails({ ...dto });
+      await this.fiatService.verifyAccountDetails({ ...dto });
       // Convert USD to naira and transfer to specified withdrawal account
-      const withdrawalAmount = await this.payments.fiatConversion({ ...dto }, 'NGN');
-      await this.payments.initiateTransfer(
+      const withdrawalAmount = await this.fiatService.fiatConversion({ ...dto }, 'NGN');
+      await this.fiatService.initiateTransfer(
         { ...dto },
         withdrawalAmount * 100,
         {
@@ -87,13 +110,14 @@ export class FiatProcessor {
       );
 
       // Check if withdrawal details with account number already exists
-      const existingDetails: AccountDetails[] = JSON.parse(await redis.get(email));
+      const data = await redis.get(email);
+      const existingDetails: AccountDetails[] = JSON.parse(data);
       for (let detail of existingDetails) {
         if (detail.accountNumber === dto.accountNumber) return;
       };
 
       // Store new withdrawal details for 90 days
-      const details: AccountDetails[] = [ ...existingDetails, { ...dto } ];
+      const details: AccountDetails[] = [...existingDetails, { ...dto }];
       await redis.setEx(email, 90 * 24 * 3600, JSON.stringify(details));
 
       return;
@@ -112,14 +136,35 @@ export class FiatProcessor {
       where: { id: userId }
     });
 
+    const withdrawalDetails: TransactionNotification = {
+      amount,
+      method: 'FIAT',
+      status: 'SUCCESS',
+      type: 'WITHDRAWAL'
+    };
+
     try {
       if (event === 'transfer.success') {
+        // Notify frontend of withdrawal transaction status
+        this.wallet.sendTransactionStatus(user.email, { ...withdrawalDetails });
+
+        // Update and store transaction details
+        await this.prisma.transaction.create({
+          data: { ...withdrawalDetails, userId }
+        });
+
         // Notify user of successful withdrawal
         const content = `Your withdrawal of ${amount} on ${date} was successful.`
         await sendEmail(user, 'Withdrawal Successful', content);
 
         logger.info(`[${this.context}] Funds withdrawal by ${user.email} was successful. Amount: ${amount}\n`);
       } else if (event === 'transfer.failed' || event === 'transfer.reversed') {
+        // Notify frontend of withdrawal transaction status
+        this.wallet.sendTransactionStatus(
+          user.email,
+          { ...withdrawalDetails, status: 'FAILED' }
+        );
+
         // Update user balance
         await this.prisma.user.update({
           where: { id: userId },

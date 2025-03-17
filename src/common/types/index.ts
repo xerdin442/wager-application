@@ -1,3 +1,9 @@
+import {
+  TransactionMethod,
+  TransactionStatus,
+  TransactionType
+} from "@prisma/client"
+
 export type SessionData = {
   email?: string
   otp?: string
@@ -50,4 +56,11 @@ export type AccountDetails = {
   accountName: string
   accountNumber: string
   bankName: string
+}
+
+export type TransactionNotification = {
+  status: TransactionStatus;
+  amount: number;
+  type: TransactionType;
+  method: TransactionMethod;
 }

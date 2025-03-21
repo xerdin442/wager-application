@@ -4,12 +4,13 @@ import {
   Delete,
   Get,
   Patch,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { User } from '@prisma/client';
+import { Transaction, User, Wager } from '@prisma/client';
 import { GetUser } from '@src/custom/decorators';
 import { UpdateProfileDto } from './dto';
 import { UserService } from './user.service';
@@ -54,8 +55,7 @@ export class UserController {
   }
 
   @Delete('profile/delete')
-  async deleteAccount(@GetUser() user: User)
-    : Promise<{ message: string }> {
+  async deleteAccount(@GetUser() user: User): Promise<{ message: string }> {
     try {
       await this.userService.deleteAccount(user.id);
       logger.info(`[${this.context}] User profile deleted by ${user.email}.\n`);
@@ -63,7 +63,29 @@ export class UserController {
       return { message: 'Account deleted successfully' };
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while deleting user profile. Error: ${error.message}\n`);
+      throw error;
+    }
+  }
 
+  @Get('wagers')
+  async getWagers(@GetUser() user: User): Promise<{ wagers: Wager[] }> {
+    try {
+      return { wagers: await this.userService.getWagers(user.id) };
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while retrieving user's wagers. Error: ${error.message}\n`);
+      throw error;
+    }
+  }
+
+  @Get('transactions')
+  async getTransactionHistory(
+    @GetUser() user: User,
+    // Filters in query object
+  ): Promise<{ transactions: Transaction[] }> {
+    try {
+      return { transactions: await this.userService.getTransactionHistory(user.id) };
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while retrieving user's transaction history. Error: ${error.message}\n`);
       throw error;
     }
   }

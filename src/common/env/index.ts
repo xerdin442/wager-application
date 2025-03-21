@@ -31,6 +31,4 @@ export const Secrets = {
   SOLANA_MAINNET_RPC_URL: config.getOrThrow<string>('SOLANA_MAINNET_RPC_URL'),
   SOLANA_DEVNET_RPC_URL: config.getOrThrow<string>('SOLANA_DEVNET_RPC_URL'),
   PLATFORM_WALLET_RECOVERY_PHRASE: config.getOrThrow<string>('PLATFORM_WALLET_RECOVERY_PHRASE'),
-  USDC_MINT_ADDRESS: config.getOrThrow<string>('USDC_MINT_ADDRESS'),
-  USDT_CONTRACT_ADDRESS: config.getOrThrow<string>('USDT_CONTRACT_ADDRESS')
 }

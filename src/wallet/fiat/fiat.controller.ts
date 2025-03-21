@@ -56,7 +56,7 @@ export class FiatController {
       logger.info(`[${this.context}] ${user.email} initiated funds deposit.\n`);
       return { checkout };
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while processing funds deposit. Error: ${error.message}\n`);
+      logger.error(`[${this.context}] An error occurred while processing fiat deposit. Error: ${error.message}\n`);
       throw error;
     }
   }

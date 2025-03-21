@@ -70,11 +70,11 @@ export class FiatProcessor {
         const content = `Your deposit of ${amount} was unsuccessful. Please try again later.`
         await sendEmail(user, 'Failed Deposit', content);
 
-        this.metrics.incrementCounter('unsuccessful_deposits');  // Update number of unsuccessful deposits
-        logger.warn(`[${this.context}] Funds deposit by ${user.email} was unsuccessful.\n`);
+        this.metrics.incrementCounter('unsuccessful_fiat_deposits');  // Update number of unsuccessful fiat deposits
+        logger.warn(`[${this.context}] Fiat deposit by ${user.email} was unsuccessful.\n`);
       }
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while processing funds deposit. Error: ${error.message}\n`);
+      logger.error(`[${this.context}] An error occurred while processing fiat deposit. Error: ${error.message}\n`);
       throw error;
     }
   }
@@ -122,7 +122,7 @@ export class FiatProcessor {
 
       return;
     } catch (error) {
-      logger.error(`[${this.context}] An error occurred while completing funds withdrawal. Error: ${error.message}\n`);
+      logger.error(`[${this.context}] An error occurred while completing fiat withdrawal. Error: ${error.message}\n`);
       throw error;
     } finally {
       await redis.disconnect();
@@ -157,7 +157,7 @@ export class FiatProcessor {
         const content = `Your withdrawal of ${amount} on ${date} was successful.`
         await sendEmail(user, 'Withdrawal Successful', content);
 
-        logger.info(`[${this.context}] Funds withdrawal by ${user.email} was successful. Amount: ${amount}\n`);
+        logger.info(`[${this.context}] Fiat withdrawal by ${user.email} was successful. Amount: ${amount}\n`);
       } else if (event === 'transfer.failed' || event === 'transfer.reversed') {
         // Notify frontend of withdrawal transaction status
         this.wallet.sendTransactionStatus(
@@ -175,8 +175,8 @@ export class FiatProcessor {
         const content = `Your withdrawal of ${amount} on ${date} was unsuccessful. Please try again later.`
         await sendEmail(user, 'Failed Withdrawal', content);
 
-        this.metrics.incrementCounter('unsuccessful_withdrawals');  // Update number of unsuccessful withdrawals
-        logger.warn(`[${this.context}] Funds withdrawal by ${user.email} was unsuccessful.\n`);
+        this.metrics.incrementCounter('unsuccessful_fiat_withdrawals');  // Update number of unsuccessful fiat withdrawals
+        logger.warn(`[${this.context}] Fiat withdrawal by ${user.email} was unsuccessful.\n`);
       }
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while processing transfer of withdrawal amount. Error: ${error.message}\n`);

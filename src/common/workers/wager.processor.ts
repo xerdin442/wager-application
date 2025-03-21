@@ -27,10 +27,10 @@ export class WagersProcessor {
         data: { status: 'SETTLED' }
       });
 
-      // Add wager prize amount to claimant balance
+      // Subtract platform fee and add winnings to the claimant's balance
       const claimant = await this.prisma.user.update({
         where: { id: userId },
-        data: { balance: { increment: wager.amount } }
+        data: { balance: { increment: wager.amount * 0.95 } }
       });
       const opponent = await this.prisma.user.findUnique({
         where: { id: opponentId }

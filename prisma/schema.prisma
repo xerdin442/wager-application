@@ -32,7 +32,6 @@ enum TransactionType {
 }
 
 enum TransactionStatus {
-  PENDING
   SUCCESS
   FAILED
 }
@@ -136,7 +135,7 @@ model Transaction {
 
   type   TransactionType
   method TransactionMethod
-  status TransactionStatus @default(PENDING)
+  status TransactionStatus
   amount Int
 
   userId Int

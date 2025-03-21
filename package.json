@@ -27,6 +27,7 @@
     "test:int": "dotenv -e .env.test -- jest -i --no-cache --watch --config ./test/integration/jest.config.ts"
   },
   "dependencies": {
+    "@ethereumjs/wallet": "^2.0.4",
     "@fluidjs/multer-cloudinary": "^1.0.4",
     "@nestjs/bull": "^10.2.3",
     "@nestjs/common": "^10.0.0",
@@ -60,7 +61,6 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "speakeasy": "^2.0.0",
-    "uuid": "^11.0.3",
     "web3": "^4.16.0",
     "winston": "^3.17.0",
     "ws": "^8.18.1"

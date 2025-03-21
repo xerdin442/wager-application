@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '@src/db/db.service';
 import { UpdateProfileDto } from './dto';
-import { User } from '@prisma/client';
+import { Transaction, User, Wager } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -29,6 +29,33 @@ export class UserService {
       await this.prisma.user.delete({
         where: { id: userId }
       })
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getWagers(userId: number): Promise<Wager[]> {
+    try {
+      return this.prisma.wager.findMany({
+        where: {
+          OR: [
+            { playerOne: userId },
+            { playerTwo: userId }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getTransactionHistory(userId: number): Promise<Transaction[]> {
+    try {
+      return this.prisma.transaction.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+      });
     } catch (error) {
       throw error;
     }

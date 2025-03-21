@@ -202,16 +202,16 @@ export class WagersService {
         throw new BadRequestException('This wager has already been settled!')
       };
       await this.wagersQueue.removeJobs(`wager-${wagerId}`);
-      
+
       await this.prisma.wager.update({
         where: { id: wagerId },
         data: { status: 'SETTLED' }
       });
 
-      // Update winner's balance
+      // Subtract platform fee and add winnings to winner's balance
       await this.prisma.user.update({
         where: { id: wager.winner },
-        data: { balance: { increment: wager.amount } }
+        data: { balance: { increment: wager.amount * 0.95 } }
       });
 
       return;
@@ -240,7 +240,7 @@ export class WagersService {
       });
 
       await this.wagersQueue.add('contest-wager', { wagerId });
-      
+
       return;
     } catch (error) {
       throw error;
@@ -302,10 +302,10 @@ export class WagersService {
         }
       });
 
-      // Update winner's balance
+      // Subtract platform fee and add winnings to the winner's balance
       await this.prisma.user.update({
         where: { username },
-        data: { balance: { increment: wager.amount } }
+        data: { balance: { increment: wager.amount * 0.95 } }
       });
     } catch (error) {
       throw error;

@@ -1,4 +1,15 @@
-import { IsBoolean, IsEmail, IsOptional, IsString } from "class-validator";
+import {
+  TransactionMethod,
+  TransactionStatus,
+  TransactionType
+} from "@prisma/client";
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString
+} from "class-validator";
 
 export class UpdateProfileDto {
   @IsEmail()
@@ -24,4 +35,18 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   twoFAEnabled?: boolean
+}
+
+export class GetTransactionsDto {
+  @IsEnum(TransactionStatus, { message: 'Invalid "status" value. Expected "SUCCESS" or "FAILED"' })
+  @IsOptional()
+  status?: TransactionStatus;
+
+  @IsEnum(TransactionType, { message: 'Invalid "type" value. Expected "DEPOSIT" or "WITHDRAWAL"' })
+  @IsOptional()  
+  type?: TransactionType;
+
+  @IsEnum(TransactionMethod, { message: 'Invalid "method" value. Expected "FIAT" or "CRYPTO"' })
+  @IsOptional()
+  method?: TransactionMethod;
 }

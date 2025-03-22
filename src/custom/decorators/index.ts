@@ -5,6 +5,7 @@ export const GetUser = createParamDecorator(
     const request = ctx.switchToHttp().getRequest();
     
     delete request.user.password;
+    delete request.user.ethPrivateKey;
     return request.user;
   },
 );

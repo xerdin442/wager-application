@@ -26,9 +26,7 @@ export const Secrets = {
   IDEMPOTENCY_KEYS_STORE_INDEX: config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
   WITHDRAWAL_DETAILS_STORE_INDEX: config.getOrThrow<number>('WITHDRAWAL_DETAILS_STORE_INDEX'),
   EXCHANGE_RATE_API_KEY: config.getOrThrow<string>('EXCHANGE_RATE_API_KEY'),
-  ETHEREUM_MAINNET_RPC_URL: config.getOrThrow<string>('ETHEREUM_MAINNET_RPC_URL'),
-  ETHEREUM_DEVNET_RPC_URL: config.getOrThrow<string>('ETHEREUM_DEVNET_RPC_URL'),
-  SOLANA_MAINNET_RPC_URL: config.getOrThrow<string>('SOLANA_MAINNET_RPC_URL'),
-  SOLANA_DEVNET_RPC_URL: config.getOrThrow<string>('SOLANA_DEVNET_RPC_URL'),
+  HELIUS_API_KEY: config.getOrThrow<string>('HELIUS_API_KEY'),
+  ALCHEMY_API_KEY: config.getOrThrow<string>('ALCHEMY_API_KEY'),
   PLATFORM_WALLET_RECOVERY_PHRASE: config.getOrThrow<string>('PLATFORM_WALLET_RECOVERY_PHRASE'),
 }

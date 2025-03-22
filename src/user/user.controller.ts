@@ -12,7 +12,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Transaction, User, Wager } from '@prisma/client';
 import { GetUser } from '@src/custom/decorators';
-import { UpdateProfileDto } from './dto';
+import { GetTransactionsDto, UpdateProfileDto } from './dto';
 import { UserService } from './user.service';
 import logger from '@src/common/logger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -80,10 +80,10 @@ export class UserController {
   @Get('transactions')
   async getTransactionHistory(
     @GetUser() user: User,
-    // Filters in query object
+    @Query() dto: GetTransactionsDto
   ): Promise<{ transactions: Transaction[] }> {
     try {
-      return { transactions: await this.userService.getTransactionHistory(user.id) };
+      return { transactions: await this.userService.getTransactionHistory(user.id, dto) };
     } catch (error) {
       logger.error(`[${this.context}] An error occurred while retrieving user's transaction history. Error: ${error.message}\n`);
       throw error;

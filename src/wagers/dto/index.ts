@@ -1,5 +1,11 @@
 import { WagerCategory } from "@prisma/client";
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString
+} from "class-validator";
 
 export class CreateWagerDto {
   @IsString()
@@ -10,7 +16,7 @@ export class CreateWagerDto {
   @IsNotEmpty()
   conditions: string
 
-  @IsString()
+  @IsEnum(WagerCategory, { message: 'Invalid wager category value' })
   @IsNotEmpty()
   category: WagerCategory
 

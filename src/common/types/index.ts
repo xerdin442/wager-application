@@ -4,6 +4,8 @@ import {
   TransactionType
 } from "@prisma/client"
 
+export type Chain = 'base' | 'solana';
+
 export type SessionData = {
   email?: string
   otp?: string

@@ -84,7 +84,7 @@ export class FiatController {
       // Check if user has attempted similar withdrawal in the last 20 mins
       const existingWithdrawal = await redis.get(idempotencyKey);
       if (existingWithdrawal) {
-        logger.info(`[${this.context}] Duplicate withdrawal attempts by ${user.email}\n`);
+        logger.warn(`[${this.context}] Duplicate withdrawal attempts by ${user.email}\n`);
         return { message: 'Your withdrawal is still being processed' }
       };
 

@@ -1,24 +1,27 @@
 import { Secrets } from "../env";
+import { Chain } from "../types";
 
-export const selectRpcUrl = (chain: 'base' | 'solana'): string => {
+export const selectRpcUrl = (chain: Chain, mode: 'http' | 'websocket'): string => {
   let url: string;
+
+  mode === 'http' ? url = 'https://' : url = 'wss://'
 
   if (Secrets.NODE_ENV === 'production') {
     chain === 'base'
-      ? url = `https://base-mainnet.g.alchemy.com/v2/${Secrets.ALCHEMY_API_KEY}`
-      : url = `https://mainnet.helius-rpc.com?api-key=${Secrets.HELIUS_API_KEY}`
+      ? url += `base-mainnet.g.alchemy.com/v2/${Secrets.ALCHEMY_API_KEY}`
+      : url += `mainnet.helius-rpc.com?api-key=${Secrets.HELIUS_API_KEY}`
   };
 
   if (Secrets.NODE_ENV === 'development' || "test") {
     chain === 'base'
-      ? url = `https://base-sepolia.g.alchemy.com/v2/${Secrets.ALCHEMY_API_KEY}`
-      : url = `https://devnet.helius-rpc.com?api-key=${Secrets.HELIUS_API_KEY}`    
+      ? url += `base-sepolia.g.alchemy.com/v2/${Secrets.ALCHEMY_API_KEY}`
+      : url += `devnet.helius-rpc.com?api-key=${Secrets.HELIUS_API_KEY}`
   };
 
   return url;
 }
 
-export const selectUSDCTokenAddress = (chain: 'base' | 'solana'): string => {
+export const selectUSDCTokenAddress = (chain: Chain): string => {
   let address: string;
 
   if (Secrets.NODE_ENV === 'production') {

@@ -62,6 +62,10 @@ export class AuthService {
         }
       });
 
+      // Subscribe to wallet activity to check for deposits
+      await this.cryptoService.monitorDepositsOnBase(user.id, user.ethAddress);
+      await this.cryptoService.monitorDepositsOnSolana(user.id, user.solAddress);
+
       const payload = { sub: user.id, email: user.email, admin: false };  // Create JWT payload
 
       // Send an onboarding email to the new user

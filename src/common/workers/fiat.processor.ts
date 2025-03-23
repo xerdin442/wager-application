@@ -58,7 +58,7 @@ export class FiatProcessor {
         const content = `${amount} has been deposited in your wallet. Your balance is ${updatedUser.balance}`
         await sendEmail(user, 'Deposit Complete', content);
 
-        logger.info(`[${this.context}] Funds deposit by ${user.email} was successful. Amount: ${amount}\n`);
+        logger.info(`[${this.context}] Fiat deposit by ${user.email} was successful. Amount: ${amount}\n`);
       } else if (event === 'charge.failed') {
         // Notify frontend of deposit transaction status
         this.wallet.sendTransactionStatus(

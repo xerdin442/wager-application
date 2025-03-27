@@ -57,6 +57,7 @@ model User {
   ethAddress    String
   ethPrivateKey String
   solAddress    String
+  solPrivateKey String
   balance       Int
 
   transactions Transaction[]

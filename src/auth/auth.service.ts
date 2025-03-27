@@ -30,7 +30,7 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly metrics: MetricsService,
     private readonly cryptoService: CryptoService,
-    @InjectQueue('mail-queue') private readonly mailQueue: Queue
+    @InjectQueue('auth-queue') private readonly authQueue: Queue
   ) { }
 
   async signup(dto: CreateUserDto, filePath?: string)
@@ -45,8 +45,8 @@ export class AuthService {
       };
       
       // Generate wallets for crypto transactions
-      const ethWallet = this.cryptoService.createEthereumWallet();
-      const solAddress = this.cryptoService.createSolanaWallet();
+      const ethWallet = this.cryptoService.createUserWallet('base');
+      const solWallet = this.cryptoService.createUserWallet('solana');
 
       // Hash password and create new user
       const hash = await argon.hash(dto.password)
@@ -57,30 +57,26 @@ export class AuthService {
           profileImage: filePath || Secrets.DEFAULT_IMAGE,
           ethAddress: ethWallet.address,
           ethPrivateKey: ethWallet.privateKey,
-          solAddress,
+          solAddress: solWallet.address,
+          solPrivateKey: solWallet.privateKey,
           balance: 0
         }
       });
 
-      // Subscribe to wallet activity to check for deposits
-      await this.cryptoService.monitorDepositsOnBase(user.id, user.ethAddress);
-      await this.cryptoService.monitorDepositsOnSolana(user.id, user.solAddress);
-
       const payload = { sub: user.id, email: user.email, admin: false };  // Create JWT payload
 
       // Send an onboarding email to the new user
-      await this.mailQueue.add('signup', {
-        email: dto.email,
-        firstName: dto.firstName
-      })
+      await this.authQueue.add('signup', { user });
+      // Process wallet monitoring and prefilling with gas fees
+      await this.authQueue.add('wallet-setup', { user });
 
-      return { user, token: await this.jwt.signAsync(payload) }
+      return { user, token: await this.jwt.signAsync(payload) };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new BadRequestException(`This ${error.meta.target[0]} already exists. Please try again!`)
         }
-      }
+      };
 
       throw error;
     }
@@ -196,7 +192,7 @@ export class AuthService {
         await this.sessionService.set(dto.email, data);
 
         // Send the OTP via email
-        await this.mailQueue.add('otp', {
+        await this.authQueue.add('otp', {
           email: data.email,
           otp: data.otp
         })
@@ -221,7 +217,7 @@ export class AuthService {
         await this.sessionService.set(data.email, data);
 
         // Send another email with the new OTP
-        await this.mailQueue.add('otp', {
+        await this.authQueue.add('otp', {
           email: data.email,
           otp: data.otp
         })

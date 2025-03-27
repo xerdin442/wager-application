@@ -24,6 +24,10 @@ export class WagersService {
         where: { id: userId }
       });
 
+      // Check if stake is less than the mininmum
+      if (dto.stake < 1) {
+        throw new BadRequestException('Minimum wager stake is $1')
+      }
       // Check if user has sufficient funds to stake in the wager
       if (dto.stake > user.balance) {
         throw new BadRequestException('Insufficient balance')

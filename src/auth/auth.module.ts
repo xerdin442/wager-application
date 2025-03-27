@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from '@src/common/strategy/jwt-strategy';
 import { BullModule } from '@nestjs/bull';
-import { MailProcessor } from '@src/common/workers/mail.processor';
+import { AuthProcessor } from '@src/common/workers/auth.processor';
 import { SessionService } from '@src/common/session';
 import { Secrets } from '@src/common/env';
 
@@ -15,14 +15,14 @@ import { Secrets } from '@src/common/env';
       signOptions: { expiresIn: '1h' }
     }),
     BullModule.registerQueue({
-      name: 'mail-queue'
+      name: 'auth-queue'
     })
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtStrategy,
-    MailProcessor,
+    AuthProcessor,
     SessionService
   ]
 })

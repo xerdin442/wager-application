@@ -1,11 +1,19 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  Transaction as SolTransaction,
+  SystemProgram
+} from '@solana/web3.js';
 import { selectRpcUrl, selectUSDCTokenAddress } from '@src/common/util/crypto';
 import Web3, {
   Bytes,
   Contract,
   ContractAbi,
-  Transaction
+  Transaction as EthTransaction
 } from 'web3';
 import { hdkey } from '@ethereumjs/wallet';
 import { CryptoWithdrawalDto } from './dto';
@@ -21,6 +29,7 @@ import { Chain } from '@src/common/types';
 import logger from '@src/common/logger';
 import { sendEmail } from '@src/common/config/mail';
 import { TransactionType, User } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -72,13 +81,17 @@ export class CryptoService implements OnModuleInit {
     }
   }
 
-  createEthereumWallet(): { address: string, privateKey: string } {
-    const account = this.web3.eth.accounts.create();
-    return { ...account };
-  }
+  createUserWallet(chain: Chain): { address: string, privateKey: string } {
+    if (chain === 'base') {
+      const account = this.web3.eth.accounts.create();
+      return { ...account };
+    };
 
-  createSolanaWallet(): string {
-    return Keypair.generate().publicKey.toBase58();
+    const keypair = Keypair.generate();
+    return {
+      address: keypair.publicKey.toBase58(),
+      privateKey: keypair.secretKey.toString()
+    }
   }
 
   getPlatformPrivateKey(chain: Chain): string | Keypair {
@@ -146,17 +159,17 @@ export class CryptoService implements OnModuleInit {
     privateKey: string
   ): Promise<string> {
     try {
-      // Get gas price estimate based on recent transactions on the network
-      const gasPrice = await this.web3.eth.getGasPrice();
-      // Convert USD amount to smallest unit of USDC
-      const amount = this.web3.utils.toBigInt(transferAmount * 1e6) - gasPrice;
+      // Convert transfer amount to smallest unit of USDC
+      const amount = this.web3.utils.toBigInt(transferAmount * 1e6);
       // Encode the transaction for the transfer function using the ABI
       const data = contract.methods.transfer(destination, amount.toString()).encodeABI();
+      // Get gas price estimate based on recent transactions on the network
+      const gasPrice = await this.web3.eth.getGasPrice();
       // Get the current nonce
       const nonce = await this.web3.eth.getTransactionCount(source, 'pending');
 
       // Configure transaction details
-      const tx: Transaction = {
+      const tx: EthTransaction = {
         from: source,
         to: this.BASE_USDC_TOKEN_ADDRESS,
         gasPrice,
@@ -214,10 +227,11 @@ export class CryptoService implements OnModuleInit {
       };
 
       // Initiate withdrawal from platform wallet
+      const amount = dto.amount - 1;  // $1 transaction fee
       const hash = await this.transferTokensOnBase(
         account.address,
         dto.address,
-        dto.amount,
+        amount,
         contract,
         platformPrivateKey
       );
@@ -247,11 +261,12 @@ export class CryptoService implements OnModuleInit {
       };
 
       // Initiate withdrawal from platform wallet
+      const amount = dto.amount - 1;  // $1 transaction fee
       const signature = await this.transferTokensOnSolana(
         this.connection,
         sender,
         recipient,
-        dto.amount
+        amount
       );
 
       // Update user balance and store transaction details
@@ -268,7 +283,7 @@ export class CryptoService implements OnModuleInit {
 
     web3.eth.subscribe('pendingTransactions', async (txHash: Bytes) => {
       try {
-        const tx: Transaction = await web3.eth.getTransaction(txHash);
+        const tx: EthTransaction = await web3.eth.getTransaction(txHash);
 
         if (tx && tx.to?.toLowerCase() === this.BASE_USDC_TOKEN_ADDRESS.toLowerCase()) {
           // Get recipient address and amount deposited
@@ -278,7 +293,7 @@ export class CryptoService implements OnModuleInit {
 
           if (recipient.toLowerCase() === address.toLowerCase()) {
             // Update user balance and store transaction details
-            const user = await this.updateDbAfterTransaction(userId, parseInt(amount), 'DEPOSIT');
+            const user = await this.updateDbAfterTransaction(userId, parseFloat(amount), 'DEPOSIT');
 
             // Notify user of successful deposit
             const content = `${amount} has been deposited in your wallet. Your balance is ${user.balance}`
@@ -286,17 +301,25 @@ export class CryptoService implements OnModuleInit {
 
             logger.info(`[${this.context}] Crypto deposit by ${user.email} was successful. Amount: ${amount}\n`);
 
-            // Initiate transfer of tokens from user wallet to platform wallet
+            // Initiate auto-clearing of tokens to platform wallet
             const platformPrivateKey = this.getPlatformPrivateKey('base') as string;
             const account = web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
-            const contract = new web3.eth.Contract(this.USDC_CONTRACT_ABI, this.BASE_USDC_TOKEN_ADDRESS);            
+            const contract = new web3.eth.Contract(this.USDC_CONTRACT_ABI, this.BASE_USDC_TOKEN_ADDRESS);
             await this.transferTokensOnBase(
               address,
               account.address,
-              parseInt(amount),
+              parseFloat(amount),
               contract,
               user.ethPrivateKey
             );
+
+            // Top up user wallet if gas fees are low
+            const minimumBalance = await this.convertToCrypto(0.2, 'base');
+            const currentBalanceInWei = await web3.eth.getBalance(address);
+            const currentBalanceInEther = web3.utils.fromWei(currentBalanceInWei, 'ether');
+            if (parseFloat(currentBalanceInEther) < minimumBalance) {
+              await this.prefillUserWallet(userId, address, 'base')
+            };
 
             return;
           }
@@ -327,7 +350,22 @@ export class CryptoService implements OnModuleInit {
 
         logger.info(`[${this.context}] Crypto deposit by ${user.email} was successful. Amount: ${amount}\n`);
 
-        // Initiate transfer of tokens from user wallet to platform wallet
+        // Initiate auto-clearing of tokens to platform wallet
+        const sender = Keypair.fromSecretKey(Uint8Array.from(user.solPrivateKey));
+        const recipient = this.getPlatformPrivateKey('solana') as Keypair;
+        await this.transferTokensOnSolana(
+          connection,
+          sender,
+          recipient.publicKey,
+          amount
+        );
+
+        // Top up user wallet if gas fees are low
+        const minimumBalance = await this.convertToCrypto(0.2, 'solana');
+        const currentBalance = await connection.getBalance(new PublicKey(address));
+        if ((currentBalance / LAMPORTS_PER_SOL) < minimumBalance) {
+          await this.prefillUserWallet(userId, address, 'solana')
+        };
 
         return;
       } catch (error) {
@@ -336,4 +374,85 @@ export class CryptoService implements OnModuleInit {
       }
     });
   }
+
+  async convertToCrypto(amount: number, chain: Chain): Promise<number> {
+    try {
+      let coinId: string;
+      chain === 'base' ? coinId = 'ethereum' : coinId = 'solana';
+
+      const response = await axios.get(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`,
+        {
+          headers: {
+            Accept: 'application/json',
+            'x-cg-demo-api-key': Secrets.COINGECKO_API_KEY
+          }
+        }
+      );
+
+      let usdPrice: number;
+      chain === 'base' ? usdPrice = response.data.ethereum.usd : usdPrice = response.data.solana.usd;
+
+      return amount / usdPrice;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async prefillUserWallet(userId: number, address: string, chain: Chain) {
+    try {
+      if (chain === 'solana') {
+        const amount = await this.convertToCrypto(3, 'solana');
+        const platformWallet = this.getPlatformPrivateKey('solana') as Keypair;
+        const recipient = new PublicKey(address);
+
+        // Configure and add transaction instruction to System Program
+        const tx = new SolTransaction().add(
+          SystemProgram.transfer({
+            fromPubkey: platformWallet.publicKey,
+            toPubkey: recipient,
+            lamports: amount * LAMPORTS_PER_SOL
+          })
+        );
+
+        // Sign, send and confirm the transaction on the network
+        await sendAndConfirmTransaction(this.connection, tx, [platformWallet]);
+      } else if (chain === 'base') {
+        const amount = await this.convertToCrypto(3, 'base');
+        const platformPrivateKey = this.getPlatformPrivateKey('base') as string;
+        const account = this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+
+        // Get gas price estimate based on recent transactions on the network
+        const gasPrice = await this.web3.eth.getGasPrice();
+        // Get the current nonce
+        const nonce = await this.web3.eth.getTransactionCount(account.address, 'pending');
+
+        // Configure transaction details
+        const tx: EthTransaction = {
+          from: account.address,
+          to: address,
+          value: this.web3.utils.toWei(amount, 'ether'),
+          gasPrice,
+          gas: 60000,
+          nonce
+        };
+
+        // Sign and broadcast the transaction to the network
+        const signedTx = await this.web3.eth.accounts.signTransaction(tx, platformPrivateKey);
+        await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId }
+      });
+      logger.info(`[${this.context}] ${address} prefilled with gas fees. Email: ${user.email}\n`);
+      
+      return;
+    } catch (error) {
+      logger.error(`[${this.context}] An error occurred while prefilling user wallets with gas fees. Error: ${error.message}\n`);
+      throw error;
+    }
+  }
+
+  async clearUserWallet(address: string, chain: Chain) {}
 }

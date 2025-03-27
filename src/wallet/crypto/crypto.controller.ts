@@ -87,6 +87,11 @@ export class CryptoController {
         throw new BadRequestException(`Insufficient funds. $${user.balance} is available for withdrawal`)
       };
 
+      // Check if withdrawal amount is below the allowed minimum
+      if (dto.amount < 5) {
+        throw new BadRequestException('Minimum withdrawal amount is $5')
+      };
+
       switch (chain) {
         case 'base':
           const hash = await this.cryptoService.processWithdrawalOnBase(user.id, dto);

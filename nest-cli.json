@@ -1,8 +1,50 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "apps/api-gateway/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/api-gateway",
+  "projects": {
+    "api-gateway": {
+      "type": "application",
+      "root": "apps/api-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/api-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+      }
+    },
+    "crypto-service": {
+      "type": "application",
+      "root": "apps/crypto-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/crypto-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/crypto-service/tsconfig.app.json"
+      }
+    },
+    "fiat-service": {
+      "type": "application",
+      "root": "apps/fiat-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/fiat-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/fiat-service/tsconfig.app.json"
+      }
+    },
+    "wagers-service": {
+      "type": "application",
+      "root": "apps/wagers-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/wagers-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/wagers-service/tsconfig.app.json"
+      }
+    }
   }
 }

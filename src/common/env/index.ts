@@ -18,6 +18,7 @@ export const Secrets = {
   BREVO_API_KEY: config.getOrThrow<string>('BREVO_API_KEY'),
   APP_NAME: config.getOrThrow<string>('APP_NAME'),
   APP_EMAIL: config.getOrThrow<string>('APP_EMAIL'),
+  SUPER_ADMIN_EMAIL: config.getOrThrow<string>('SUPER_ADMIN_EMAIL'),
   RATE_LIMITING_PER_SECOND: config.getOrThrow<number>('RATE_LIMITING_PER_SECOND'),
   RATE_LIMITING_PER_MINUTE: config.getOrThrow<number>('RATE_LIMITING_PER_MINUTE'),
   PAYSTACK_SECRET_KEY: config.getOrThrow<string>('PAYSTACK_SECRET_KEY'),

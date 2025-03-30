@@ -54,7 +54,7 @@ export class CryptoService implements OnModuleInit {
 
   constructor(private readonly prisma: DbService) { };
 
-  async onModuleInit() {
+  async onModuleInit(): Promise<void> {
     try {
       // Get all user wallets
       const wallets = await this.prisma.user.findMany({
@@ -399,7 +399,7 @@ export class CryptoService implements OnModuleInit {
     }
   }
 
-  async prefillUserWallet(userId: number, address: string, chain: Chain) {
+  async prefillUserWallet(userId: number, address: string, chain: Chain): Promise<void> {
     try {
       if (chain === 'solana') {
         const amount = await this.convertToCrypto(3, 'solana');
@@ -454,5 +454,7 @@ export class CryptoService implements OnModuleInit {
     }
   }
 
-  async clearUserWallet(address: string, chain: Chain) {}
+  async clearUserWallet(address: string, chain: Chain): Promise<void> {}
+
+  async checkPlatformWalletBalance(chain: Chain): Promise<void> {}
 }

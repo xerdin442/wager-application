@@ -19,31 +19,67 @@
         "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
       }
     },
-    "crypto-service": {
+    "auth": {
       "type": "application",
-      "root": "apps/crypto-service",
+      "root": "apps/auth",
       "entryFile": "main",
-      "sourceRoot": "apps/crypto-service/src",
+      "sourceRoot": "apps/auth/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/crypto-service/tsconfig.app.json"
+        "tsConfigPath": "apps/auth/tsconfig.app.json"
       }
     },
-    "fiat-service": {
+    "crypto": {
       "type": "application",
-      "root": "apps/fiat-service",
+      "root": "apps/crypto",
       "entryFile": "main",
-      "sourceRoot": "apps/fiat-service/src",
+      "sourceRoot": "apps/crypto/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/fiat-service/tsconfig.app.json"
+        "tsConfigPath": "apps/crypto/tsconfig.app.json"
       }
     },
-    "wagers-service": {
-      "type": "application",
-      "root": "apps/wagers-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/wagers-service/src",
+    "db": {
+      "type": "library",
+      "root": "libs/db",
+      "entryFile": "index",
+      "sourceRoot": "libs/db/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/wagers-service/tsconfig.app.json"
+        "tsConfigPath": "libs/db/tsconfig.lib.json"
+      }
+    },
+    "fiat": {
+      "type": "application",
+      "root": "apps/fiat",
+      "entryFile": "main",
+      "sourceRoot": "apps/fiat/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/fiat/tsconfig.app.json"
+      }
+    },
+    "metrics": {
+      "type": "library",
+      "root": "libs/metrics",
+      "entryFile": "index",
+      "sourceRoot": "libs/metrics/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/metrics/tsconfig.lib.json"
+      }
+    },
+    "utils": {
+      "type": "library",
+      "root": "libs/utils",
+      "entryFile": "index",
+      "sourceRoot": "libs/utils/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/utils/tsconfig.lib.json"
+      }
+    },
+    "wager": {
+      "type": "application",
+      "root": "apps/wager",
+      "entryFile": "main",
+      "sourceRoot": "apps/wager/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/wager/tsconfig.app.json"
       }
     }
   }

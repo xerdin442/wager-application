@@ -1,0 +1,91 @@
+services:
+  gateway:
+    build: ./apps/api-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - backend-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+
+  database:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - backend-network
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  auth-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    env_file:
+      - ./apps/auth/.env
+    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+
+  fiat-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6381:6379"
+    env_file:
+      - ./apps/fiat/.env
+    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+
+  crypto-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6382:6379"
+    env_file:
+      - ./apps/crypto/.env
+    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]  
+
+  nats-server:
+    image: nats:latest
+    restart: always
+    ports:
+      - "4222:4222"
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    restart: always
+    ports:
+      - "9090:9090"
+    networks:
+      - backend-network
+      - monitoring
+    command:
+      - '--config.file=/usr/local/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./prometheus.yml:/usr/local/etc/prometheus/prometheus.yml:ro
+      - metrics-data:/prometheus
+  
+  grafana:
+    image: grafana/grafana-oss:10.2.3
+    restart: always
+    ports:
+      - "3333:3000"
+    networks:
+      - monitoring
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  db-data:
+  metrics-data:
+  grafana-data:
+
+networks:
+  backend-network:
+  monitoring:

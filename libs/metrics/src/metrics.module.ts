@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
 import { Registry } from 'prom-client';
 
+@Global()
 @Module({
   providers: [
     MetricsService,

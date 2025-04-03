@@ -3,3 +3,8 @@ export type SessionData = {
   otp?: string;
   otpExpiration?: number;
 };
+
+export type CreateWalletResponse = {
+  address: string;
+  privateKey: string;
+};

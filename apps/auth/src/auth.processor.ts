@@ -15,9 +15,9 @@ export class AuthProcessor {
   ) {}
 
   @Process('signup')
-  async signup(job: Job) {
+  async signup(job: Job<Record<string, any>>): Promise<void> {
     try {
-      const receiver = job.data as Record<string, any>;
+      const receiver = job.data;
       const subject = 'Welcome Onboard!';
       const content = 'Thanks for signing up';
 
@@ -33,9 +33,9 @@ export class AuthProcessor {
   }
 
   @Process('otp')
-  async passwordReset(job: Job) {
+  async passwordReset(job: Job<Record<string, any>>): Promise<void> {
     try {
-      const receiver = job.data as Record<string, any>;
+      const receiver = job.data;
       const subject = 'Password Reset';
       const content = `This is your OTP: ${receiver.otp}. It is valid for one hour.`;
 
@@ -49,4 +49,20 @@ export class AuthProcessor {
       throw error;
     }
   }
+
+  // @Process('wallet-setup')
+  // async walletSetup(job: Job<Record<string, any>>): Promise<void> {
+  //   try {
+  //     const { user } = job.data;
+  //     return;
+  //   } catch (error) {
+  //     this.utils
+  //       .logger()
+  //       .error(
+  //         `[${this.context}] An error occured while processing setup of user wallet. Error: ${error.message}\n`,
+  //       );
+
+  //     throw error;
+  //   }
+  // }
 }

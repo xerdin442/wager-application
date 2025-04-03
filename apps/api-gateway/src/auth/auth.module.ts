@@ -4,13 +4,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategy/jwt.strategy';
 
-const config = new ConfigService();
-
 @Module({
   imports: [
-    JwtModule.register({
-      secret: config.getOrThrow<string>('JWT_SECRET'),
-      signOptions: { expiresIn: '1h' },
+    JwtModule.registerAsync({
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],

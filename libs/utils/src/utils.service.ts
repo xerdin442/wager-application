@@ -125,4 +125,6 @@ export class UtilsService {
       throw error;
     }
   }
+
+  async upload() {}
 }

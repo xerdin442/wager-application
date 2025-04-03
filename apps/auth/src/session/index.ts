@@ -38,14 +38,15 @@ export class SessionService implements OnModuleInit {
     }
   }
 
-  async get(key: string): Promise<any> {
+  async get(key: string): Promise<SessionData> {
     try {
       const data = await this.redis.get(key);
       this.utils
         .logger()
         .info(`[${this.context}] User session retrieved by ${key}.\n`);
 
-      return JSON.parse(data as string);
+      const result = JSON.parse(data as string) as SessionData;
+      return result;
     } catch (error) {
       this.utils
         .logger()

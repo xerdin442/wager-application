@@ -11,25 +11,28 @@ import { MetricsModule } from '@app/metrics';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 
-const config = new ConfigService();
-
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'Minutes',
-        ttl: 60_000,
-        limit: config.getOrThrow<number>('RATE_LIMITING_PER_MINUTE'),
-      },
-      {
-        name: 'Seconds',
-        ttl: 1000,
-        limit: config.getOrThrow<number>('RATE_LIMITING_PER_SECOND'),
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'Minutes',
+            ttl: 60_000,
+            limit: config.getOrThrow<number>('RATE_LIMITING_PER_MINUTE'),
+          },
+          {
+            name: 'Seconds',
+            ttl: 1000,
+            limit: config.getOrThrow<number>('RATE_LIMITING_PER_SECOND'),
+          },
+        ],
+      }),
+      inject: [ConfigService],
+    }),
     DbModule,
     NatsModule,
     UtilsModule,

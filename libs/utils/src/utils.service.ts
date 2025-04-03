@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 import { EmailAttachment } from './types';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 @Injectable()
 export class UtilsService {
@@ -126,5 +127,35 @@ export class UtilsService {
     }
   }
 
-  async upload() {}
+  async upload(file: Express.Multer.File, folder: string): Promise<string> {
+    try {
+      const key = `${folder}/${Date.now()}-${file.originalname}`;
+      const bucketName = this.config.getOrThrow<string>('AWS_S3_BUCKET_NAME');
+      const fileUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
+
+      // Initialize AWS S3 client
+      const s3 = new S3Client({
+        region: this.config.getOrThrow<string>('AWS_REGION'),
+        credentials: {
+          accessKeyId: this.config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
+          secretAccessKey: this.config.getOrThrow<string>(
+            'AWS_SECRET_ACCESS_KEY',
+          ),
+        },
+      });
+
+      // Upload file to S3 bucket
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: key,
+          Body: file.buffer,
+        }),
+      );
+
+      return fileUrl;
+    } catch (error) {
+      throw error;
+    }
+  }
 }

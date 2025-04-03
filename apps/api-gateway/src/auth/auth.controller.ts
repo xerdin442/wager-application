@@ -23,6 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '../custom/decorators';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFilterCallback } from 'multer';
 
 @Controller('auth')
 export class AuthController {
@@ -33,17 +34,33 @@ export class AuthController {
   @Post('signup')
   @UseInterceptors(
     FileInterceptor('profileImage', {
-      limits: { fieldSize: 5 * 1024 * 1024 }, // File sizes must be less than 5MB
+      limits: { fieldSize: 8 * 1024 * 1024 },
+      fileFilter: (
+        req: Request,
+        file: Express.Multer.File,
+        callback: FileFilterCallback,
+      ): void => {
+        const allowedMimetypes: string[] = [
+          'image/png',
+          'image/heic',
+          'image/jpeg',
+          'image/webp',
+          'image/heif',
+        ];
+
+        if (allowedMimetypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      },
     }),
   )
   signup(
     @Body() dto: SignupDTO,
     @UploadedFile() file?: Express.Multer.File,
   ): Observable<any> {
-    return this.natsClient.send('signup', {
-      dto,
-      filePath: file?.path as string,
-    });
+    return this.natsClient.send('signup', { dto, file });
   }
 
   @HttpCode(HttpStatus.OK)

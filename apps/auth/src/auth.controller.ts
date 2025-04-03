@@ -26,10 +26,14 @@ export class AuthController {
   @MessagePattern('signup')
   async signup(data: {
     dto: SignupDTO;
-    filePath?: string;
+    file?: Express.Multer.File;
   }): Promise<{ user: User; token: string }> {
     try {
-      const { dto, filePath } = data;
+      const { dto, file } = data;
+
+      let filePath: string;
+      file ? (filePath = await this.utils.upload(file, '')) : (filePath = '');
+
       const response = await this.authService.signup(dto, filePath);
 
       this.utils

@@ -12,7 +12,7 @@ RUN if [ "$NODE_ENV" = "development" ]; \
 
 COPY . .
 
-WORKDIR /usr/src/app/apps/api-gateway
+WORKDIR /usr/src/app/apps/fiat
 
 EXPOSE 3000
 

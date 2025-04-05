@@ -1,0 +1,17 @@
+x-dev-setup: &dev-setup
+  volumes:
+    - ./:/usr/src/app:rw
+  command: >
+    sh -c "npm run deploy && npm run start:dev"
+
+services:
+  api-gateway:
+    <<: *dev-setup
+  auth-service:
+    <<: *dev-setup
+  fiat-service:
+    <<: *dev-setup  
+  crypto-service:
+    <<: *dev-setup  
+  wager-service:
+    <<: *dev-setup  

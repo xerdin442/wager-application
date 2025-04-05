@@ -20,8 +20,8 @@ services:
     networks:
       - app-network      
     environment:
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
     volumes:
       - db-data:/var/lib/postgresql/data
 
@@ -51,8 +51,11 @@ services:
     env_file:
       - ./apps/auth/.env
     networks:
-      - auth-network      
-    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+      - auth-network
+    volumes:
+      - auth-redis-data:/redis/data
+    command: >
+       /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   fiat-service:
     build:
@@ -81,7 +84,10 @@ services:
       - ./apps/fiat/.env
     networks:
       - fiat-network
-    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+    volumes:
+      - fiat-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   crypto-service:
     build:
@@ -109,8 +115,11 @@ services:
     env_file:
       - ./apps/crypto/.env
     networks:
-      - crypto-network      
-    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]  
+      - crypto-network
+    volumes:
+      - crypto-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wager-service:
     build:
@@ -139,7 +148,10 @@ services:
       - ./apps/wager/.env
     networks:
       - wager-network
-    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+    volumes:
+      - wager-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   nats-server:
     image: nats:latest
@@ -175,6 +187,10 @@ services:
 
 volumes:
   db-data:
+  auth-redis-data:
+  fiat-redis-data:
+  crypto-redis-data:
+  wager-redis-data:
   metrics-data:
   grafana-data:
 

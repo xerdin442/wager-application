@@ -12,8 +12,6 @@ RUN if [ "$NODE_ENV" = "development" ]; \
 
 COPY . .
 
-WORKDIR /usr/src/app/apps/auth
-
 EXPOSE 3000
 
 CMD [ "npm", "start" ]

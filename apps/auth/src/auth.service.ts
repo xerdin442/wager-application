@@ -67,7 +67,7 @@ export class AuthService {
       // Send an onboarding email to the new user
       await this.authQueue.add('signup', { user });
       // Process wallet monitoring and prefilling with gas fees
-      await this.authQueue.add('wallet-setup', { user });
+      await this.authQueue.add('setup-wallet', { user });
 
       return { user, token: await this.jwt.signAsync(payload) };
     } catch (error) {
@@ -200,10 +200,7 @@ export class AuthService {
         await this.sessionService.set(dto.email, data);
 
         // Send the OTP via email
-        await this.authQueue.add('otp', {
-          email: data.email,
-          otp: data.otp,
-        });
+        await this.authQueue.add('otp', { user, otp: data.otp });
 
         return data.otp;
       } else {

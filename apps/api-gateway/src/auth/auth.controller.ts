@@ -10,7 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import { catchError, Observable } from 'rxjs';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -24,6 +24,7 @@ import { User } from '@prisma/client';
 import { GetUser } from '../custom/decorators';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileFilterCallback } from 'multer';
+import { handleError } from '../utils/error';
 
 @Controller('auth')
 export class AuthController {
@@ -60,64 +61,82 @@ export class AuthController {
     @Body() dto: SignupDTO,
     @UploadedFile() file?: Express.Multer.File,
   ): Observable<any> {
-    return this.natsClient.send('signup', { dto, file });
+    return this.natsClient
+      .send('signup', { dto, file })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
   login(@Body() dto: LoginDTO): Observable<any> {
-    return this.natsClient.send('login', { dto });
+    return this.natsClient.send('login', { dto }).pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   logout(@GetUser() user: User): Observable<any> {
-    return this.natsClient.send('logout', { user });
+    return this.natsClient
+      .send('logout', { user })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @Post('2fa/enable')
   enable2fa(@GetUser() user: User): Observable<any> {
-    return this.natsClient.send('enable-2fa', { user });
+    return this.natsClient
+      .send('enable-2fa', { user })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @Post('2fa/disable')
   disable2fa(@GetUser() user: User): Observable<any> {
-    return this.natsClient.send('disable-2fa', { user });
+    return this.natsClient
+      .send('disable-2fa', { user })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @Post('2fa/verify')
   verify2fa(@GetUser() user: User, @Body() dto: Verify2faDTO): Observable<any> {
-    return this.natsClient.send('verify-2fa', { user, dto });
+    return this.natsClient
+      .send('verify-2fa', { user, dto })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('password/reset')
   requestPasswordReset(@Body() dto: PasswordResetDTO): Observable<any> {
-    return this.natsClient.send('reset-password', { dto });
+    return this.natsClient
+      .send('reset-password', { dto })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('password/resend-otp')
   resendOtp(): Observable<any> {
-    return this.natsClient.send('resend-reset-otp', {});
+    return this.natsClient
+      .send('resend-reset-otp', {})
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('password/verify-otp')
   verifyOtp(@Body() dto: VerifyOtpDTO): Observable<any> {
-    return this.natsClient.send('verify-reset-otp', { dto });
+    return this.natsClient
+      .send('verify-reset-otp', { dto })
+      .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('password/new')
   changePassword(@Body() dto: NewPasswordDTO): Observable<any> {
-    return this.natsClient.send('new-password', { dto });
+    return this.natsClient
+      .send('new-password', { dto })
+      .pipe(catchError(handleError));
   }
 }

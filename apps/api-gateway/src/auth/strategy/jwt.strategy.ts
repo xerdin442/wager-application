@@ -1,9 +1,10 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { DbService } from '@app/db';
 import { UtilsService } from '@app/utils';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -26,7 +27,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const expirationTime = payload.exp * 1000;
       const currentTime = new Date().getTime();
       if (currentTime > expirationTime) {
-        throw new UnauthorizedException('Session expired. Please log in.');
+        throw new RpcException({
+          status: 401,
+          message: 'Session expired. Please log in.',
+        });
       }
 
       const user = (await this.prisma.user.findUnique({

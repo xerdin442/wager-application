@@ -1,12 +1,12 @@
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
 import { InjectQueue } from '@nestjs/bull';
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Queue } from 'bull';
 import * as argon from 'argon2';
 import { SessionService } from './session';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { User } from '@prisma/client';
@@ -74,9 +74,10 @@ export class AuthService {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const meta = error.meta as Record<string, any>;
-          throw new BadRequestException(
-            `This ${meta.target[0]} already exists. Please try again!`,
-          );
+          throw new RpcException({
+            status: 400,
+            message: `This ${meta.target[0]} already exists. Please try again!`,
+          });
         }
       }
 
@@ -93,13 +94,19 @@ export class AuthService {
       });
       // Check if user is found with given email address
       if (!user) {
-        throw new BadRequestException('No user found with that email address');
+        throw new RpcException({
+          status: 400,
+          message: 'No user found with that email address',
+        });
       }
 
       // Check if password is valid
       const checkPassword = await argon.verify(user.password, dto.password);
       if (!checkPassword) {
-        throw new BadRequestException('Invalid password');
+        throw new RpcException({
+          status: 400,
+          message: 'Invalid password',
+        });
       }
 
       const payload = { sub: user.id, email: user.email, admin: false }; // Create JWT payload
@@ -204,7 +211,10 @@ export class AuthService {
 
         return data.otp;
       } else {
-        throw new BadRequestException('No user found with that email address');
+        throw new RpcException({
+          status: 400,
+          message: 'No user found with that email address',
+        });
       }
     } catch (error) {
       throw error;
@@ -229,7 +239,10 @@ export class AuthService {
 
         return data.otp;
       } else {
-        throw new BadRequestException('Email not found');
+        throw new RpcException({
+          status: 400,
+          message: 'Email not found',
+        });
       }
     } catch (error) {
       throw error;
@@ -243,11 +256,17 @@ export class AuthService {
       // Check if OTP is invalid or expired
       if (session.email) {
         if (session.otp !== dto.otp) {
-          throw new BadRequestException('Invalid OTP');
+          throw new RpcException({
+            status: 400,
+            message: 'Invalid OTP',
+          });
         }
 
         if ((session.otpExpiration as number) < Date.now()) {
-          throw new BadRequestException('This OTP has expired');
+          throw new RpcException({
+            status: 400,
+            message: 'This OTP has expired',
+          });
         }
       }
 
@@ -270,9 +289,11 @@ export class AuthService {
         // Check if the previous password is same as the new password
         const samePassword = await argon.verify(user.password, dto.newPassword);
         if (samePassword) {
-          throw new BadRequestException(
-            'New password cannot be the same value as previous password',
-          );
+          throw new RpcException({
+            status: 400,
+            message:
+              'New password cannot be the same value as previous password',
+          });
         }
 
         // Hash new password and update the user's password
@@ -290,7 +311,10 @@ export class AuthService {
 
         return;
       } else {
-        throw new BadRequestException('Email not found');
+        throw new RpcException({
+          status: 400,
+          message: 'Email not found',
+        });
       }
     } catch (error) {
       throw error;

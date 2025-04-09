@@ -10,6 +10,7 @@ import { FiatModule } from './fiat/fiat.module';
 import { MetricsModule } from '@app/metrics';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AuthModule } from './auth/auth.module';
     CryptoModule,
     FiatModule,
     AuthModule,
+    AdminModule,
   ],
   providers: [
     {

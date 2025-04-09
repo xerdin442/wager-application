@@ -10,6 +10,10 @@ import { natsOptions } from './nats.options';
       useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
     },
     {
+      provide: 'ADMIN_SERVICE',
+      useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
+    },
+    {
       provide: 'WAGER_SERVICE',
       useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
     },
@@ -22,6 +26,12 @@ import { natsOptions } from './nats.options';
       useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
     },
   ],
-  exports: ['AUTH_SERVICE', 'WAGER_SERVICE', 'FIAT_SERVICE', 'CRYPTO_SERVICE'],
+  exports: [
+    'AUTH_SERVICE',
+    'ADMIN_SERVICE',
+    'WAGER_SERVICE',
+    'FIAT_SERVICE',
+    'CRYPTO_SERVICE',
+  ],
 })
 export class NatsModule {}

@@ -6,21 +6,36 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
+    "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "paths": {
-      "@src/*": ["src/*"]
-    },    
     "incremental": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,    
     "skipLibCheck": true,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@app/db": [
+        "libs/db/src"
+      ],
+      "@app/db/*": [
+        "libs/db/src/*"
+      ],
+      "@app/metrics": [
+        "libs/metrics/src"
+      ],
+      "@app/metrics/*": [
+        "libs/metrics/src/*"
+      ],
+      "@app/utils": [
+        "libs/utils/src"
+      ],
+      "@app/utils/*": [
+        "libs/utils/src/*"
+      ]
+    }
   }
 }

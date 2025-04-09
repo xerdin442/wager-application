@@ -1,10 +1,17 @@
+x-prod-setup: &prod-setup
+  environment:
+    - NODE_ENV=production
+  command: >
+    sh -c "npm run deploy && npm run start:prod"
+
 services:
-  backend:
-    build:
-      context: .
-      args:
-        - NODE_ENV=production
-    environment:
-      - NODE_ENV=production
-    command: >
-      sh -c "npm run deploy && npm run start:prod"
+  api-gateway:
+    <<: *prod-setup
+  auth-service:
+    <<: *prod-setup
+  fiat-service:
+    <<: *prod-setup
+  crypto-service:
+    <<: *prod-setup
+  wager-service:
+    <<: *prod-setup

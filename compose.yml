@@ -1,16 +1,16 @@
 services:
-  backend:
-    build: .
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./apps/api-gateway/Dockerfile
     restart: always
     ports:
       - "3000:3000"
     networks:
-      - backend-network
-    env_file:
-      - ./.env
+      - app-network      
     depends_on:
       - database
-      - redis
+      - nats-server
 
   database:
     image: postgres:latest
@@ -18,21 +18,153 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - backend-network
+      - app-network      
     environment:
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
     volumes:
       - db-data:/var/lib/postgresql/data
-  
-  redis:
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile
+    restart: always
+    networks:
+      - app-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+      - nats-server
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./apps/auth/Dockerfile
+    restart: always
+    networks:
+      - app-network
+      - auth-network
+    env_file:
+      - ./.env
+      - ./apps/auth/.env
+    depends_on:
+      - database
+      - auth-redis
+      - nats-server
+
+  auth-redis:
     image: redis:latest
     restart: always
     ports:
       - "6379:6379"
+    env_file:
+      - ./apps/auth/.env
     networks:
-      - backend-network
-    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]
+      - auth-network
+    volumes:
+      - auth-redis-data:/redis/data
+    command: >
+       /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
+  fiat-service:
+    build:
+      context: .
+      dockerfile: ./apps/fiat/Dockerfile
+    restart: always
+    networks:
+      - app-network
+      - fiat-network
+    env_file:
+      - ./.env
+      - ./apps/fiat/.env
+    depends_on:
+      - database
+      - fiat-redis
+      - nats-server
+
+  fiat-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    env_file:
+      - ./apps/fiat/.env
+    networks:
+      - fiat-network
+    volumes:
+      - fiat-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
+  crypto-service:
+    build:
+      context: .
+      dockerfile: ./apps/crypto/Dockerfile
+    restart: always
+    networks:
+      - app-network
+      - crypto-network
+    env_file:
+      - ./.env
+      - ./apps/crypto/.env
+    depends_on:
+      - database
+      - crypto-redis
+      - nats-server
+
+  crypto-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6381:6379"
+    env_file:
+      - ./apps/crypto/.env
+    networks:
+      - crypto-network
+    volumes:
+      - crypto-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
+  wager-service:
+    build:
+      context: .
+      dockerfile: ./apps/wager/Dockerfile
+    restart: always
+    env_file:
+      - ./.env
+      - ./apps/wager/.env
+    networks:
+      - app-network
+      - wager-network
+    depends_on:
+      - database
+      - wager-redis
+      - nats-server
+
+  wager-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6382:6379"
+    env_file:
+      - ./apps/wager/.env
+    networks:
+      - wager-network
+    volumes:
+      - wager-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
+  nats-server:
+    image: nats:latest
+    restart: always
+    ports:
+      - "4222:4222"
+    networks:
+      - app-network
 
   prometheus:
     image: prom/prometheus:v2.47.0
@@ -40,14 +172,14 @@ services:
     ports:
       - "9090:9090"
     networks:
-      - backend-network
+      - app-network
       - monitoring
     command:
       - '--config.file=/usr/local/etc/prometheus/prometheus.yml'
     volumes:
       - ./prometheus.yml:/usr/local/etc/prometheus/prometheus.yml:ro
       - metrics-data:/prometheus
-  
+
   grafana:
     image: grafana/grafana-oss:10.2.3
     restart: always
@@ -57,25 +189,20 @@ services:
       - monitoring
     volumes:
       - grafana-data:/var/lib/grafana
-  
-  container-advisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.0
-    restart: always
-    ports:
-      - "8098:8080"
-    networks:
-      - monitoring
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker
 
 volumes:
   db-data:
+  auth-redis-data:
+  fiat-redis-data:
+  crypto-redis-data:
+  wager-redis-data:
   metrics-data:
   grafana-data:
 
 networks:
-  backend-network:
+  app-network:
+  auth-network:
+  crypto-network:
+  fiat-network:
+  wager-network:
   monitoring:

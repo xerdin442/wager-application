@@ -57,8 +57,8 @@ export class AuthProcessor {
       const { user } = job.data;
 
       // Subscribe to wallet activity to check for deposits
-      this.natsClient.send('deposit', { user, chain: 'base' });
-      this.natsClient.send('deposit', { user, chain: 'solana' });
+      this.natsClient.send('monitor-deposit', { user, chain: 'base' });
+      this.natsClient.send('monitor-deposit', { user, chain: 'solana' });
 
       // Prefill user wallets with gas fees for transactions
       this.natsClient.send('prefill', { user, chain: 'base' });

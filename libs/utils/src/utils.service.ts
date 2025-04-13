@@ -153,8 +153,11 @@ export class UtilsService {
         }),
       );
 
+      this.logger().info(`[${this.context}] File uploaded successfully.\n`);
+
       return fileUrl;
     } catch (error) {
+      this.logger().error(`[${this.context}] File upload unsuccessful.\n`);
       throw error;
     }
   }

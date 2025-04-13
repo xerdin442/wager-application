@@ -12,7 +12,7 @@ export class MetricsService {
     return await this.registry.getMetricsAsJSON();
   }
 
-  updateGauge(name: string, action: 'dec' | 'inc'): void {
+  updateGauge(name: string, action: 'dec' | 'inc', value?: number): void {
     if (!this.gauge[name]) {
       this.gauge[name] = new Gauge({
         name,
@@ -21,10 +21,12 @@ export class MetricsService {
       });
     }
 
-    action === 'dec' ? this.gauge[name].dec() : this.gauge[name].inc();
+    action === 'dec'
+      ? this.gauge[name].dec(value)
+      : this.gauge[name].inc(value);
   }
 
-  incrementCounter(name: string): void {
+  incrementCounter(name: string, value?: number): void {
     if (!this.counter[name]) {
       this.counter[name] = new Counter({
         name,
@@ -33,6 +35,6 @@ export class MetricsService {
       });
     }
 
-    this.counter[name].inc();
+    this.counter[name].inc(value);
   }
 }

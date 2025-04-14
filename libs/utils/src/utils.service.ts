@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { createLogger, format, Logger, transports } from 'winston';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { EmailAttachment } from './types';
+import { EmailAttachment, SerializedBuffer } from './types';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -133,6 +133,9 @@ export class UtilsService {
       const key = `${folder}/${Date.now()}-${file.originalname}`;
       const bucketName = this.config.getOrThrow<string>('AWS_S3_BUCKET_NAME');
       const fileUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
+      const buffer = Buffer.from(
+        (file.buffer as unknown as SerializedBuffer).data,
+      );
 
       // Initialize AWS S3 client
       const s3 = new S3Client({
@@ -150,7 +153,8 @@ export class UtilsService {
         new PutObjectCommand({
           Bucket: bucketName,
           Key: key,
-          Body: Readable.from(file.buffer),
+          Body: Readable.from(buffer),
+          ContentLength: buffer.length,
         }),
       );
 

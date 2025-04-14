@@ -33,7 +33,7 @@ export class AuthController {
 
       let filePath: string;
       file
-        ? (filePath = await this.utils.upload(file, 'profile-image'))
+        ? (filePath = await this.utils.upload(file, 'profile-images'))
         : (filePath = '');
 
       const response = await this.authService.signup(dto, filePath);

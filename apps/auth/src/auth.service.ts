@@ -69,6 +69,13 @@ export class AuthService {
       // Process wallet monitoring and prefilling with gas fees
       await this.authQueue.add('setup-wallet', { user });
 
+      // Sanitize user output
+      user.password = '';
+      user.ethAddress = '';
+      user.ethPrivateKey = '';
+      user.solAddress = '';
+      user.solPrivateKey = '';
+
       return { user, token: await this.jwt.signAsync(payload) };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {

@@ -3,8 +3,8 @@ import { Chain } from '../types';
 
 const config = new ConfigService();
 const NODE_ENV = config.getOrThrow<string>('NODE_ENV');
-const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY}');
-const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY}');
+const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
+const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
 
 export const selectRpcUrl = (
   chain: Chain,

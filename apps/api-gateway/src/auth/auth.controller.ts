@@ -23,7 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '../custom/decorators';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FileFilterCallback } from 'multer';
+import * as multer from 'multer';
 import { handleError } from '../utils/error';
 
 @Controller('auth')
@@ -35,11 +35,12 @@ export class AuthController {
   @Post('signup')
   @UseInterceptors(
     FileInterceptor('profileImage', {
+      storage: multer.memoryStorage(),
       limits: { fieldSize: 8 * 1024 * 1024 },
       fileFilter: (
         req: Request,
         file: Express.Multer.File,
-        callback: FileFilterCallback,
+        callback: multer.FileFilterCallback,
       ): void => {
         const allowedMimetypes: string[] = [
           'image/png',

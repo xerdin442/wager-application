@@ -6,6 +6,7 @@ import { EmailAttachment } from './types';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 @Injectable()
 export class UtilsService {
@@ -149,7 +150,7 @@ export class UtilsService {
         new PutObjectCommand({
           Bucket: bucketName,
           Key: key,
-          Body: file.buffer,
+          Body: Readable.from(file.buffer),
         }),
       );
 

@@ -22,6 +22,7 @@ import {
 } from './dto';
 import { ConfigService } from '@nestjs/config';
 import { createWallet } from './utils';
+import { UtilsService } from '@app/utils';
 
 @Injectable()
 export class AuthService {
@@ -31,13 +32,14 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly metrics: MetricsService,
     private readonly config: ConfigService,
+    private readonly utils: UtilsService,
     @InjectQueue('auth-queue') private readonly authQueue: Queue,
     @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   async signup(
     dto: SignupDTO,
-    filePath?: string,
+    file?: Express.Multer.File,
   ): Promise<{ user: User; token: string }> {
     try {
       // Generate wallets for crypto transactions
@@ -45,6 +47,12 @@ export class AuthService {
       const solWallet = await createWallet(this.natsClient, {
         chain: 'solana',
       });
+
+      // Upload file to AWS if available
+      const filePath = await this.utils.upload(
+        file as Express.Multer.File,
+        'profile-images',
+      );
 
       // Hash password and create new user
       const hash = await argon.hash(dto.password);

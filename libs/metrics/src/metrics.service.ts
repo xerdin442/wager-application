@@ -12,11 +12,21 @@ export class MetricsService {
     return await this.registry.getMetricsAsJSON();
   }
 
-  updateGauge(name: string, action: 'dec' | 'inc', value?: number): void {
+  updateGauge(
+    name: string,
+    action: 'dec' | 'inc',
+    value?: number,
+    labels?: string[],
+  ): void {
     if (!this.gauge[name]) {
       this.gauge[name] = new Gauge({
         name,
-        help: `Total number of ${name}`.replace(/_/g, ' '),
+        help: `${name}`
+          .replace(/_/g, ' ')
+          .split(' ')
+          .map((word) => word[0].toUpperCase())
+          .join(' '),
+        labelNames: labels,
         registers: [this.registry],
       });
     }
@@ -26,11 +36,16 @@ export class MetricsService {
       : this.gauge[name].inc(value);
   }
 
-  incrementCounter(name: string, value?: number): void {
+  incrementCounter(name: string, value?: number, labels?: string[]): void {
     if (!this.counter[name]) {
       this.counter[name] = new Counter({
         name,
-        help: `Total number of ${name}`.replace(/_/g, ' '),
+        help: `${name}`
+          .replace(/_/g, ' ')
+          .split(' ')
+          .map((word) => word[0].toUpperCase())
+          .join(' '),
+        labelNames: labels,
         registers: [this.registry],
       });
     }

@@ -7,7 +7,6 @@ import { User } from '@prisma/client';
 import { Chain } from './types';
 import { CryptoWithdrawalDto } from './dto';
 import { RedisClientType } from 'redis';
-import { MetricsService } from '@app/metrics';
 
 @Controller()
 export class CryptoController {
@@ -17,7 +16,6 @@ export class CryptoController {
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
     private readonly cryptoService: CryptoService,
-    private readonly metrics: MetricsService,
   ) {}
 
   @MessagePattern('deposit')
@@ -136,13 +134,10 @@ export class CryptoController {
 
       return { message };
     } catch (error) {
-      // Update number of unsuccessful crypto withdrawals
-      this.metrics.incrementCounter('unsuccessful_crypto_withdrawals');
-
       this.utils
         .logger()
         .error(
-          `[${this.context}] An error occurred while processing crypto withdrawal. Error: ${error.message}\n`,
+          `[${this.context}] An error occurred while processing withdrawal on ${data.chain}. Error: ${error.message}\n`,
         );
 
       throw error;

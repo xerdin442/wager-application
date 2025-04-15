@@ -1,7 +1,7 @@
 import { DbService } from '@app/db';
 import { hdkey } from '@ethereumjs/wallet';
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { TransactionType, User } from '@prisma/client';
+import { TransactionStatus, TransactionType, User } from '@prisma/client';
 import {
   getAssociatedTokenAddress,
   transfer,
@@ -32,6 +32,7 @@ import { ConfigService } from '@nestjs/config';
 import { RpcException } from '@nestjs/microservices';
 import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { MetricsService } from '@app/metrics';
+import { CryptoGateway } from './crypto.gateway';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -58,12 +59,15 @@ export class CryptoService implements OnModuleInit {
   ];
   private readonly BASE_USDC_TOKEN_ADDRESS = selectUSDCTokenAddress('base');
   private readonly SOLANA_USDC_MINT_ADDRESS = selectUSDCTokenAddress('solana');
+  private readonly baseMetricLabels: string[] = ['base', 'crypto'];
+  private readonly solanaMetricLabels: string[] = ['solana', 'crypto'];
 
   constructor(
     private readonly prisma: DbService,
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
     private readonly metrics: MetricsService,
+    private readonly gateway: CryptoGateway,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -155,22 +159,25 @@ export class CryptoService implements OnModuleInit {
   async updateDbAfterTransaction(
     userId: number,
     amount: number,
+    status: TransactionStatus,
     type: TransactionType,
   ): Promise<User> {
     try {
-      let user: User;
+      let user: User | undefined;
 
       // Update user balance
-      if (type === 'WITHDRAWAL') {
-        user = await this.prisma.user.update({
-          where: { id: userId },
-          data: { balance: { decrement: amount } },
-        });
-      } else {
-        user = await this.prisma.user.update({
-          where: { id: userId },
-          data: { balance: { increment: amount } },
-        });
+      if (status === 'SUCCESS') {
+        if (type === 'WITHDRAWAL') {
+          user = await this.prisma.user.update({
+            where: { id: userId },
+            data: { balance: { decrement: amount } },
+          });
+        } else {
+          user = await this.prisma.user.update({
+            where: { id: userId },
+            data: { balance: { increment: amount } },
+          });
+        }
       }
 
       // Store transaction details
@@ -179,12 +186,12 @@ export class CryptoService implements OnModuleInit {
           amount: amount,
           method: 'CRYPTO',
           type,
-          status: 'SUCCESS',
+          status,
           userId,
         },
       });
 
-      return user;
+      return user as User;
     } catch (error) {
       throw error;
     }
@@ -265,6 +272,8 @@ export class CryptoService implements OnModuleInit {
     userId: number,
     dto: CryptoWithdrawalDto,
   ): Promise<string> {
+    let email: string = '';
+
     try {
       const platformPrivateKey = this.getPlatformPrivateKey('base') as string;
       const account =
@@ -293,12 +302,59 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Update user balance and store transaction details
-      await this.updateDbAfterTransaction(userId, dto.amount, 'WITHDRAWAL');
-      // Update metrics for withdrawals on base
-      this.metrics.incrementCounter('withdrawals_on_base', dto.amount);
+      const user = await this.updateDbAfterTransaction(
+        userId,
+        dto.amount,
+        'SUCCESS',
+        'WITHDRAWAL',
+      );
+      email = user.email;
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'successful_withdrawals',
+        1,
+        this.baseMetricLabels,
+      );
+      this.metrics.incrementCounter(
+        'withdrawal_volume',
+        dto.amount,
+        this.baseMetricLabels,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(email, {
+        amount: dto.amount,
+        chain: 'base',
+        status: 'SUCCESS',
+        type: 'WITHDRAWAL',
+      });
 
       return hash;
     } catch (error) {
+      // Store failed transaction details
+      await this.updateDbAfterTransaction(
+        userId,
+        dto.amount,
+        'FAILED',
+        'WITHDRAWAL',
+      );
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'failed_withdrawals',
+        1,
+        this.baseMetricLabels,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(email, {
+        amount: dto.amount,
+        chain: 'base',
+        status: 'FAILED',
+        type: 'WITHDRAWAL',
+      });
+
       // Network congestion error check
       const msg = error.message as string;
       if (msg.includes('transaction underpriced')) {
@@ -317,6 +373,8 @@ export class CryptoService implements OnModuleInit {
     userId: number,
     dto: CryptoWithdrawalDto,
   ): Promise<string> {
+    let email: string = '';
+
     try {
       const sender = this.getPlatformPrivateKey('solana') as Keypair;
       const recipient = new PublicKey(dto.address);
@@ -339,17 +397,66 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Update user balance and store transaction details
-      await this.updateDbAfterTransaction(userId, dto.amount, 'WITHDRAWAL');
-      // Update metrics for withdrawals on solana
-      this.metrics.incrementCounter('withdrawals_on_solana', dto.amount);
+      const user = await this.updateDbAfterTransaction(
+        userId,
+        dto.amount,
+        'SUCCESS',
+        'WITHDRAWAL',
+      );
+      email = user.email;
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'successful_withdrawals',
+        1,
+        this.solanaMetricLabels,
+      );
+      this.metrics.incrementCounter(
+        'withdrawal_volume',
+        dto.amount,
+        this.solanaMetricLabels,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(email, {
+        amount: dto.amount,
+        chain: 'solana',
+        status: 'SUCCESS',
+        type: 'WITHDRAWAL',
+      });
 
       return signature;
     } catch (error) {
+      // Store failed transaction details
+      await this.updateDbAfterTransaction(
+        userId,
+        dto.amount,
+        'FAILED',
+        'WITHDRAWAL',
+      );
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'failed_withdrawals',
+        1,
+        this.solanaMetricLabels,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(email, {
+        amount: dto.amount,
+        chain: 'solana',
+        status: 'FAILED',
+        type: 'WITHDRAWAL',
+      });
+
       throw error;
     }
   }
 
   monitorDepositsOnBase(userId: number, address: string): void {
+    let email: string = '';
+
     const web3 = new Web3(
       new Web3.providers.WebsocketProvider(selectRpcUrl('base', 'websocket')),
     );
@@ -369,15 +476,41 @@ export class CryptoService implements OnModuleInit {
             input.slice(10) as string,
           );
           const recipient = decodedData[0] as string;
-          const amount = web3.utils.fromWei(decodedData[1] as bigint, 'mwei');
+          const receivedAmount = web3.utils.fromWei(
+            decodedData[1] as bigint,
+            'mwei',
+          );
+          const amount = parseFloat(receivedAmount);
 
           if (recipient.toLowerCase() === address.toLowerCase()) {
             // Update user balance and store transaction details
             const user = await this.updateDbAfterTransaction(
               userId,
-              parseFloat(amount),
+              amount,
+              'SUCCESS',
               'DEPOSIT',
             );
+            email = user.email;
+
+            // Update deposit metrics
+            this.metrics.incrementCounter(
+              'successful_deposits',
+              1,
+              this.baseMetricLabels,
+            );
+            this.metrics.incrementCounter(
+              'deposit_volume',
+              amount,
+              this.baseMetricLabels,
+            );
+
+            // Notify client of transaction status
+            this.gateway.sendTransactionStatus(email, {
+              amount: amount,
+              chain: 'base',
+              status: 'SUCCESS',
+              type: 'DEPOSIT',
+            });
 
             // Notify user of successful deposit
             const content = `${amount} has been deposited in your wallet. Your balance is ${user.balance}`;
@@ -402,7 +535,7 @@ export class CryptoService implements OnModuleInit {
             await this.transferTokensOnBase(
               address,
               account.address,
-              parseFloat(amount),
+              amount,
               contract,
               user.ethPrivateKey,
             );
@@ -417,12 +550,6 @@ export class CryptoService implements OnModuleInit {
             if (parseFloat(currentBalanceInEther) < minimumBalance) {
               await this.prefillUserWallet(user, 'base');
             }
-
-            // Update metrics for deposits on base
-            this.metrics.incrementCounter(
-              'deposits_on_base',
-              parseFloat(amount),
-            );
 
             return;
           }
@@ -442,6 +569,8 @@ export class CryptoService implements OnModuleInit {
     userId: number,
     address: string,
   ): Promise<void> {
+    let email: string = '';
+
     const connection = new Connection(
       selectRpcUrl('solana', 'websocket'),
       'confirmed',
@@ -461,8 +590,30 @@ export class CryptoService implements OnModuleInit {
           const user = await this.updateDbAfterTransaction(
             userId,
             amount,
+            'SUCCESS',
             'DEPOSIT',
           );
+          email = user.email;
+
+          // Update deposit metrics
+          this.metrics.incrementCounter(
+            'successful_deposits',
+            1,
+            this.solanaMetricLabels,
+          );
+          this.metrics.incrementCounter(
+            'deposit_volume',
+            amount,
+            this.solanaMetricLabels,
+          );
+
+          // Notify client of transaction status
+          this.gateway.sendTransactionStatus(email, {
+            amount: amount,
+            chain: 'solana',
+            status: 'SUCCESS',
+            type: 'DEPOSIT',
+          });
 
           // Notify user of successful deposit
           const content = `${amount} has been deposited in your wallet. Your balance is ${user.balance}`;
@@ -471,7 +622,7 @@ export class CryptoService implements OnModuleInit {
           this.utils
             .logger()
             .info(
-              `[${this.context}] Crypto deposit by ${user.email} was successful. Amount: ${amount}\n`,
+              `[${this.context}] Deposit on solana by ${email} was successful. Amount: ${amount}\n`,
             );
 
           // Initiate auto-clearing of tokens to platform wallet
@@ -494,9 +645,6 @@ export class CryptoService implements OnModuleInit {
           if (currentBalance / LAMPORTS_PER_SOL < minimumBalance) {
             await this.prefillUserWallet(user, 'solana');
           }
-
-          // Update metrics for deposits on solana
-          this.metrics.incrementCounter('deposits_on_solana', amount);
         } catch (error) {
           this.utils
             .logger()

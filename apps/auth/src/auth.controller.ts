@@ -30,13 +30,7 @@ export class AuthController {
   }): Promise<{ user: User; token: string }> {
     try {
       const { dto, file } = data;
-
-      let filePath: string;
-      file
-        ? (filePath = await this.utils.upload(file, 'profile-images'))
-        : (filePath = '');
-
-      const response = await this.authService.signup(dto, filePath);
+      const response = await this.authService.signup(dto, file);
 
       this.utils
         .logger()

@@ -5,6 +5,7 @@ import { DbModule } from '@app/db';
 import { MetricsModule } from '@app/metrics';
 import { UtilsModule } from '@app/utils';
 import { ConfigModule } from '@nestjs/config';
+import { CryptoGateway } from './crypto.gateway';
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { ConfigModule } from '@nestjs/config';
     MetricsModule,
   ],
   controllers: [CryptoController],
-  providers: [CryptoService],
+  providers: [CryptoService, CryptoGateway],
 })
 export class CryptoModule {}

@@ -25,7 +25,7 @@ import Web3, {
 } from 'web3';
 import { isAddress } from 'web3-validator';
 import { CryptoWithdrawalDto } from './dto';
-import { Chain } from './types';
+import { Chain, CryptoTransactionNotification } from './types';
 import { selectRpcUrl, selectUSDCTokenAddress } from './utils';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
@@ -33,6 +33,7 @@ import { RpcException } from '@nestjs/microservices';
 import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { MetricsService } from '@app/metrics';
 import { CryptoGateway } from './crypto.gateway';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -271,8 +272,16 @@ export class CryptoService implements OnModuleInit {
   async processWithdrawalOnBase(
     userId: number,
     dto: CryptoWithdrawalDto,
+    notificationId: string,
   ): Promise<string> {
     let email: string = '';
+    const notification: CryptoTransactionNotification = {
+      id: notificationId,
+      amount: dto.amount,
+      chain: 'base',
+      status: 'SUCCESS',
+      type: 'WITHDRAWAL',
+    };
 
     try {
       const platformPrivateKey = this.getPlatformPrivateKey('base') as string;
@@ -313,22 +322,16 @@ export class CryptoService implements OnModuleInit {
       // Update withdrawal metrics
       this.metrics.incrementCounter(
         'successful_withdrawals',
-        1,
         this.baseMetricLabels,
       );
       this.metrics.incrementCounter(
         'withdrawal_volume',
-        dto.amount,
         this.baseMetricLabels,
+        dto.amount,
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, {
-        amount: dto.amount,
-        chain: 'base',
-        status: 'SUCCESS',
-        type: 'WITHDRAWAL',
-      });
+      this.gateway.sendTransactionStatus(email, notification);
 
       return hash;
     } catch (error) {
@@ -343,16 +346,13 @@ export class CryptoService implements OnModuleInit {
       // Update withdrawal metrics
       this.metrics.incrementCounter(
         'failed_withdrawals',
-        1,
         this.baseMetricLabels,
       );
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(email, {
-        amount: dto.amount,
-        chain: 'base',
+        ...notification,
         status: 'FAILED',
-        type: 'WITHDRAWAL',
       });
 
       // Network congestion error check
@@ -372,8 +372,16 @@ export class CryptoService implements OnModuleInit {
   async processWithdrawalOnSolana(
     userId: number,
     dto: CryptoWithdrawalDto,
+    notificationId: string,
   ): Promise<string> {
     let email: string = '';
+    const notification: CryptoTransactionNotification = {
+      id: notificationId,
+      amount: dto.amount,
+      chain: 'solana',
+      status: 'SUCCESS',
+      type: 'WITHDRAWAL',
+    };
 
     try {
       const sender = this.getPlatformPrivateKey('solana') as Keypair;
@@ -408,22 +416,16 @@ export class CryptoService implements OnModuleInit {
       // Update withdrawal metrics
       this.metrics.incrementCounter(
         'successful_withdrawals',
-        1,
         this.solanaMetricLabels,
       );
       this.metrics.incrementCounter(
         'withdrawal_volume',
-        dto.amount,
         this.solanaMetricLabels,
+        dto.amount,
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, {
-        amount: dto.amount,
-        chain: 'solana',
-        status: 'SUCCESS',
-        type: 'WITHDRAWAL',
-      });
+      this.gateway.sendTransactionStatus(email, notification);
 
       return signature;
     } catch (error) {
@@ -438,16 +440,13 @@ export class CryptoService implements OnModuleInit {
       // Update withdrawal metrics
       this.metrics.incrementCounter(
         'failed_withdrawals',
-        1,
         this.solanaMetricLabels,
       );
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(email, {
-        amount: dto.amount,
-        chain: 'solana',
+        ...notification,
         status: 'FAILED',
-        type: 'WITHDRAWAL',
       });
 
       throw error;
@@ -495,17 +494,17 @@ export class CryptoService implements OnModuleInit {
             // Update deposit metrics
             this.metrics.incrementCounter(
               'successful_deposits',
-              1,
               this.baseMetricLabels,
             );
             this.metrics.incrementCounter(
               'deposit_volume',
-              amount,
               this.baseMetricLabels,
+              amount,
             );
 
             // Notify client of transaction status
             this.gateway.sendTransactionStatus(email, {
+              id: randomUUID(),
               amount: amount,
               chain: 'base',
               status: 'SUCCESS',
@@ -598,17 +597,17 @@ export class CryptoService implements OnModuleInit {
           // Update deposit metrics
           this.metrics.incrementCounter(
             'successful_deposits',
-            1,
             this.solanaMetricLabels,
           );
           this.metrics.incrementCounter(
             'deposit_volume',
-            amount,
             this.solanaMetricLabels,
+            amount,
           );
 
           // Notify client of transaction status
           this.gateway.sendTransactionStatus(email, {
+            id: randomUUID(),
             amount: amount,
             chain: 'solana',
             status: 'SUCCESS',

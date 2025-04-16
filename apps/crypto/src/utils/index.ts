@@ -1,15 +1,12 @@
 import { ConfigService } from '@nestjs/config';
-import { Chain } from '../types';
+import { Chain, RpcUrlMode } from '../types';
 
 const config = new ConfigService();
 const NODE_ENV = config.getOrThrow<string>('NODE_ENV');
 const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
 const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
 
-export const selectRpcUrl = (
-  chain: Chain,
-  mode: 'http' | 'websocket',
-): string => {
+export const selectRpcUrl = (chain: Chain, mode: RpcUrlMode): string => {
   let url: string;
 
   mode === 'http' ? (url = 'https://') : (url = 'wss://');
@@ -45,4 +42,25 @@ export const selectUSDCTokenAddress = (chain: Chain): string => {
   }
 
   return address;
+};
+
+export const selectChainExplorer = (
+  chain: Chain,
+  txIdentifier: string,
+): string => {
+  let url: string = '';
+
+  if (NODE_ENV === 'production') {
+    chain === 'base'
+      ? (url = `https://basescan.org/tx/${txIdentifier}`)
+      : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=mainnet`);
+  }
+
+  if (NODE_ENV === 'development' || NODE_ENV === 'test') {
+    chain === 'base'
+      ? (url = `https://sepolia.basescan.org/tx/${txIdentifier}`)
+      : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=devnet`);
+  }
+
+  return url;
 };

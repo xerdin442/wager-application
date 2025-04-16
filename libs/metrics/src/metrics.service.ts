@@ -15,8 +15,8 @@ export class MetricsService {
   updateGauge(
     name: string,
     action: 'dec' | 'inc',
-    value?: number,
     labels?: string[],
+    value = 1,
   ): void {
     if (!this.gauge[name]) {
       this.gauge[name] = new Gauge({
@@ -31,12 +31,18 @@ export class MetricsService {
       });
     }
 
-    action === 'dec'
-      ? this.gauge[name].dec(value)
-      : this.gauge[name].inc(value);
+    const gauge: Gauge = this.gauge[name];
+
+    if (labels) {
+      action === 'dec'
+        ? gauge.labels(...labels).dec(value)
+        : gauge.labels(...labels).inc(value);
+    } else {
+      action === 'dec' ? gauge.dec(value) : gauge.inc(value);
+    }
   }
 
-  incrementCounter(name: string, value?: number, labels?: string[]): void {
+  incrementCounter(name: string, labels?: string[], value = 1): void {
     if (!this.counter[name]) {
       this.counter[name] = new Counter({
         name,
@@ -50,6 +56,8 @@ export class MetricsService {
       });
     }
 
-    this.counter[name].inc(value);
+    labels
+      ? this.counter[name].labels(...labels).inc(value)
+      : this.counter[name].inc(value);
   }
 }

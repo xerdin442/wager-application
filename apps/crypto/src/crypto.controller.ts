@@ -4,9 +4,12 @@ import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
-import { Chain } from './types';
+import { Chain, CryptoTransactionNotification } from './types';
 import { CryptoWithdrawalDto } from './dto';
 import { RedisClientType } from 'redis';
+import { CryptoGateway } from './crypto.gateway';
+import { randomUUID } from 'crypto';
+import { selectChainExplorer } from './utils';
 
 @Controller()
 export class CryptoController {
@@ -16,6 +19,7 @@ export class CryptoController {
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
     private readonly cryptoService: CryptoService,
+    private readonly gateway: CryptoGateway,
   ) {}
 
   @MessagePattern('deposit')
@@ -61,14 +65,13 @@ export class CryptoController {
     );
 
     try {
-      let message: string = '';
       const { chain, user, dto, idempotencyKey } = data;
 
       // Check if request contains a valid idempotency key
       if (!idempotencyKey) {
         throw new RpcException({
           status: 400,
-          message: 'Idempotency-Key header is required',
+          message: '"Idempotency-Key" header is required',
         });
       }
 
@@ -100,21 +103,38 @@ export class CryptoController {
         });
       }
 
+      // Notify client of transactions status
+      const notification: CryptoTransactionNotification = {
+        id: randomUUID(),
+        amount: dto.amount,
+        chain,
+        status: 'PENDING',
+        type: 'WITHDRAWAL',
+      };
+      this.gateway.sendTransactionStatus(user.email, notification);
+
       let hash: string = '';
       let signature: string = '';
-
+      let message: string = '';
       switch (chain) {
         case 'base':
-          hash = await this.cryptoService.processWithdrawalOnBase(user.id, dto);
-          message = `Your withdrawal is complete. Verify this transaction with ${hash}`;
+          hash = await this.cryptoService.processWithdrawalOnBase(
+            user.id,
+            dto,
+            notification.id,
+          );
+
+          message = `Your withdrawal is complete. Verify this transaction on ${selectChainExplorer(chain, hash)}`;
           break;
 
         case 'solana':
           signature = await this.cryptoService.processWithdrawalOnSolana(
             user.id,
             dto,
+            notification.id,
           );
-          message = `Your withdrawal is complete. Verify this transaction with ${signature}`;
+
+          message = `Your withdrawal is complete. Verify this transaction on ${selectChainExplorer(chain, signature)}`;
           break;
 
         default:
@@ -129,7 +149,7 @@ export class CryptoController {
       await redis.setEx(
         idempotencyKey,
         1200,
-        JSON.stringify({ status: 'processing' }),
+        JSON.stringify({ status: 'pending' }),
       );
 
       return { message };

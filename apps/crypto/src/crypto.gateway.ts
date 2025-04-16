@@ -4,13 +4,24 @@ import {
   WebSocketGateway,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  WsException,
+  BaseWsExceptionFilter,
+  ConnectedSocket,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { IncomingMessage } from 'http';
-import { CryptoTransaction } from './types';
+import { CryptoTransactionNotification } from './types';
+import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway({ path: 'wallet/crypto' })
+@UsePipes(
+  new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
+)
+@UseFilters(new BaseWsExceptionFilter())
+@WebSocketGateway(8080, { path: 'wallet/crypto' })
 export class CryptoGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private clients: Record<string, WebSocket> = {}; // Store active WebSocket connections
+  @WebSocketServer()
+  private readonly server: Server;
+
   private readonly context: string = CryptoGateway.name;
 
   constructor(
@@ -18,35 +29,25 @@ export class CryptoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly utils: UtilsService,
   ) {}
 
-  async handleConnection(
-    client: WebSocket,
-    req: IncomingMessage,
-  ): Promise<void> {
+  async handleConnection(@ConnectedSocket() client: Socket): Promise<void> {
     try {
       // Reject the connection if email is not provided
-      const email = new URL(req.url as string).searchParams.get('email');
-      if (!email) {
-        client.close(1008, 'Missing email query parameter');
-        return;
-      }
+      const email = client.handshake.query.email as string;
+      if (!email) throw new WsException('Missing email query parameter');
 
       // Reject the connection if no user exists with email address
       const user = await this.prisma.user.findUnique({
         where: { email },
       });
-      if (!user) {
-        client.close(1003, 'Invalid email address');
-        return;
-      }
+      if (!user) throw new WsException('Invalid email address');
 
-      this.clients[email] = client;
+      client.data.email = email; // Attach email to the socket instance
+
       this.utils
         .logger()
         .info(
           `[${this.context}] Client connected to crypto gateway: ${email}\n`,
         );
-
-      return;
     } catch (error) {
       this.utils
         .logger()
@@ -58,23 +59,14 @@ export class CryptoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(client: WebSocket) {
+  handleDisconnect(@ConnectedSocket() client: Socket) {
     try {
-      // Check if client exists in connection store before deleting
-      const email = Object.keys(this.clients).find(
-        (key) => this.clients[key] === client,
-      );
-
+      const email = client.data?.email as string;
       if (email) {
-        delete this.clients[email];
         this.utils
           .logger()
-          .info(
-            `[${this.context}] Client disconnected from crypto gateway: ${email}\n`,
-          );
+          .info(`[${this.context}] Client disconnected: ${email}`);
       }
-
-      return;
     } catch (error) {
       this.utils
         .logger()
@@ -86,12 +78,21 @@ export class CryptoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  sendTransactionStatus(email: string, transaction: CryptoTransaction) {
+  sendTransactionStatus(
+    email: string,
+    notification: CryptoTransactionNotification,
+  ) {
     try {
-      const client = this.clients[email];
+      const client = Array.from(this.server.sockets.sockets.values()).find(
+        (socket) => socket.data.email === email,
+      );
+
       if (client) {
-        client.send(JSON.stringify({ transaction }));
-        return;
+        client.emit('transaction-status', notification);
+      } else {
+        throw new WsException(
+          `Transaction notification failed: No active socket for ${email}.`,
+        );
       }
     } catch (error) {
       this.utils

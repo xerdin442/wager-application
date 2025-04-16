@@ -32,6 +32,7 @@ enum TransactionType {
 }
 
 enum TransactionStatus {
+  PENDING
   SUCCESS
   FAILED
 }

@@ -56,7 +56,7 @@ export class CryptoController {
     chain: Chain;
     user: User;
     dto: CryptoWithdrawalDto;
-    idempotencyKey: string;
+    idempotencyKey?: string;
   }): Promise<{ message: string }> {
     const redis: RedisClientType = await this.utils.connectToRedis(
       this.config.getOrThrow<string>('REDIS_URL'),

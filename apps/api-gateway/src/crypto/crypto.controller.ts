@@ -39,7 +39,7 @@ export class CryptoController {
     @GetUser() user: User,
     @Query('chain') chain: Chain,
     @Body() dto: CryptoWithdrawalDto,
-    @Headers('Idempotency-Key') idempotencyKey: string,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
   ): Observable<any> {
     return this.natsClient
       .send('withdraw', { chain, user, dto, idempotencyKey })

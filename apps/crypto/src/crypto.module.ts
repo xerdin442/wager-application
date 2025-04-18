@@ -7,6 +7,7 @@ import { UtilsModule } from '@app/utils';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CryptoGateway } from './crypto.gateway';
 import { BullModule } from '@nestjs/bull';
+import { CryptoProcessor } from './crypto.processor';
 
 @Module({
   imports: [
@@ -34,6 +35,6 @@ import { BullModule } from '@nestjs/bull';
     MetricsModule,
   ],
   controllers: [CryptoController],
-  providers: [CryptoService, CryptoGateway],
+  providers: [CryptoService, CryptoGateway, CryptoProcessor],
 })
 export class CryptoModule {}

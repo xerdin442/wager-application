@@ -34,6 +34,8 @@ import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { MetricsService } from '@app/metrics';
 import { CryptoGateway } from './crypto.gateway';
 import { randomUUID } from 'crypto';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -90,6 +92,7 @@ export class CryptoService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly metrics: MetricsService,
     private readonly gateway: CryptoGateway,
+    @InjectQueue('crypto-queue') private readonly cryptoQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -354,6 +357,9 @@ export class CryptoService implements OnModuleInit {
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(email, notification);
 
+      // Check platform wallet balance
+      await this.cryptoQueue.add('check-balance', { chain: 'base' });
+
       return hash;
     } catch (error) {
       // Store failed transaction details
@@ -447,6 +453,9 @@ export class CryptoService implements OnModuleInit {
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(email, notification);
+
+      // Check platform wallet balance
+      await this.cryptoQueue.add('check-balance', { chain: 'solana' });
 
       return signature;
     } catch (error) {

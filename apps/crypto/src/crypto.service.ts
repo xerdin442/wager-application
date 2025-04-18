@@ -39,6 +39,7 @@ import { randomUUID } from 'crypto';
 export class CryptoService implements OnModuleInit {
   private readonly context: string = CryptoService.name;
 
+  // Connect to RPC endpoints
   private readonly web3 = new Web3(
     new Web3.providers.HttpProvider(selectRpcUrl('base', 'http')),
   );
@@ -46,6 +47,7 @@ export class CryptoService implements OnModuleInit {
     selectRpcUrl('solana', 'http'),
     'confirmed',
   );
+
   private readonly USDC_CONTRACT_ABI: ContractAbi = [
     {
       name: 'transfer',
@@ -57,11 +59,30 @@ export class CryptoService implements OnModuleInit {
       ],
       outputs: [{ name: '', type: 'bool' }],
     },
+    {
+      name: 'balanceOf',
+      type: 'function',
+      constant: true,
+      inputs: [{ name: '_owner', type: 'address' }],
+      outputs: [{ name: 'balance', type: 'uint256' }],
+    },
   ];
-  private readonly BASE_USDC_TOKEN_ADDRESS = selectUSDCTokenAddress('base');
-  private readonly SOLANA_USDC_MINT_ADDRESS = selectUSDCTokenAddress('solana');
+  private readonly BASE_USDC_TOKEN_ADDRESS: string =
+    selectUSDCTokenAddress('base');
+  private readonly SOLANA_USDC_MINT_ADDRESS: string =
+    selectUSDCTokenAddress('solana');
+
+  // Minimum amount in USD for native assets and stablecoins
+  private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 1000;
+
+  // Chain-specific metric labels
   private readonly baseMetricLabels: string[] = ['base', 'crypto'];
   private readonly solanaMetricLabels: string[] = ['solana', 'crypto'];
+
+  private readonly superAdmin: Record<string, string> = {
+    name: 'Admin',
+    email: process.env.SUPER_ADMIN_EMAIL as string,
+  };
 
   constructor(
     private readonly prisma: DbService,
@@ -540,7 +561,7 @@ export class CryptoService implements OnModuleInit {
             );
 
             // Top up user wallet if gas fees are low
-            const minimumBalance = await this.convertToCrypto(0.2, 'base');
+            const minimumBalance = await this.convertToCrypto(0.35, 'base');
             const currentBalanceInWei = await web3.eth.getBalance(address);
             const currentBalanceInEther = web3.utils.fromWei(
               currentBalanceInWei,
@@ -637,7 +658,7 @@ export class CryptoService implements OnModuleInit {
           );
 
           // Top up user wallet if gas fees are low
-          const minimumBalance = await this.convertToCrypto(0.2, 'solana');
+          const minimumBalance = await this.convertToCrypto(0.35, 'solana');
           const currentBalance = await connection.getBalance(
             new PublicKey(address),
           );
@@ -684,9 +705,10 @@ export class CryptoService implements OnModuleInit {
 
   async prefillUserWallet(user: User, chain: Chain): Promise<void> {
     try {
+      const amount = await this.convertToCrypto(3, chain);
+
       if (chain === 'solana') {
-        const amount = await this.convertToCrypto(3, 'solana');
-        const platformWallet = this.getPlatformPrivateKey('solana') as Keypair;
+        const platformWallet = this.getPlatformPrivateKey(chain) as Keypair;
         const recipient = new PublicKey(user.solAddress);
 
         // Configure and add transaction instruction to System Program
@@ -700,9 +722,10 @@ export class CryptoService implements OnModuleInit {
 
         // Sign, send and confirm the transaction on the network
         await sendAndConfirmTransaction(this.connection, tx, [platformWallet]);
-      } else if (chain === 'base') {
-        const amount = await this.convertToCrypto(3, 'base');
-        const platformPrivateKey = this.getPlatformPrivateKey('base') as string;
+      }
+
+      if (chain === 'base') {
+        const platformPrivateKey = this.getPlatformPrivateKey(chain) as string;
         const account =
           this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
 
@@ -732,12 +755,153 @@ export class CryptoService implements OnModuleInit {
         await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
       }
 
+      // Check platform wallet balance after prefill
+      await this.checkNativeAssetBalance(chain);
+
       return;
     } catch (error) {
       throw error;
     }
   }
 
+  async checkNativeAssetBalance(chain: Chain): Promise<void> {
+    try {
+      let lowBalanceCheck: boolean = false;
+      let currentBalance: number = 0;
+
+      let symbol: string = '';
+      chain === 'base' ? (symbol = 'ETH') : (symbol = 'SOL');
+
+      // Convert allowed minimum amount to crypto equivalent
+      const minimumBalance = await this.convertToCrypto(
+        this.PLATFORM_WALLET_MINIMUM_BALANCE,
+        chain,
+      );
+
+      if (chain === 'base') {
+        const platformPrivateKey = this.getPlatformPrivateKey(chain) as string;
+        const account =
+          this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+
+        // Get ETH balance
+        const currentBalanceInWei = await this.web3.eth.getBalance(
+          account.address,
+        );
+        const currentBalanceInEther = this.web3.utils.fromWei(
+          currentBalanceInWei,
+          'ether',
+        );
+        currentBalance = parseFloat(currentBalanceInEther);
+
+        // Check if balance is below allowed minimum
+        if (currentBalance < minimumBalance) lowBalanceCheck = true;
+      }
+
+      if (chain === 'solana') {
+        const platformPrivateKey = this.getPlatformPrivateKey(chain) as Keypair;
+        // Get SOL balance
+        const currentBalanceInLamports = await this.connection.getBalance(
+          platformPrivateKey.publicKey,
+        );
+        currentBalance = currentBalanceInLamports / LAMPORTS_PER_SOL;
+
+        // Check if balance is below allowed minimum
+        if (currentBalance < minimumBalance) lowBalanceCheck = true;
+      }
+
+      // Notify admin if native asset balance is low
+      if (lowBalanceCheck) {
+        const content = `The platform wallet on ${chain} has a native asset balance of ${currentBalance}${symbol}`;
+        await this.utils.sendEmail(
+          this.superAdmin,
+          'Low Balance Alert',
+          content,
+        );
+
+        this.utils
+          .logger()
+          .warn(
+            `[${this.context}] The platform wallet on ${chain} has a low native asset balance. Balance: ${currentBalance}${symbol}\n`,
+          );
+      }
+    } catch (error) {
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occured while checking native asset balance of platform wallet on ${chain}\n`,
+        );
+
+      throw error;
+    }
+  }
+
+  async checkStablecoinBalance(chain: Chain): Promise<void> {
+    try {
+      let lowBalanceCheck: boolean = false;
+      let currentBalance: number = 0;
+
+      if (chain === 'base') {
+        const platformPrivateKey = this.getPlatformPrivateKey(chain) as string;
+        const account =
+          this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+        const contract = new this.web3.eth.Contract(
+          this.USDC_CONTRACT_ABI,
+          this.BASE_USDC_TOKEN_ADDRESS,
+        );
+
+        // Get stablecoin balance
+        const balanceInWei: string = await contract.methods
+          .balanceOf(account.address)
+          .call();
+        const balanceInUSDC = this.web3.utils.fromWei(balanceInWei, 'mwei');
+        currentBalance = parseFloat(balanceInUSDC);
+
+        // Check if balance is below allowed minimum
+        if (currentBalance < this.PLATFORM_WALLET_MINIMUM_BALANCE)
+          lowBalanceCheck = true;
+      }
+
+      if (chain === 'solana') {
+        const platformPrivateKey = this.getPlatformPrivateKey(chain) as Keypair;
+        const tokenAddress = await this.getTokenAccountAddress(
+          platformPrivateKey.publicKey,
+        );
+
+        // Get stablecoin balance
+        const balance =
+          await this.connection.getTokenAccountBalance(tokenAddress);
+        currentBalance = balance.value.uiAmount as number;
+
+        // Check if balance is below allowed minimum
+        if (currentBalance < this.PLATFORM_WALLET_MINIMUM_BALANCE)
+          lowBalanceCheck = true;
+      }
+
+      // Notify admin if balance is low
+      if (lowBalanceCheck) {
+        const content = `The platform wallet on ${chain} has a stablecoin balance of ${currentBalance} USDC.`;
+        await this.utils.sendEmail(
+          this.superAdmin,
+          'Low Balance Alert',
+          content,
+        );
+
+        this.utils
+          .logger()
+          .warn(
+            `[${this.context}] The platform wallet on ${chain} has a low stablecoin balance. Balance: ${currentBalance} USDC.\n`,
+          );
+      }
+    } catch (error) {
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occured while checking stablecoin balance of platform wallet on ${chain}\n`,
+        );
+
+      throw error;
+    }
+  }
+
   // async clearUserWallet(address: string, chain: Chain): Promise<void> {}
-  // async checkPlatformWalletBalance(chain: Chain): Promise<void> {}
 }

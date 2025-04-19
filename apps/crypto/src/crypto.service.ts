@@ -298,7 +298,6 @@ export class CryptoService implements OnModuleInit {
     dto: CryptoWithdrawalDto,
     notificationId: string,
   ): Promise<string> {
-    let email: string = '';
     const notification: CryptoTransactionNotification = {
       id: notificationId,
       amount: dto.amount,
@@ -341,7 +340,6 @@ export class CryptoService implements OnModuleInit {
         'SUCCESS',
         'WITHDRAWAL',
       );
-      email = user.email;
 
       // Update withdrawal metrics
       this.metrics.incrementCounter(
@@ -355,15 +353,21 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, notification);
+      this.gateway.sendTransactionStatus(user.email, notification);
 
+      // Notify user of successful withdrawal
+      await this.cryptoQueue.add('withdrawal-mail', {
+        user,
+        amount: dto.amount,
+        status: 'success',
+      });
       // Check platform wallet balance
       await this.cryptoQueue.add('check-balance', { chain: 'base' });
 
       return hash;
     } catch (error) {
       // Store failed transaction details
-      await this.updateDbAfterTransaction(
+      const user = await this.updateDbAfterTransaction(
         userId,
         dto.amount,
         'FAILED',
@@ -377,9 +381,16 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, {
+      this.gateway.sendTransactionStatus(user.email, {
         ...notification,
         status: 'FAILED',
+      });
+
+      // Notify user of failed withdrawal
+      await this.cryptoQueue.add('withdrawal-mail', {
+        user,
+        amount: dto.amount,
+        status: 'failed',
       });
 
       // Network congestion error check
@@ -401,7 +412,6 @@ export class CryptoService implements OnModuleInit {
     dto: CryptoWithdrawalDto,
     notificationId: string,
   ): Promise<string> {
-    let email: string = '';
     const notification: CryptoTransactionNotification = {
       id: notificationId,
       amount: dto.amount,
@@ -438,7 +448,6 @@ export class CryptoService implements OnModuleInit {
         'SUCCESS',
         'WITHDRAWAL',
       );
-      email = user.email;
 
       // Update withdrawal metrics
       this.metrics.incrementCounter(
@@ -452,15 +461,21 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, notification);
+      this.gateway.sendTransactionStatus(user.email, notification);
 
+      // Notify user of successful withdrawal
+      await this.cryptoQueue.add('withdrawal-mail', {
+        user,
+        amount: dto.amount,
+        status: 'success',
+      });
       // Check platform wallet balance
       await this.cryptoQueue.add('check-balance', { chain: 'solana' });
 
       return signature;
     } catch (error) {
       // Store failed transaction details
-      await this.updateDbAfterTransaction(
+      const user = await this.updateDbAfterTransaction(
         userId,
         dto.amount,
         'FAILED',
@@ -474,9 +489,16 @@ export class CryptoService implements OnModuleInit {
       );
 
       // Notify client of transaction status
-      this.gateway.sendTransactionStatus(email, {
+      this.gateway.sendTransactionStatus(user.email, {
         ...notification,
         status: 'FAILED',
+      });
+
+      // Notify user of failed withdrawal
+      await this.cryptoQueue.add('withdrawal-mail', {
+        user,
+        amount: dto.amount,
+        status: 'failed',
       });
 
       throw error;
@@ -484,8 +506,6 @@ export class CryptoService implements OnModuleInit {
   }
 
   monitorDepositsOnBase(userId: number, address: string): void {
-    let email: string = '';
-
     const web3 = new Web3(
       new Web3.providers.WebsocketProvider(selectRpcUrl('base', 'websocket')),
     );
@@ -519,7 +539,6 @@ export class CryptoService implements OnModuleInit {
               'SUCCESS',
               'DEPOSIT',
             );
-            email = user.email;
 
             // Update deposit metrics
             this.metrics.incrementCounter(
@@ -533,7 +552,7 @@ export class CryptoService implements OnModuleInit {
             );
 
             // Notify client of transaction status
-            this.gateway.sendTransactionStatus(email, {
+            this.gateway.sendTransactionStatus(user.email, {
               id: randomUUID(),
               amount: amount,
               chain: 'base',
@@ -542,13 +561,13 @@ export class CryptoService implements OnModuleInit {
             });
 
             // Notify user of successful deposit
-            const content = `${amount} has been deposited in your wallet. Your balance is ${user.balance}`;
+            const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
             await this.utils.sendEmail(user, 'Deposit Complete', content);
 
             this.utils
               .logger()
               .info(
-                `[${this.context}] Crypto deposit by ${user.email} was successful. Amount: ${amount}\n`,
+                `[${this.context}] Stablecoin deposit by ${user.email} was successful. Amount: ${amount}USDC\n`,
               );
 
             // Initiate auto-clearing of tokens to platform wallet
@@ -598,8 +617,6 @@ export class CryptoService implements OnModuleInit {
     userId: number,
     address: string,
   ): Promise<void> {
-    let email: string = '';
-
     const connection = new Connection(
       selectRpcUrl('solana', 'websocket'),
       'confirmed',
@@ -622,7 +639,6 @@ export class CryptoService implements OnModuleInit {
             'SUCCESS',
             'DEPOSIT',
           );
-          email = user.email;
 
           // Update deposit metrics
           this.metrics.incrementCounter(
@@ -636,7 +652,7 @@ export class CryptoService implements OnModuleInit {
           );
 
           // Notify client of transaction status
-          this.gateway.sendTransactionStatus(email, {
+          this.gateway.sendTransactionStatus(user.email, {
             id: randomUUID(),
             amount: amount,
             chain: 'solana',
@@ -645,13 +661,13 @@ export class CryptoService implements OnModuleInit {
           });
 
           // Notify user of successful deposit
-          const content = `${amount} has been deposited in your wallet. Your balance is ${user.balance}`;
+          const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
           await this.utils.sendEmail(user, 'Deposit Complete', content);
 
           this.utils
             .logger()
             .info(
-              `[${this.context}] Deposit on solana by ${email} was successful. Amount: ${amount}\n`,
+              `[${this.context}] Stablecoin deposit by ${user.email} was successful. Amount: ${amount}USDC\n`,
             );
 
           // Initiate auto-clearing of tokens to platform wallet

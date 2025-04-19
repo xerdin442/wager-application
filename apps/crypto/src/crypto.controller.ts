@@ -60,7 +60,7 @@ export class CryptoController {
   }): Promise<{ message: string }> {
     const redis: RedisClientType = await this.utils.connectToRedis(
       this.config.getOrThrow<string>('REDIS_URL'),
-      this.context,
+      'Idempotency Keys',
       this.config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
     );
 
@@ -151,6 +151,12 @@ export class CryptoController {
         1200,
         JSON.stringify({ status: 'pending' }),
       );
+
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] Stablecoin withdrawal by ${user.email} was successful. Amount: ${dto.amount}USDC\n`,
+        );
 
       return { message };
     } catch (error) {

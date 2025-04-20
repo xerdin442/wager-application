@@ -7,6 +7,7 @@ import { UtilsModule } from '@app/utils';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FiatProcessor } from './fiat.processor';
+import { FiatGateway } from './fiat.gateway';
 
 @Module({
   imports: [
@@ -34,6 +35,6 @@ import { FiatProcessor } from './fiat.processor';
     MetricsModule,
   ],
   controllers: [FiatController],
-  providers: [FiatService, FiatProcessor],
+  providers: [FiatService, FiatProcessor, FiatGateway],
 })
 export class FiatModule {}

@@ -8,9 +8,10 @@ import { RedisClientType } from 'redis';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { AccountDetails } from './types';
+import { AccountDetails, FiatTransactionNotification } from './types';
 import { IncomingHttpHeaders } from 'http';
-import crypto from 'crypto';
+import crypto, { randomUUID } from 'crypto';
+import { FiatGateway } from './fiat.gateway';
 
 @Controller()
 export class FiatController {
@@ -20,6 +21,7 @@ export class FiatController {
     private readonly fiatService: FiatService,
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
+    private readonly gateway: FiatGateway,
     @InjectQueue('fiat-queue') private readonly fiatQueue: Queue,
   ) {}
 
@@ -40,6 +42,7 @@ export class FiatController {
         {
           userId: user.id,
           amount: depositAmount,
+          email: user.email,
         },
       );
 
@@ -224,29 +227,55 @@ export class FiatController {
       if (hash === headers['x-paystack-signature']) {
         // Listen for status of transactions while processing deposits
         if (paystackEvent.includes('charge')) {
-          // **Pending deposit notis
+          const amount = parseInt(
+            paystackTransaction.metadata.amount as string,
+          );
+
+          // Notify client of transaction status
+          const notification: FiatTransactionNotification = {
+            id: randomUUID(),
+            status: 'PENDING',
+            type: 'DEPOSIT',
+            amount,
+          };
+          this.gateway.sendTransactionStatus(
+            paystackTransaction.metadata.email as string,
+            notification,
+          );
 
           await this.fiatQueue.add('deposit', {
-            notificationId: '', // **notis id
+            notificationId: notification.id,
             paystackEvent,
             userId: parseInt(paystackTransaction.metadata.userId as string),
-            amount: parseInt(paystackTransaction.metadata.amount as string),
+            amount,
           });
         }
 
         // Listen for status of transfers while processing withdrawals
         if (paystackEvent.includes('transfer')) {
-          // **Pending withdrawal notis
-
           const metadata = paystackTransaction.recipient.metadata as Record<
             string,
             any
           >;
+          const amount = parseInt(metadata.amount as string);
+
+          // Notify client of transaction status
+          const notification: FiatTransactionNotification = {
+            id: randomUUID(),
+            status: 'PENDING',
+            type: 'WITHDRAWAL',
+            amount,
+          };
+          this.gateway.sendTransactionStatus(
+            metadata.email as string,
+            notification,
+          );
+
           await this.fiatQueue.add('complete-withdrawal', {
             notificationId: '', // **notis id
             paystackEvent,
             userId: parseInt(metadata.userId as string),
-            amount: parseInt(metadata.amount as string),
+            amount,
             date: body.data.updated_at as string,
           });
         }

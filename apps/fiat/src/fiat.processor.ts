@@ -9,6 +9,7 @@ import { AccountDetails, FiatTransactionNotification } from './types';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
 import { FiatWithdrawalDto } from './dto';
+import { FiatGateway } from './fiat.gateway';
 
 @Injectable()
 @Processor('fiat-queue')
@@ -23,6 +24,7 @@ export class FiatProcessor {
     private readonly metrics: MetricsService,
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
+    private readonly gateway: FiatGateway,
   ) {}
 
   @Process('deposit')
@@ -35,7 +37,6 @@ export class FiatProcessor {
       status: 'SUCCESS',
       type: 'DEPOSIT',
     };
-    console.log(notification);
 
     try {
       if (event === 'charge.success') {
@@ -55,8 +56,8 @@ export class FiatProcessor {
           amount as number,
         );
 
-        // **Notify client of transaction status
-        // this.gateway.sendTransactionStatus(user.email, notification);
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, notification);
 
         // Notify user of successful deposit
         const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
@@ -81,11 +82,11 @@ export class FiatProcessor {
         // Update deposit metrics
         this.metrics.incrementCounter('failed_deposits', this.metricLabels);
 
-        // **Notify client of transaction status
-        // this.gateway.sendTransactionStatus(email, {
-        //   ...notification,
-        //   status: 'FAILED',
-        // });
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, {
+          ...notification,
+          status: 'FAILED',
+        });
 
         // Notify user of failed deposit
         const content = `Your deposit of ${amount}USDC was unsuccessful. Please try again later.`;
@@ -137,6 +138,7 @@ export class FiatProcessor {
         {
           userId: userId as number,
           amount: dto.amount,
+          email: email as string,
         },
       );
 
@@ -179,7 +181,6 @@ export class FiatProcessor {
       status: 'SUCCESS',
       type: 'WITHDRAWAL',
     };
-    console.log(notification);
 
     try {
       if (event === 'transfer.success') {
@@ -202,8 +203,8 @@ export class FiatProcessor {
           amount as number,
         );
 
-        // **Notify client of transaction status
-        // this.gateway.sendTransactionStatus(user.email, notification);
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, notification);
 
         // Notify user of successful withdrawal
         const content = `Your withdrawal of ${amount}USDC on ${date} was successful. Your balance is ${user.balance}USDC`;
@@ -226,11 +227,11 @@ export class FiatProcessor {
         // Update withdrawal metrics
         this.metrics.incrementCounter('failed_withdrawals', this.metricLabels);
 
-        // **Notify client of transaction status
-        // this.gateway.sendTransactionStatus(user.email, {
-        //   ...notification,
-        //   status: 'FAILED',
-        // });
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, {
+          ...notification,
+          status: 'FAILED',
+        });
 
         // Notify user of failed withdrawal
         const content = `Your withdrawal of ${amount}USDC on ${date} was unsuccessful. Please try again later.`;

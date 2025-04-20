@@ -29,5 +29,4 @@ export type FiatTransactionNotification = {
   status: TransactionStatus;
   amount: number;
   type: TransactionType;
-  method?: 'card' | 'transfer';
 };

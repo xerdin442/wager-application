@@ -79,9 +79,7 @@ export class AuthService {
 
       // Sanitize user output
       user.password = '';
-      user.ethAddress = '';
       user.ethPrivateKey = '';
-      user.solAddress = '';
       user.solPrivateKey = '';
 
       return { user, token: await this.jwt.signAsync(payload) };

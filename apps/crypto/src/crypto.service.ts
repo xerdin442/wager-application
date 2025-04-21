@@ -904,7 +904,7 @@ export class CryptoService implements OnModuleInit {
 
       // Notify admin if balance is low
       if (lowBalanceCheck) {
-        const content = `The platform wallet on ${chain} has a stablecoin balance of ${currentBalance} USDC.`;
+        const content = `The platform wallet on ${chain} has a stablecoin balance of ${currentBalance}USDC.`;
         await this.utils.sendEmail(
           this.superAdmin,
           'Low Balance Alert',
@@ -914,7 +914,7 @@ export class CryptoService implements OnModuleInit {
         this.utils
           .logger()
           .warn(
-            `[${this.context}] The platform wallet on ${chain} has a low stablecoin balance. Balance: ${currentBalance} USDC.\n`,
+            `[${this.context}] The platform wallet on ${chain} has a low stablecoin balance. Balance: ${currentBalance}USDC.\n`,
           );
       }
     } catch (error) {

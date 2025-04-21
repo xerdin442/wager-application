@@ -14,7 +14,7 @@ export class SuperAdminGuard implements CanActivate {
     const adminId = +request.admin.id;
     if (adminId !== 1) {
       throw new ForbiddenException(
-        'Only a super admin is authorized to perform this operation',
+        'Only a Super Admin is authorized to perform this operation',
       );
     }
 
@@ -30,7 +30,7 @@ export class AdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Record<string, any>>();
     if (!request.admin) {
       throw new ForbiddenException(
-        'Only an admin can assign winners after dispute resolution',
+        'Only an Admin can assign winners after dispute resolution',
       );
     }
 

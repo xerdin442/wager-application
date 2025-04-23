@@ -11,6 +11,7 @@ import { MetricsModule } from '@app/metrics';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AdminModule } from './admin/admin.module';
     FiatModule,
     AuthModule,
     AdminModule,
+    UserModule,
   ],
   providers: [
     {

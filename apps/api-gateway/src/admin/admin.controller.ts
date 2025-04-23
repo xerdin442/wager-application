@@ -49,9 +49,7 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'))
   @UseGuards(SuperAdminGuard)
   addAdmin(@Body() dto: CreateAdminDto): Observable<any> {
-    return this.natsClient
-      .send('add-admin', { dto })
-      .pipe(catchError(handleError));
+    return this.natsClient.send('add', { dto }).pipe(catchError(handleError));
   }
 
   @Post('remove')
@@ -60,7 +58,7 @@ export class AdminController {
   @UseGuards(SuperAdminGuard)
   removeAdmin(@Query('email') email: string): Observable<any> {
     return this.natsClient
-      .send('remove-admin', { email })
+      .send('remove', { email })
       .pipe(catchError(handleError));
   }
 

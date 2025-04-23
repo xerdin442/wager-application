@@ -8,6 +8,7 @@ import {
   Inject,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { User } from '@prisma/client';
@@ -16,8 +17,10 @@ import { catchError, Observable } from 'rxjs';
 import { Chain } from './types';
 import { CryptoWithdrawalDto } from './dto';
 import { handleError } from '../utils/error';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('wallet/crypto')
+@UseGuards(AuthGuard('jwt'))
 export class CryptoController {
   constructor(
     @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,

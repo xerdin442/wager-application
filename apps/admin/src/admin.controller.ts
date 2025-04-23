@@ -79,7 +79,7 @@ export class AdminController {
     }
   }
 
-  @MessagePattern('add-admin')
+  @MessagePattern('add')
   async addAdmin(data: { dto: CreateAdminDto }): Promise<{ message: string }> {
     try {
       const { dto } = data;
@@ -103,7 +103,7 @@ export class AdminController {
     }
   }
 
-  @MessagePattern('remove-admin')
+  @MessagePattern('remove')
   async removeAdmin(data: { email: string }): Promise<{ message: string }> {
     try {
       const { email } = data;

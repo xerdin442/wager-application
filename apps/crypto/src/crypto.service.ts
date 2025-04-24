@@ -561,13 +561,13 @@ export class CryptoService implements OnModuleInit {
             });
 
             // Notify user of successful deposit
-            const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
+            const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
             await this.utils.sendEmail(user, 'Deposit Complete', content);
 
             this.utils
               .logger()
               .info(
-                `[${this.context}] Stablecoin deposit by ${user.email} was successful. Amount: ${amount}USDC\n`,
+                `[${this.context}] Stablecoin deposit on base by ${user.email} was successful. Amount: $${amount}\n`,
               );
 
             // Initiate auto-clearing of tokens to platform wallet
@@ -661,13 +661,13 @@ export class CryptoService implements OnModuleInit {
           });
 
           // Notify user of successful deposit
-          const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
+          const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
           await this.utils.sendEmail(user, 'Deposit Complete', content);
 
           this.utils
             .logger()
             .info(
-              `[${this.context}] Stablecoin deposit by ${user.email} was successful. Amount: ${amount}USDC\n`,
+              `[${this.context}] Stablecoin deposit on solana by ${user.email} was successful. Amount: $${amount}\n`,
             );
 
           // Initiate auto-clearing of tokens to platform wallet

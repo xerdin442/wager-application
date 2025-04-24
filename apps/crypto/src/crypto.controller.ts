@@ -155,7 +155,7 @@ export class CryptoController {
       this.utils
         .logger()
         .info(
-          `[${this.context}] Stablecoin withdrawal by ${user.email} was successful. Amount: ${dto.amount}USDC\n`,
+          `[${this.context}] Stablecoin withdrawal on ${chain} by ${user.email} was successful. Amount: $${dto.amount}\n`,
         );
 
       return { message };

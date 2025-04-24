@@ -35,10 +35,10 @@ export class CryptoProcessor {
 
       if (status === 'success') {
         subject = 'Withdrawal Successful';
-        content = `Your withdrawal of ${amount}USDC on ${date} was successful. Your balance is ${user.balance}USDC`;
+        content = `Your withdrawal of $${amount} on ${date} was successful. Your balance is $${user.balance}`;
       } else if (status === 'failed') {
         subject = 'Failed Withdrawal';
-        content = `Your withdrawal of ${amount}USDC on ${date} was unsuccessful. Please try again later.`;
+        content = `Your withdrawal of $${amount} on ${date} was unsuccessful. Please try again later.`;
       }
 
       await this.utils.sendEmail(user as User, subject, content);

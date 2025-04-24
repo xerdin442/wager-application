@@ -60,13 +60,13 @@ export class FiatProcessor {
         this.gateway.sendTransactionStatus(user.email, notification);
 
         // Notify user of successful deposit
-        const content = `${amount}USDC has been deposited in your wallet. Your balance is ${user.balance}USDC`;
+        const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
         await this.utils.sendEmail(user, 'Deposit Complete', content);
 
         this.utils
           .logger()
           .info(
-            `[${this.context}] Fiat deposit by ${user.email} was successful. Amount: ${amount}USDC\n`,
+            `[${this.context}] Fiat deposit by ${user.email} was successful. Amount: $${amount}\n`,
           );
 
         return;
@@ -89,7 +89,7 @@ export class FiatProcessor {
         });
 
         // Notify user of failed deposit
-        const content = `Your deposit of ${amount}USDC was unsuccessful. Please try again later.`;
+        const content = `Your deposit of $${amount} was unsuccessful. Please try again later.`;
         await this.utils.sendEmail(user, 'Failed Deposit', content);
 
         this.utils
@@ -207,13 +207,13 @@ export class FiatProcessor {
         this.gateway.sendTransactionStatus(user.email, notification);
 
         // Notify user of successful withdrawal
-        const content = `Your withdrawal of ${amount}USDC on ${date} was successful. Your balance is ${user.balance}USDC`;
+        const content = `Your withdrawal of $${amount} on ${date} was successful. Your balance is $${user.balance}`;
         await this.utils.sendEmail(user, 'Withdrawal Successful', content);
 
         this.utils
           .logger()
           .info(
-            `[${this.context}] Fiat withdrawal by ${user.email} was successful. Amount: ${amount}USDC\n`,
+            `[${this.context}] Fiat withdrawal by ${user.email} was successful. Amount: $${amount}\n`,
           );
       } else if (event === 'transfer.failed' || event === 'transfer.reversed') {
         // Store failed transaction details
@@ -234,7 +234,7 @@ export class FiatProcessor {
         });
 
         // Notify user of failed withdrawal
-        const content = `Your withdrawal of ${amount}USDC on ${date} was unsuccessful. Please try again later.`;
+        const content = `Your withdrawal of $${amount} on ${date} was unsuccessful. Please try again later.`;
         await this.utils.sendEmail(user, 'Failed Withdrawal', content);
 
         this.utils

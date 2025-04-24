@@ -49,10 +49,8 @@ export class AuthService {
       });
 
       // Upload file to AWS if available
-      const filePath = await this.utils.upload(
-        file as Express.Multer.File,
-        'profile-images',
-      );
+      let filePath: string = '';
+      if (file) filePath = await this.utils.upload(file, 'profile-images');
 
       // Hash password and create new user
       const hash = await argon.hash(dto.password);

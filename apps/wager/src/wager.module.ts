@@ -6,6 +6,8 @@ import { MetricsModule } from '@app/metrics';
 import { UtilsModule } from '@app/utils';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WagerProcessor } from './wager.processor';
+import { WagerGateway } from './wager.gateway';
 
 @Module({
   imports: [
@@ -33,6 +35,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     MetricsModule,
   ],
   controllers: [WagerController],
-  providers: [WagerService],
+  providers: [WagerService, WagerProcessor, WagerGateway],
 })
 export class WagerModule {}

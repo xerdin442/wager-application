@@ -1,0 +1,138 @@
+import { DbService } from '@app/db';
+import { UtilsService } from '@app/utils';
+import {
+  WebSocketGateway,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  WsException,
+  BaseWsExceptionFilter,
+  ConnectedSocket,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+} from '@nestjs/websockets';
+import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
+import { User } from '@prisma/client';
+
+@UsePipes(
+  new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
+)
+@UseFilters(new BaseWsExceptionFilter())
+@WebSocketGateway(8081, { path: 'wagers/dispute' })
+export class WagerGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  private readonly server: Server;
+
+  private readonly context: string = WagerGateway.name;
+
+  constructor(
+    private readonly prisma: DbService,
+    private readonly utils: UtilsService,
+  ) {}
+
+  async handleConnection(@ConnectedSocket() client: Socket): Promise<void> {
+    try {
+      // Reject the connection if email is not provided
+      const email = client.handshake.query.email as string;
+      if (!email) throw new WsException('Missing email query parameter');
+
+      // Reject the connection if no user exists with email address
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+      });
+      if (!user) throw new WsException('Invalid email address');
+
+      client.data.email = email; // Attach email to the socket instance
+
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] Client connected to wager gateway: ${email}\n`,
+        );
+    } catch (error) {
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] An error occurred while connecting to wager gateway. Error: ${error.message}\n`,
+        );
+
+      throw error;
+    }
+  }
+
+  handleDisconnect(@ConnectedSocket() client: Socket): void {
+    try {
+      const email = client.data?.email as string;
+      if (email) {
+        this.utils
+          .logger()
+          .info(`[${this.context}] Client disconnected: ${email}`);
+      }
+    } catch (error) {
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] An error occurred while disconnecting from wager gateway. Error: ${error.message}\n`,
+        );
+
+      throw error;
+    }
+  }
+
+  async joinDisputeChat(chatId: number, members: number[]): Promise<void> {
+    try {
+      for (const member of members) {
+        const user = (await this.prisma.user.findUnique({
+          where: { id: member },
+        })) as User;
+
+        const client = Array.from(this.server.sockets.sockets.values()).find(
+          (socket) => socket.data.email === user.email,
+        );
+
+        if (client) await client.join(`room-${chatId}`);
+      }
+    } catch (error) {
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occurred while joining private chat. Error: ${error.message}`,
+        );
+
+      throw error;
+    }
+  }
+
+  @SubscribeMessage('send_message')
+  async handleMessage(
+    @MessageBody() data: Record<string, string>,
+  ): Promise<void> {
+    try {
+      const { chatId, author, content } = data;
+
+      if (!chatId || !author || !content)
+        throw new WsException('Invalid chat message structure');
+
+      // Store new messages
+      const message = await this.prisma.message.create({
+        data: { author, content, chatId: parseInt(chatId) },
+      });
+
+      // Broadcast new message to the dispute chat room
+      this.server.to(`room-${chatId}`).emit('new_message', {
+        author,
+        content,
+        time: message.createdAt,
+      });
+    } catch (error) {
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occurred while receiving new messages in chat. Error: ${error.message}`,
+        );
+
+      throw error;
+    }
+  }
+}

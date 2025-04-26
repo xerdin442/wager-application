@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.779.0",
+    "@bonfida/spl-name-service": "^3.0.10",
     "@ethereumjs/wallet": "^2.0.4",
     "@nestjs/bull": "^11.0.2",
     "@nestjs/common": "^11.0.1",

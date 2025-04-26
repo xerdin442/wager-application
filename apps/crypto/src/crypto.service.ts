@@ -36,6 +36,7 @@ import { CryptoGateway } from './crypto.gateway';
 import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -166,6 +167,43 @@ export class CryptoService implements OnModuleInit {
 
       default:
         throw new Error('Invalid chain parameter');
+    }
+  }
+
+  async resolveDomainName(chain: Chain, domain: string): Promise<string> {
+    try {
+      if (chain === 'base') {
+        const address = await this.web3.eth.ens.getAddress(domain);
+
+        if (
+          !address ||
+          address === '0x0000000000000000000000000000000000000000'
+        ) {
+          throw new RpcException({
+            status: 400,
+            message: 'Invalid or unregistered ENS domain',
+          });
+        }
+
+        return address.toString();
+      }
+
+      const { pubkey } = getDomainKeySync(domain);
+      const { registry } = await NameRegistryState.retrieve(
+        this.connection,
+        pubkey,
+      );
+
+      if (!registry.owner) {
+        throw new RpcException({
+          status: 400,
+          message: 'Invalid or unregistered SNS domain',
+        });
+      }
+
+      return registry.owner.toBase58();
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -315,6 +353,15 @@ export class CryptoService implements OnModuleInit {
         this.BASE_USDC_TOKEN_ADDRESS,
       );
 
+      // Resolve recipient's domain name if provided
+      if (dto.address.endsWith('.eth')) {
+        const resolvedAddress = await this.resolveDomainName(
+          'base',
+          dto.address,
+        );
+
+        dto.address = resolvedAddress;
+      }
       // Verify recipient address
       if (!isAddress(dto.address)) {
         throw new RpcException({
@@ -422,9 +469,19 @@ export class CryptoService implements OnModuleInit {
 
     try {
       const sender = this.getPlatformPrivateKey('solana') as Keypair;
-      const recipient = new PublicKey(dto.address);
+
+      // Resolve recipient's domain name if provided
+      if (dto.address.endsWith('.sol')) {
+        const resolvedAddress = await this.resolveDomainName(
+          'solana',
+          dto.address,
+        );
+
+        dto.address = resolvedAddress;
+      }
 
       // Verify recipient address
+      const recipient = new PublicKey(dto.address);
       if (!PublicKey.isOnCurve(recipient)) {
         throw new RpcException({
           status: 400,

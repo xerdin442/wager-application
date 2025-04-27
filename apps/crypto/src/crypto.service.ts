@@ -674,16 +674,12 @@ export class CryptoService implements OnModuleInit {
     userId: number,
     address: string,
   ): Promise<void> {
-    const connection = new Connection(
-      selectRpcUrl('solana', 'websocket'),
-      'confirmed',
-    );
     // Get USDC token account address of the user's wallet
     const tokenAddress = await this.getTokenAccountAddress(
       new PublicKey(address),
     );
 
-    connection.onAccountChange(tokenAddress, (accountInfo) => {
+    this.connection.onAccountChange(tokenAddress, (accountInfo) => {
       void (async () => {
         try {
           const account = AccountLayout.decode(accountInfo.data);
@@ -733,7 +729,7 @@ export class CryptoService implements OnModuleInit {
           );
           const recipient = this.getPlatformPrivateKey('solana') as Keypair;
           await this.transferTokensOnSolana(
-            connection,
+            this.connection,
             sender,
             recipient.publicKey,
             amount,
@@ -741,7 +737,7 @@ export class CryptoService implements OnModuleInit {
 
           // Top up user wallet if gas fees are low
           const minimumBalance = await this.convertToCrypto(0.35, 'solana');
-          const currentBalance = await connection.getBalance(
+          const currentBalance = await this.connection.getBalance(
             new PublicKey(address),
           );
           if (currentBalance / LAMPORTS_PER_SOL < minimumBalance) {

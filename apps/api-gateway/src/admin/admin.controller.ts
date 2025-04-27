@@ -14,7 +14,7 @@ import { catchError, Observable } from 'rxjs';
 import { AdminAuthDto, CreateAdminDto } from './dto';
 import { handleError } from '../utils/error';
 import { AuthGuard } from '@nestjs/passport';
-import { SuperAdminGuard } from '../custom/guards';
+import { SuperAdminGuard } from '../custom/guards/admin';
 import { Admin } from '@prisma/client';
 import { GetAdmin } from '../custom/decorators';
 

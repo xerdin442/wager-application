@@ -4,13 +4,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions } from '@nestjs/microservices';
 import { natsOptions } from '@app/utils';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
   app.use(helmet());
+  app.use(cookieParser());
   app.setGlobalPrefix('/api');
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -1,7 +1,7 @@
-import { BadRequestException, Controller } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { MessagePattern } from '@nestjs/microservices';
-import { SessionData } from './types';
+import { MessagePattern, RpcException } from '@nestjs/microservices';
+import { GoogleAuthPayload, SessionData } from './types';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -23,19 +23,20 @@ export class AuthController {
     private readonly utils: UtilsService,
   ) {}
 
+  @MessagePattern('google-auth')
   @MessagePattern('signup')
   async signup(data: {
-    dto: SignupDTO;
+    details: SignupDTO | GoogleAuthPayload;
     file?: Express.Multer.File;
   }): Promise<{ user: User; token: string }> {
     try {
-      const { dto, file } = data;
-      const response = await this.authService.signup(dto, file);
+      const { details, file } = data;
+      const response = await this.authService.signup(details, file);
 
       this.utils
         .logger()
         .info(
-          `[${this.context}] User signup successful. Email: ${dto.email}\n`,
+          `[${this.context}] User signup successful. Email: ${details.email}\n`,
         );
 
       return response;
@@ -170,7 +171,10 @@ export class AuthController {
             `[${this.context}] Invalid 2FA token could not be verified. Email: ${user.email}\n`,
           );
 
-        throw new BadRequestException('Invalid token');
+        throw new RpcException({
+          status: 400,
+          message: 'Invalid token',
+        });
       }
     } catch (error) {
       this.utils

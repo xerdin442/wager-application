@@ -19,7 +19,7 @@ import { User } from '@prisma/client';
   new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
 )
 @UseFilters(new BaseWsExceptionFilter())
-@WebSocketGateway(8081, { path: 'wagers/dispute' })
+@WebSocketGateway(8082, { path: 'wagers/dispute' })
 export class WagerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private readonly server: Server;

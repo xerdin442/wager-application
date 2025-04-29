@@ -9,6 +9,7 @@ import { GoogleAuthPayload, GoogleAuthUser } from '../types';
 import { UtilsService } from '@app/utils';
 import { JwtService } from '@nestjs/jwt';
 import { DbService } from '@app/db';
+import { Request } from 'express';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
@@ -29,9 +30,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(profile: Profile, done: VerifyCallback): Promise<void> {
-    const { email, family_name, given_name, picture } = profile._json;
-    if (!email || !given_name || !family_name) {
+  async validate(
+    req: Request,
+    accessToken: string,
+    refreshToken: string,
+    profile: Profile,
+    done: VerifyCallback,
+  ): Promise<void> {
+    const { emails, name, photos } = profile;
+    if (!emails || !name) {
       return done(
         new UnauthorizedException('Google authentication failed'),
         undefined,
@@ -41,7 +48,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     try {
       // Check if user exists with the retrieved email address
       const user = await this.prisma.user.findUnique({
-        where: { email },
+        where: { email: emails[0].value },
       });
 
       if (user) {
@@ -55,10 +62,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         return done(null, authenticatedUser);
       } else {
         const details: GoogleAuthPayload = {
-          email,
-          firstName: given_name,
-          lastName: family_name,
-          profileImage: picture,
+          email: emails[0].value,
+          firstName: name.givenName,
+          lastName: name.familyName,
+          profileImage: photos ? photos[0].value : '',
         };
 
         // Create and onboard new user

@@ -33,7 +33,8 @@ import { handleError } from '../utils/error';
 import { GoogleAuthGuard } from '../custom/guards/google';
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { GoogleAuthUser } from './types';
+import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
+import { generateCallbackHtml } from './utils';
 
 @Controller('auth')
 export class AuthController {
@@ -112,12 +113,14 @@ export class AuthController {
       throw new UnauthorizedException('Google authentication error');
     }
 
+    const data: GoogleAuthCallbackData = {
+      user: authenticatedUser,
+      token: authenticatedUser.token,
+      redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
+      frontendOrigin: this.config.getOrThrow<string>('FRONTEND_ORIGIN'),
+    };
     // Send user details, JWT token and redirect URL to frontend client
-    res.status(HttpStatus.OK).json({
-      ...authenticatedUser,
-      redirectUrl:
-        (req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string) || '/',
-    });
+    res.status(HttpStatus.OK).send(generateCallbackHtml(data));
   }
 
   @HttpCode(HttpStatus.OK)

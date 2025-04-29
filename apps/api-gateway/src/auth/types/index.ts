@@ -11,3 +11,10 @@ export type GoogleAuthPayload = {
   lastName: string;
   profileImage?: string;
 };
+
+export type GoogleAuthCallbackData = {
+  user: any;
+  token: string;
+  redirectUrl: string;
+  frontendOrigin: string;
+};

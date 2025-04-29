@@ -20,6 +20,7 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
   // Add the script tag to the head or body
   const scriptContent = `
       const authResult = {
+        type: 'google-auth-result',
         user: ${JSON.stringify(data.user)},
         token: ${JSON.stringify(data.token)},
         redirectUrl: ${JSON.stringify(data.redirectUrl || '/')}
@@ -27,21 +28,20 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
 
       const frontendOrigin = ${JSON.stringify(data.frontendOrigin)};
 
-      if (window.opener) {
-        try {
-          window.opener.postMessage(authResult, frontendOrigin);
-        } catch (e) {
-          console.error('Error sending message to opener:', e);
-        } finally {
-          window.close();
-        }
-      } else {
-        console.warn('Authentication window opened directly, cannot post message to opener.');
+      try {
+        window.postMessage(authResult, frontendOrigin);
+      } catch (e) {
+        console.error('Error sending message to frontend client:', e);
+      } finally {
+        window.close();
       }
   `;
 
   // Create a script element and add the content
-  const scriptElement = $('<script>').html(scriptContent);
+  const scriptElement = $('<script>')
+    .html(scriptContent)
+    .attr('nonce', data.nonce);
+  // Append the script tag to the body content
   $('body').append(scriptElement);
 
   // Optional message if JavaScript is disabled

@@ -59,7 +59,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
           token: await this.jwt.signAsync(payload),
         };
 
-        return done(null, authenticatedUser);
+        done(null, authenticatedUser);
+
+        this.utils
+          .logger()
+          .info(
+            `[${this.context}] User login successful. Email: ${user.email}\n`,
+          );
+
+        return;
       } else {
         const details: GoogleAuthPayload = {
           email: emails[0].value,
@@ -81,7 +89,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       this.utils
         .logger()
         .error(
-          `[${this.context}] An error occurred while validating Google authentication strategy`,
+          `[${this.context}] An error occurred while validating Google authentication strategy. Error: ${error.message}\n`,
         );
 
       if (error instanceof RpcException) return done(error, undefined);

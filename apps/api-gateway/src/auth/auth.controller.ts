@@ -35,6 +35,7 @@ import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
 import { generateCallbackHtml } from './utils';
+import { randomBytes } from 'crypto';
 
 @Controller('auth')
 export class AuthController {
@@ -113,12 +114,20 @@ export class AuthController {
       throw new UnauthorizedException('Google authentication error');
     }
 
+    const nonce = randomBytes(16).toString('base64');
     const data: GoogleAuthCallbackData = {
       user: authenticatedUser,
       token: authenticatedUser.token,
       redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
       frontendOrigin: this.config.getOrThrow<string>('FRONTEND_ORIGIN'),
+      nonce,
     };
+
+    // Set the CSP header to enable execution of inline-script
+    res.setHeader(
+      'Content-Security-Policy',
+      `script-src 'self' 'nonce-${nonce}'`,
+    );
     // Send user details, JWT token and redirect URL to frontend client
     res.status(HttpStatus.OK).send(generateCallbackHtml(data));
   }

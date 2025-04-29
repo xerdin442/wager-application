@@ -572,8 +572,8 @@ export class CryptoService implements OnModuleInit {
       apiKey: this.config.getOrThrow<string>('ALCHEMY_API_KEY'),
       network:
         this.config.getOrThrow<string>('NODE_ENV') === 'production'
-          ? Network.BASE_MAINNET
-          : Network.BASE_SEPOLIA,
+          ? Network.ETH_MAINNET
+          : Network.ETH_SEPOLIA,
     });
 
     const handlePendingTransactions = async (

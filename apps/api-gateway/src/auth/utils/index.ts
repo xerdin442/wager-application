@@ -14,41 +14,31 @@ export const selectGoogleCallbackUrl = (): string => {
 export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
   // Use Cheerio to create a simple HTML structure
   const $ = cheerio.load(
-    '<!DOCTYPE html><html><head><title>Authentication Successful!</title></head><body></body></html>',
+    '<!DOCTYPE html><html><head><title>Success</title></head><body></body></html>',
   );
 
-  // Add the script tag to the head or body
+  const mainContent = `
+    <div class="container">
+      <h1 class="text-2xl font-bold mb-4">Authentication Successful!</h1>
+      <button id="return-button">Return to Wager App</button>
+    </div>`;
+  $('body').append(mainContent);
+
+  // Add the script tag to redirect to the homepage
   const scriptContent = `
-      const authResult = {
-        type: 'google-auth-result',
-        user: ${JSON.stringify(data.user)},
-        token: ${JSON.stringify(data.token)},
-        redirectUrl: ${JSON.stringify(data.redirectUrl || '/')}
-      };
-
-      const frontendOrigin = ${JSON.stringify(data.frontendOrigin)};
-
-      try {
-        window.postMessage(authResult, frontendOrigin);
-      } catch (e) {
-        console.error('Error sending message to frontend client:', e);
-      } finally {
-        window.close();
-      }
+    console.log('User', ${data.user});
+    console.log('JWT', ${data.token});
+    console.log('Redirect URL', ${data.redirectUrl});
+    
+    const returnButton = document.getElementById("return-button");    
+    returnButton.addEventListener("click", () => {
+      window.location.href = ${data.redirectUrl};
+    });
   `;
 
-  // Create a script element and add the content
-  const scriptElement = $('<script>')
-    .html(scriptContent)
-    .attr('nonce', data.nonce);
-  // Append the script tag to the body content
+  // Create a script element and append to the body
+  const scriptElement = $('<script>').html(scriptContent);
   $('body').append(scriptElement);
-
-  // Optional message if JavaScript is disabled
-  const noscriptElement = $('<noscript>').html(
-    '<p>Authentication complete. Please close this window.</p>',
-  );
-  $('body').append(noscriptElement);
 
   return $.html();
 }

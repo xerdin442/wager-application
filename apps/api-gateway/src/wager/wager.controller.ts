@@ -20,7 +20,7 @@ import { Observable, catchError } from 'rxjs';
 import { GetUser } from '../custom/decorators';
 import { handleError } from '../utils/error';
 import { CreateWagerDto, UpdateWagerDto, WagerInviteDto } from './dto';
-import { AdminGuard } from '../custom/guards';
+import { AdminGuard } from '../custom/guards/admin';
 
 @Controller('wagers')
 @UseGuards(AuthGuard('jwt'))

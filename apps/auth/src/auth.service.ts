@@ -11,7 +11,7 @@ import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { SessionData } from './types';
+import { GoogleAuthPayload, SessionData } from './types';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -22,6 +22,7 @@ import {
 } from './dto';
 import { ConfigService } from '@nestjs/config';
 import { createWallet } from './utils';
+import { randomUUID } from 'crypto';
 import { UtilsService } from '@app/utils';
 
 @Injectable()
@@ -37,50 +38,55 @@ export class AuthService {
     @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
-  async signup(
-    dto: SignupDTO,
+  async createNewUser(
+    details: SignupDTO | GoogleAuthPayload,
     file?: Express.Multer.File,
-  ): Promise<{ user: User; token: string }> {
+  ): Promise<User> {
     try {
-      // Generate wallets for crypto transactions
+      const defaultImage = this.config.getOrThrow<string>('DEFAULT_IMAGE');
+
+      // Generate user wallets for crypto transactions
       const ethWallet = await createWallet(this.natsClient, { chain: 'base' });
       const solWallet = await createWallet(this.natsClient, {
         chain: 'solana',
       });
+      const walletDetails = {
+        ethAddress: ethWallet.address,
+        ethPrivateKey: ethWallet.privateKey,
+        solAddress: solWallet.address,
+        solPrivateKey: solWallet.privateKey,
+      };
 
-      // Upload file to AWS if available
-      let filePath: string = '';
-      if (file) filePath = await this.utils.upload(file, 'profile-images');
+      // Create new user through custom authentication
+      if (details instanceof SignupDTO) {
+        // Upload file to AWS if available
+        let filePath: string = '';
+        if (file) filePath = await this.utils.upload(file, 'profile-images');
 
-      // Hash password and create new user
-      const hash = await argon.hash(dto.password);
-      const user = await this.prisma.user.create({
+        return this.prisma.user.create({
+          data: {
+            ...details,
+            password: await argon.hash(details.password),
+            profileImage: filePath || defaultImage,
+            ...walletDetails,
+            balance: 0,
+          },
+        });
+      }
+
+      // Create new user through Google authentication
+      const username =
+        details.firstName.toLowerCase() + `${randomUUID().split('-')[3]}`;
+      return this.prisma.user.create({
         data: {
-          ...dto,
-          password: hash,
-          profileImage:
-            filePath || this.config.getOrThrow<string>('DEFAULT_IMAGE'),
-          ethAddress: ethWallet.address,
-          ethPrivateKey: ethWallet.privateKey,
-          solAddress: solWallet.address,
-          solPrivateKey: solWallet.privateKey,
+          ...details,
+          password: await argon.hash(randomUUID()),
+          username,
+          ...walletDetails,
           balance: 0,
+          profileImage: details.profileImage || defaultImage,
         },
       });
-
-      const payload = { sub: user.id, email: user.email, admin: false }; // Create JWT payload
-
-      // Send an onboarding email to the new user
-      await this.authQueue.add('signup', { user });
-      // Process wallet monitoring and prefilling with gas fees
-      await this.authQueue.add('setup-wallet', { user });
-
-      // Sanitize user output
-      user.password = '';
-      user.ethPrivateKey = '';
-      user.solPrivateKey = '';
-
-      return { user, token: await this.jwt.signAsync(payload) };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -92,6 +98,31 @@ export class AuthService {
         }
       }
 
+      throw error;
+    }
+  }
+
+  async signup(
+    details: SignupDTO | GoogleAuthPayload,
+    file?: Express.Multer.File,
+  ): Promise<{ user: User; token: string }> {
+    try {
+      const user = await this.createNewUser(details, file);
+
+      // Send an onboarding email to the new user
+      await this.authQueue.add('signup', { user });
+      // Process wallet monitoring and prefilling with gas fees
+      await this.authQueue.add('setup-wallet', { user });
+
+      // Sanitize user output
+      user.password = '';
+      user.ethPrivateKey = '';
+      user.solPrivateKey = '';
+
+      const payload = { sub: user.id, email: user.email }; // Create JWT payload
+
+      return { user, token: await this.jwt.signAsync(payload) };
+    } catch (error) {
       throw error;
     }
   }
@@ -120,7 +151,7 @@ export class AuthService {
         });
       }
 
-      const payload = { sub: user.id, email: user.email, admin: false }; // Create JWT payload
+      const payload = { sub: user.id, email: user.email }; // Create JWT payload
 
       return {
         token: await this.jwt.signAsync(payload),

@@ -20,7 +20,6 @@ import axios from 'axios';
 import Web3, {
   ContractAbi,
   Contract,
-  Bytes,
   Transaction as EthTransaction,
 } from 'web3';
 import { isAddress } from 'web3-validator';
@@ -37,6 +36,12 @@ import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
+import {
+  Alchemy,
+  AlchemySubscription,
+  Network,
+  TransactionResponse,
+} from 'alchemy-sdk';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -44,10 +49,10 @@ export class CryptoService implements OnModuleInit {
 
   // Connect to RPC endpoints
   private readonly web3 = new Web3(
-    new Web3.providers.HttpProvider(selectRpcUrl('base', 'http')),
+    new Web3.providers.HttpProvider(selectRpcUrl('base')),
   );
   private readonly connection = new Connection(
-    selectRpcUrl('solana', 'http'),
+    selectRpcUrl('solana'),
     'confirmed',
   );
 
@@ -563,127 +568,140 @@ export class CryptoService implements OnModuleInit {
   }
 
   monitorDepositsOnBase(userId: number, address: string): void {
-    const web3 = new Web3(
-      new Web3.providers.WebsocketProvider(selectRpcUrl('base', 'websocket')),
-    );
-
-    void web3.eth.subscribe('pendingTransactions', async (txHash: Bytes) => {
-      try {
-        const tx: EthTransaction = await web3.eth.getTransaction(txHash);
-
-        if (
-          tx &&
-          tx.to?.toLowerCase() === this.BASE_USDC_TOKEN_ADDRESS.toLowerCase()
-        ) {
-          // Get recipient address and amount deposited
-          const input = tx.input as Bytes;
-          const decodedData = web3.eth.abi.decodeParameters(
-            ['address', 'uint256'],
-            input.slice(10) as string,
-          );
-          const recipient = decodedData[0] as string;
-          const receivedAmount = web3.utils.fromWei(
-            decodedData[1] as bigint,
-            'mwei',
-          );
-          const amount = parseFloat(receivedAmount);
-
-          if (recipient.toLowerCase() === address.toLowerCase()) {
-            // Update user balance and store transaction details
-            const user = await this.updateDbAfterTransaction(
-              userId,
-              amount,
-              'SUCCESS',
-              'DEPOSIT',
-            );
-
-            // Update deposit metrics
-            this.metrics.incrementCounter(
-              'successful_deposits',
-              this.baseMetricLabels,
-            );
-            this.metrics.incrementCounter(
-              'deposit_volume',
-              this.baseMetricLabels,
-              amount,
-            );
-
-            // Notify client of transaction status
-            this.gateway.sendTransactionStatus(user.email, {
-              id: randomUUID(),
-              amount: amount,
-              chain: 'base',
-              status: 'SUCCESS',
-              type: 'DEPOSIT',
-            });
-
-            // Notify user of successful deposit
-            const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
-            await this.utils.sendEmail(user, 'Deposit Complete', content);
-
-            this.utils
-              .logger()
-              .info(
-                `[${this.context}] Stablecoin deposit on base by ${user.email} was successful. Amount: $${amount}\n`,
-              );
-
-            // Initiate auto-clearing of tokens to platform wallet
-            const platformPrivateKey = this.getPlatformPrivateKey(
-              'base',
-            ) as string;
-            const account =
-              web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
-            const contract = new web3.eth.Contract(
-              this.USDC_CONTRACT_ABI,
-              this.BASE_USDC_TOKEN_ADDRESS,
-            );
-            await this.transferTokensOnBase(
-              address,
-              account.address,
-              amount,
-              contract,
-              user.ethPrivateKey,
-            );
-
-            // Top up user wallet if gas fees are low
-            const minimumBalance = await this.convertToCrypto(0.35, 'base');
-            const currentBalanceInWei = await web3.eth.getBalance(address);
-            const currentBalanceInEther = web3.utils.fromWei(
-              currentBalanceInWei,
-              'ether',
-            );
-            if (parseFloat(currentBalanceInEther) < minimumBalance) {
-              await this.prefillUserWallet(user, 'base');
-            }
-
-            return;
-          }
-        }
-      } catch (error) {
-        this.utils
-          .logger()
-          .error(
-            `[${this.context}] An error occurred while monitoring deposits on ethereum wallet: ${address}. Error: ${error.message}\n`,
-          );
-        throw error;
-      }
+    const alchemy = new Alchemy({
+      apiKey: this.config.getOrThrow<string>('ALCHEMY_API_KEY'),
+      network:
+        this.config.getOrThrow<string>('NODE_ENV') === 'production'
+          ? Network.ETH_MAINNET
+          : Network.ETH_SEPOLIA,
     });
+
+    const handlePendingTransactions = async (
+      tx: TransactionResponse,
+    ): Promise<void> => {
+      const inputData = tx.data;
+      const transferSignatureHash = this.web3.eth.abi.encodeFunctionSignature(
+        'transfer(address,uint256)',
+      );
+
+      if (inputData.startsWith(transferSignatureHash)) {
+        // Strip the function signature from the data and decode the parameters
+        const encodedParameters = '0x' + inputData.slice(10);
+        const decodedData = this.web3.eth.abi.decodeParameters(
+          ['address', 'uint256'],
+          encodedParameters,
+        );
+
+        const recipient = decodedData[0] as string;
+        const receivedAmount = this.web3.utils.fromWei(
+          decodedData[1] as bigint,
+          'mwei',
+        );
+        const amount = parseFloat(receivedAmount);
+
+        if (recipient.toLowerCase() === address.toLowerCase()) {
+          // Update user balance and store transaction details
+          const user = await this.updateDbAfterTransaction(
+            userId,
+            amount,
+            'SUCCESS',
+            'DEPOSIT',
+          );
+
+          // Update deposit metrics
+          this.metrics.incrementCounter(
+            'successful_deposits',
+            this.baseMetricLabels,
+          );
+          this.metrics.incrementCounter(
+            'deposit_volume',
+            this.baseMetricLabels,
+            amount,
+          );
+
+          // Notify client of transaction status
+          this.gateway.sendTransactionStatus(user.email, {
+            id: randomUUID(),
+            amount: amount,
+            chain: 'base',
+            status: 'SUCCESS',
+            type: 'DEPOSIT',
+          });
+
+          // Notify user of successful deposit
+          const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
+          await this.utils.sendEmail(user, 'Deposit Complete', content);
+
+          this.utils
+            .logger()
+            .info(
+              `[${this.context}] Stablecoin deposit on base by ${user.email} was successful. Amount: $${amount}\n`,
+            );
+
+          // Initiate auto-clearing of tokens to platform wallet
+          const platformPrivateKey = this.getPlatformPrivateKey(
+            'base',
+          ) as string;
+          const account =
+            this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+          const contract = new this.web3.eth.Contract(
+            this.USDC_CONTRACT_ABI,
+            this.BASE_USDC_TOKEN_ADDRESS,
+          );
+          await this.transferTokensOnBase(
+            address,
+            account.address,
+            amount,
+            contract,
+            user.ethPrivateKey,
+          );
+
+          // Top up user wallet if gas fees are low
+          const minimumBalance = await this.convertToCrypto(0.35, 'base');
+          const currentBalanceInWei = await this.web3.eth.getBalance(address);
+          const currentBalanceInEther = this.web3.utils.fromWei(
+            currentBalanceInWei,
+            'ether',
+          );
+          if (parseFloat(currentBalanceInEther) < minimumBalance) {
+            await this.prefillUserWallet(user, 'base');
+          }
+
+          return;
+        }
+      }
+    };
+
+    alchemy.ws.on(
+      {
+        method: AlchemySubscription.PENDING_TRANSACTIONS,
+        toAddress: address,
+        hashesOnly: false,
+      },
+      (tx: TransactionResponse) => {
+        handlePendingTransactions(tx).catch((error) => {
+          this.utils
+            .logger()
+            .error(
+              `[${this.context}] An error occurred while monitoring deposits on ethereum wallet: ${address}. Error: ${error.message}\n`,
+            );
+
+          throw error;
+        });
+      },
+    );
   }
 
   async monitorDepositsOnSolana(
     userId: number,
     address: string,
   ): Promise<void> {
-    const connection = new Connection(
-      selectRpcUrl('solana', 'websocket'),
-      'confirmed',
-    );
     // Get USDC token account address of the user's wallet
     const tokenAddress = await this.getTokenAccountAddress(
       new PublicKey(address),
     );
 
-    connection.onAccountChange(tokenAddress, (accountInfo) => {
+    this.connection.onAccountChange(tokenAddress, (accountInfo) => {
       void (async () => {
         try {
           const account = AccountLayout.decode(accountInfo.data);
@@ -733,7 +751,7 @@ export class CryptoService implements OnModuleInit {
           );
           const recipient = this.getPlatformPrivateKey('solana') as Keypair;
           await this.transferTokensOnSolana(
-            connection,
+            this.connection,
             sender,
             recipient.publicKey,
             amount,
@@ -741,7 +759,7 @@ export class CryptoService implements OnModuleInit {
 
           // Top up user wallet if gas fees are low
           const minimumBalance = await this.convertToCrypto(0.35, 'solana');
-          const currentBalance = await connection.getBalance(
+          const currentBalance = await this.connection.getBalance(
             new PublicKey(address),
           );
           if (currentBalance / LAMPORTS_PER_SOL < minimumBalance) {

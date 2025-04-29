@@ -1,10 +1,15 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Inject,
   Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -25,10 +30,20 @@ import { GetUser } from '../custom/decorators';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
 import { handleError } from '../utils/error';
+import { GoogleAuthGuard } from '../custom/guards/google';
+import { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
+import { generateCallbackHtml } from './utils';
+import { randomBytes } from 'crypto';
 
 @Controller('auth')
 export class AuthController {
+  private readonly GOOGLE_REDIRECT_COOKIE_KEY: string =
+    'google_auth_redirect_url';
+
   constructor(
+    private readonly config: ConfigService,
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
@@ -63,7 +78,7 @@ export class AuthController {
     @UploadedFile() file?: Express.Multer.File,
   ): Observable<any> {
     return this.natsClient
-      .send('signup', { dto, file })
+      .send('signup', { deatils: dto, file })
       .pipe(catchError(handleError));
   }
 
@@ -71,6 +86,50 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDTO): Observable<any> {
     return this.natsClient.send('login', { dto }).pipe(catchError(handleError));
+  }
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google/login')
+  googleLogin(
+    @Res() res: Response,
+    @Query('redirectUrl') redirectUrl?: string,
+  ): void {
+    // Store client redirect URL before Google invokes the callback
+    if (redirectUrl) {
+      res.cookie(this.GOOGLE_REDIRECT_COOKIE_KEY, redirectUrl, {
+        httpOnly: true,
+        secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 20 * 60 * 1000,
+      });
+    }
+  }
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google/callback')
+  googleCallback(@Req() req: Request, @Res() res: Response): void {
+    const authenticatedUser = req.user as GoogleAuthUser;
+    if (!authenticatedUser || !authenticatedUser.token) {
+      res.clearCookie(this.GOOGLE_REDIRECT_COOKIE_KEY);
+      throw new UnauthorizedException('Google authentication error');
+    }
+
+    const nonce = randomBytes(16).toString('base64');
+    const data: GoogleAuthCallbackData = {
+      user: authenticatedUser,
+      token: authenticatedUser.token,
+      redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
+      frontendOrigin: this.config.getOrThrow<string>('FRONTEND_ORIGIN'),
+      nonce,
+    };
+
+    // Set the CSP header to enable execution of inline-script
+    res.setHeader(
+      'Content-Security-Policy',
+      `script-src 'self' 'nonce-${nonce}'`,
+    );
+    // Send user details, JWT token and redirect URL to frontend client
+    res.status(HttpStatus.OK).send(generateCallbackHtml(data));
   }
 
   @HttpCode(HttpStatus.OK)

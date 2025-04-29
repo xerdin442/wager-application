@@ -20,7 +20,7 @@ import { Observable, catchError } from 'rxjs';
 import { GetUser } from '../custom/decorators';
 import { handleError } from '../utils/error';
 import { FileInterceptor } from '@nestjs/platform-express';
-import multer from 'multer';
+import * as multer from 'multer';
 import { FundsTransferDto, GetTransactionsDto, UpdateProfileDto } from './dto';
 
 @Controller('user')

@@ -1,15 +1,13 @@
 import { ConfigService } from '@nestjs/config';
-import { Chain, RpcUrlMode } from '../types';
+import { Chain } from '../types';
 
 const config = new ConfigService();
 const NODE_ENV = config.getOrThrow<string>('NODE_ENV');
 const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
 const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
 
-export const selectRpcUrl = (chain: Chain, mode: RpcUrlMode): string => {
-  let url: string;
-
-  mode === 'http' ? (url = 'https://') : (url = 'wss://');
+export const selectRpcUrl = (chain: Chain): string => {
+  let url: string = 'https://';
 
   if (NODE_ENV === 'production') {
     chain === 'base'

@@ -26,9 +26,13 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
 
   // Add the script tag to redirect to the homepage
   const scriptContent = `
-    console.log('User', ${data.user});
-    console.log('JWT', ${data.token});
-    console.log('Redirect URL', ${data.redirectUrl});
+    const authUser = ${JSON.stringify(data.user)};
+    const jwtToken = ${JSON.stringify(data.token)};
+    const redirectUrl = ${JSON.stringify(data.redirectUrl || '/')};
+
+    console.log('User', authUser);
+    console.log('JWT', jwtToken);
+    console.log('Redirect URL', redirectUrl);
     
     const returnButton = document.getElementById("return-button");    
     returnButton.addEventListener("click", () => {
@@ -37,7 +41,9 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
   `;
 
   // Create a script element and append to the body
-  const scriptElement = $('<script>').html(scriptContent);
+  const scriptElement = $('<script>')
+    .html(scriptContent)
+    .attr('nonce', `${data.nonce}`);
   $('body').append(scriptElement);
 
   return $.html();

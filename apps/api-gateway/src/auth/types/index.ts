@@ -16,4 +16,5 @@ export type GoogleAuthCallbackData = {
   user: any;
   token: string;
   redirectUrl: string;
+  nonce: string;
 };

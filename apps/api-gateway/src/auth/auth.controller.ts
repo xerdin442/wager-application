@@ -35,6 +35,7 @@ import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
 import { generateCallbackHtml } from './utils';
+import { randomBytes } from 'crypto';
 
 @Controller('auth')
 export class AuthController {
@@ -117,12 +118,19 @@ export class AuthController {
       throw new UnauthorizedException('Google authentication error');
     }
 
+    const nonce = randomBytes(16).toString('base64');
     const data: GoogleAuthCallbackData = {
       user: authenticatedUser.user,
       token: authenticatedUser.token,
       redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
+      nonce,
     };
 
+    // Add CSP header to protect against XSS attacks
+    res.setHeader(
+      'Content-Security-Policy',
+      `script-src 'self' 'nonce-${nonce}'`,
+    );
     // Render authentication success page
     res.status(HttpStatus.OK).send(generateCallbackHtml(data));
   }

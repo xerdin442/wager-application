@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { createLogger, format, Logger, transports } from 'winston';
-import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { EmailAttachment, SerializedBuffer } from './types';
+import { SerializedBuffer } from './types';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
+import { Attachment, Resend } from 'resend';
 
 @Injectable()
 export class UtilsService {
@@ -62,36 +62,23 @@ export class UtilsService {
     receiver: Record<string, any>,
     subject: string,
     content: string,
-    attachment?: EmailAttachment[],
+    attachments?: Attachment[],
   ): Promise<void> {
     try {
       // Generate HTML from email content
       const $ = cheerio.load(content);
       const htmlContent = $.html();
 
-      const data = {
-        sender: {
-          name: this.config.getOrThrow<string>('APP_NAME'),
-          email: this.config.getOrThrow<string>('APP_EMAIL'),
-        },
-        to: [
-          {
-            email: `${receiver.email}`,
-            name: `${receiver?.firstName ?? receiver?.name}`,
-          },
-        ],
-        subject,
-        htmlContent,
-        attachment,
-      };
+      const resend = new Resend(
+        this.config.getOrThrow<string>('RESEND_EMAIL_API_KEY'),
+      );
 
-      const url = 'https://api.brevo.com/v3/smtp/email';
-      await axios.post(url, data, {
-        headers: {
-          accept: 'application/json',
-          'api-key': this.config.getOrThrow<string>('BREVO_API_KEY'),
-          'content-type': 'application/json',
-        },
+      await resend.emails.send({
+        from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
+        subject,
+        to: `${receiver.email}`,
+        html: htmlContent,
+        attachments,
       });
 
       this.logger().info(
@@ -101,6 +88,7 @@ export class UtilsService {
       this.logger().error(
         `[${this.context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${error.message}\n`,
       );
+
       throw error;
     }
   }

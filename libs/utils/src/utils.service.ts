@@ -69,36 +69,35 @@ export class UtilsService {
     content: string,
     attachments?: Attachment[],
   ): Promise<void> {
-    try {
-      // Generate HTML from email content
-      const $ = cheerio.load(content);
-      const htmlContent = $.html();
+    // Generate HTML from email content
+    const $ = cheerio.load(content);
+    const htmlContent = $.html();
 
-      // Initialize Resend client
-      const resend = new Resend(
-        this.config.getOrThrow<string>('RESEND_EMAIL_API_KEY'),
+    // Initialize Resend client
+    const resend = new Resend(
+      this.config.getOrThrow<string>('RESEND_EMAIL_API_KEY'),
+    );
+
+    // Send email to receiver
+    const response = await resend.emails.send({
+      from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
+      subject,
+      to: `${receiver.email}`,
+      html: htmlContent,
+      attachments,
+    });
+
+    if (response.data) {
+      this.logger().info(
+        `[${this.context}] "${subject}" email sent successfully to ${receiver.email}.\n`,
       );
-
-      // Send email to receiver
-      await resend.emails
-        .send({
-          from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
-          subject,
-          to: `${receiver.email}`,
-          html: htmlContent,
-          attachments,
-        })
-        .then(() => {
-          this.logger().info(
-            `[${this.context}] "${subject}" email sent successfully to ${receiver.email}.\n`,
-          );
-        });
-    } catch (error) {
+      return;
+    }
+    if (response.error) {
       this.logger().error(
-        `[${this.context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${error.message}\n`,
+        `[${this.context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${response.error.message}\n`,
       );
-
-      throw error;
+      return;
     }
   }
 

@@ -10,6 +10,7 @@ import { UtilsService } from '@app/utils';
 import { JwtService } from '@nestjs/jwt';
 import { DbService } from '@app/db';
 import { Request } from 'express';
+import { LoginDTO } from '../dto';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
@@ -52,22 +53,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       });
 
       if (user) {
-        // Create and sign JWT payload if user exists
-        const payload = { sub: user.id, email: user.email };
-        const authenticatedUser: GoogleAuthUser = {
-          twoFactorAuth: user.twoFAEnabled,
-          token: await this.jwt.signAsync(payload),
+        const dto: LoginDTO = {
+          email: user.email,
+          password: user.password,
         };
 
-        done(null, authenticatedUser);
+        // Sign in existing user
+        const authResponse = await lastValueFrom(
+          this.natsClient
+            .send<GoogleAuthUser>('login', { dto })
+            .pipe(catchError(handleError)),
+        );
 
-        this.utils
-          .logger()
-          .info(
-            `[${this.context}] User login successful. Email: ${user.email}\n`,
-          );
-
-        return;
+        return done(null, authResponse);
       } else {
         const details: GoogleAuthPayload = {
           email: emails[0].value,

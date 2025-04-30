@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ExecutionContext,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
@@ -21,8 +17,7 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     const res = context.switchToHttp().getResponse<Response>();
 
     // Store client redirect URL before Google invokes the callback
-    const redirectUrl = req.query.redirectUrl as string | undefined;
-    console.log(redirectUrl);
+    const redirectUrl = req.query.redirectUrl as string;
     if (redirectUrl) {
       res.cookie(this.GOOGLE_REDIRECT_COOKIE_KEY, redirectUrl, {
         httpOnly: true,
@@ -30,10 +25,6 @@ export class GoogleAuthGuard extends AuthGuard('google') {
         sameSite: 'lax',
         maxAge: 20 * 60 * 1000,
       });
-    } else {
-      throw new BadRequestException(
-        '"redirectUrl" query parameter is required',
-      );
     }
 
     // Trigger the Google strategy and populate the req.user object if validation is successful

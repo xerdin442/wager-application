@@ -54,8 +54,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       if (user) {
         // Create and sign JWT payload if user exists
         const payload = { sub: user.id, email: user.email };
-        const authenticatedUser: GoogleAuthUser = {
-          user,
+        const authenticatedUser = {
+          twoFactorAuth: user.twoFAEnabled,
           token: await this.jwt.signAsync(payload),
         };
 

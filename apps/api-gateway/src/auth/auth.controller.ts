@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Inject,
   Post,
-  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -30,7 +29,7 @@ import { GetUser } from '../custom/decorators';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
 import { handleError } from '../utils/error';
-import { GoogleAuthGuard } from '../custom/guards/google';
+import { GoogleAuthGuard } from '../custom/guards/google.guard.';
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
@@ -90,20 +89,7 @@ export class AuthController {
 
   @UseGuards(GoogleAuthGuard)
   @Get('google/login')
-  googleLogin(
-    @Res() res: Response,
-    @Query('redirectUrl') redirectUrl?: string,
-  ): void {
-    // Store client redirect URL before Google invokes the callback
-    if (redirectUrl) {
-      res.cookie(this.GOOGLE_REDIRECT_COOKIE_KEY, redirectUrl, {
-        httpOnly: true,
-        secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
-        sameSite: 'lax',
-        maxAge: 20 * 60 * 1000,
-      });
-    }
-  }
+  googleLogin(): void {}
 
   @UseGuards(GoogleAuthGuard)
   @Get('google/callback')

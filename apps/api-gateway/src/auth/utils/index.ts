@@ -36,7 +36,7 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
     
     const returnButton = document.getElementById("return-button");    
     returnButton.addEventListener("click", () => {
-      window.location.href = ${data.redirectUrl};
+      window.location.href = redirectUrl;
     });
   `;
 

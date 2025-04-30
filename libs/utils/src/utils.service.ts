@@ -15,7 +15,6 @@ export class UtilsService {
   constructor(private readonly config: ConfigService) {}
 
   logger(): Logger {
-    let logger: Logger;
     const NODE_ENV = this.config.getOrThrow<string>('NODE_ENV');
     const { combine, timestamp, label, printf } = format;
 
@@ -45,14 +44,20 @@ export class UtilsService {
       });
     };
 
-    if (NODE_ENV === 'production') {
-      logger = newLogger('PROD');
-    } else if (NODE_ENV === 'development') {
-      logger = newLogger('DEV');
-    } else if (NODE_ENV === 'test') {
-      logger = newLogger('TEST');
-    } else {
-      logger = newLogger('DEFAULT');
+    let logger: Logger = newLogger('DEFAULT');
+    switch (NODE_ENV) {
+      case 'production':
+        logger = newLogger('PROD');
+        break;
+      case 'development':
+        logger = newLogger('DEV');
+        break;
+      case 'test':
+        logger = newLogger('TEST');
+        break;
+
+      default:
+        break;
     }
 
     return logger;
@@ -69,21 +74,25 @@ export class UtilsService {
       const $ = cheerio.load(content);
       const htmlContent = $.html();
 
+      // Initialize Resend client
       const resend = new Resend(
         this.config.getOrThrow<string>('RESEND_EMAIL_API_KEY'),
       );
 
-      await resend.emails.send({
-        from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
-        subject,
-        to: `${receiver.email}`,
-        html: htmlContent,
-        attachments,
-      });
-
-      this.logger().info(
-        `[${this.context}] "${subject}" email sent successfully to ${receiver.email}.\n`,
-      );
+      // Send email to receiver
+      await resend.emails
+        .send({
+          from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
+          subject,
+          to: `${receiver.email}`,
+          html: htmlContent,
+          attachments,
+        })
+        .then(() => {
+          this.logger().info(
+            `[${this.context}] "${subject}" email sent successfully to ${receiver.email}.\n`,
+          );
+        });
     } catch (error) {
       this.logger().error(
         `[${this.context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${error.message}\n`,

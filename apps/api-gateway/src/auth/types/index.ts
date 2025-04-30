@@ -1,8 +1,9 @@
 import { User } from '@prisma/client';
 
 export type GoogleAuthUser = {
-  user: User;
+  user?: User;
   token: string;
+  twoFactorAuth?: boolean;
 };
 
 export type GoogleAuthPayload = {
@@ -13,8 +14,9 @@ export type GoogleAuthPayload = {
 };
 
 export type GoogleAuthCallbackData = {
-  user: any;
+  user?: User;
   token: string;
   redirectUrl: string;
   nonce: string;
+  twoFactorAuth?: boolean;
 };

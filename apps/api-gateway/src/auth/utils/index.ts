@@ -28,10 +28,12 @@ export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
   const scriptContent = `
     const authUser = ${JSON.stringify(data.user)};
     const jwtToken = ${JSON.stringify(data.token)};
+    const twoFactorAuth = ${JSON.stringify(data.twoFactorAuth)};
     const redirectUrl = ${JSON.stringify(data.redirectUrl || '/')};
 
     console.log('User', authUser);
     console.log('JWT', jwtToken);
+    console.log('2FA', twoFactorAuth);
     console.log('Redirect URL', redirectUrl);
     
     const returnButton = document.getElementById("return-button");    

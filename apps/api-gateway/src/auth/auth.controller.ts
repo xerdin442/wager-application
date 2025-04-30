@@ -95,19 +95,18 @@ export class AuthController {
   @Get('google/callback')
   googleCallback(@Req() req: Request, @Res() res: Response): void {
     const authenticatedUser = req.user as GoogleAuthUser;
-    if (
-      !authenticatedUser ||
-      !authenticatedUser.token ||
-      !authenticatedUser.user
-    ) {
+    const { token, twoFactorAuth, user } = authenticatedUser;
+
+    if (!authenticatedUser || !token) {
       res.clearCookie(this.GOOGLE_REDIRECT_COOKIE_KEY);
       throw new UnauthorizedException('Google authentication error');
     }
 
     const nonce = randomBytes(16).toString('base64');
     const data: GoogleAuthCallbackData = {
-      user: authenticatedUser.user,
-      token: authenticatedUser.token,
+      user,
+      twoFactorAuth,
+      token,
       redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
       nonce,
     };

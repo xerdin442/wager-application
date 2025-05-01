@@ -23,7 +23,6 @@ export class AuthController {
     private readonly utils: UtilsService,
   ) {}
 
-  @MessagePattern('google-auth')
   @MessagePattern('signup')
   async signup(data: {
     details: SignupDTO | GoogleAuthPayload;

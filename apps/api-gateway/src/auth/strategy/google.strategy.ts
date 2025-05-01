@@ -7,7 +7,6 @@ import { catchError, lastValueFrom } from 'rxjs';
 import { handleError } from '../../utils/error';
 import { GoogleAuthPayload, GoogleAuthUser } from '../types';
 import { UtilsService } from '@app/utils';
-import { JwtService } from '@nestjs/jwt';
 import { DbService } from '@app/db';
 import { Request } from 'express';
 import { LoginDTO } from '../dto';
@@ -18,7 +17,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
 
   constructor(
     private readonly utils: UtilsService,
-    private readonly jwt: JwtService,
     private readonly prisma: DbService,
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {
@@ -74,10 +72,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
           profileImage: photos ? photos[0].value : '',
         };
 
-        // Create and onboard new user
+        // Sign up and onboard new user
         const authResponse = await lastValueFrom(
           this.natsClient
-            .send<GoogleAuthUser>('google-auth', { details })
+            .send<GoogleAuthUser>('signup', { details })
             .pipe(catchError(handleError)),
         );
 

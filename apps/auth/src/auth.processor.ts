@@ -16,13 +16,13 @@ export class AuthProcessor {
   ) {}
 
   @Process('signup')
-  async signup(job: Job<Record<string, User>>): Promise<void> {
+  async signup(job: Job<Record<string, string>>): Promise<void> {
     try {
-      const { user } = job.data;
+      const { email } = job.data;
       const subject = 'Welcome Onboard!';
       const content = 'Thanks for signing up';
 
-      await this.utils.sendEmail(user, subject, content);
+      await this.utils.sendEmail(email, subject, content);
     } catch (error) {
       this.utils
         .logger()
@@ -34,13 +34,13 @@ export class AuthProcessor {
   }
 
   @Process('otp')
-  async passwordReset(job: Job<{ user: User; otp: string }>): Promise<void> {
+  async passwordReset(job: Job<{ email: string; otp: string }>): Promise<void> {
     try {
-      const { user, otp } = job.data;
+      const { email, otp } = job.data;
       const subject = 'Password Reset';
       const content = `This is your OTP: ${otp}. It is valid for one hour.`;
 
-      await this.utils.sendEmail(user, subject, content);
+      await this.utils.sendEmail(email, subject, content);
     } catch (error) {
       this.utils
         .logger()

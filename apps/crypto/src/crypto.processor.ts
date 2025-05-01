@@ -4,7 +4,6 @@ import { Job } from 'bull';
 import { Chain } from './types';
 import { CryptoService } from './crypto.service';
 import { UtilsService } from '@app/utils';
-import { User } from '@prisma/client';
 
 @Injectable()
 @Processor('crypto-queue')
@@ -41,7 +40,7 @@ export class CryptoProcessor {
         content = `Your withdrawal of $${amount} on ${date} was unsuccessful. Please try again later.`;
       }
 
-      await this.utils.sendEmail(user as User, subject, content);
+      await this.utils.sendEmail(user.email as string, subject, content);
     } catch (error) {
       throw error;
     }

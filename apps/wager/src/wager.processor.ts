@@ -44,10 +44,10 @@ export class WagerProcessor {
       const subject = 'Wager Settled';
 
       const claimantContent = `The 24-hour window for @${opponent.username} to accept or contest your claim in ${wager.title} wager has elapsed, and the wager has been settled in your favour. More wins, champ!`;
-      await this.utils.sendEmail(claimant, subject, claimantContent);
+      await this.utils.sendEmail(claimant.email, subject, claimantContent);
 
       const opponentContent = `The 24-hour window to accept or contest @${claimant.username}'s claim in ${wager.title} wager has elapsed, and the wager has been settled in favour of @${claimant.username}. Better luck next time!`;
-      await this.utils.sendEmail(opponent, subject, opponentContent);
+      await this.utils.sendEmail(opponent.email, subject, opponentContent);
     } catch (error) {
       this.utils
         .logger()

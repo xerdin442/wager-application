@@ -223,7 +223,7 @@ export class WagerService {
       const content = `@${claimant.username} has claimed the prize in the ${wager.title} wager.
         Accepting the claim means that you accept defeat and forfeit the prize.
         Contesting the claim means that you disagree and the claim will be settled through dispute resolution.`;
-      await this.utils.sendEmail(opponent, subject, content);
+      await this.utils.sendEmail(opponent.email, subject, content);
 
       // Automatically settle the wager after 24 hours if the opponent takes no action
       await this.wagersQueue.add(

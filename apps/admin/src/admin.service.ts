@@ -103,7 +103,7 @@ export class AdminService {
       // Send passcode to new admin
       const subject = 'Login Details';
       const content = `Welcome to the team! You're now a dispute resolution admin at ${this.config.getOrThrow<string>('APP_NAME')}. Your passcode is: ${passcode}.`;
-      await this.utils.sendEmail(admin, subject, content);
+      await this.utils.sendEmail(admin.email, subject, content);
 
       return;
     } catch (error) {

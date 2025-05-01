@@ -8,6 +8,11 @@ services:
     command: >
       sh -c "npm run deploy && npm run start:dev"
 
+  admin-service:
+    <<: *dev-setup
+    command: >
+      sh -c "npm run start:dev admin"
+
   auth-service:
     <<: *dev-setup
     command: >

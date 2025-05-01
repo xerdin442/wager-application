@@ -64,7 +64,7 @@ export class UtilsService {
   }
 
   async sendEmail(
-    receiver: Record<string, any>,
+    receiver: string,
     subject: string,
     content: string,
     attachments?: Attachment[],
@@ -82,20 +82,20 @@ export class UtilsService {
     const response = await resend.emails.send({
       from: `${this.config.getOrThrow<string>('APP_NAME')} <${this.config.getOrThrow<string>('APP_EMAIL')}>`,
       subject,
-      to: `${receiver.email}`,
+      to: receiver,
       html: htmlContent,
       attachments,
     });
 
     if (response.data) {
       this.logger().info(
-        `[${this.context}] "${subject}" email sent successfully to ${receiver.email}.\n`,
+        `[${this.context}] "${subject}" email sent successfully to ${receiver}.\n`,
       );
       return;
     }
     if (response.error) {
       this.logger().error(
-        `[${this.context}] An error occured while sending "${subject}" email to ${receiver.email}. Error: ${response.error.message}\n`,
+        `[${this.context}] An error occured while sending "${subject}" email to ${receiver}. Error: ${response.error.message}\n`,
       );
       return;
     }

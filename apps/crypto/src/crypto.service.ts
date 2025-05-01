@@ -87,10 +87,7 @@ export class CryptoService implements OnModuleInit {
   private readonly baseMetricLabels: string[] = ['base', 'crypto'];
   private readonly solanaMetricLabels: string[] = ['solana', 'crypto'];
 
-  private readonly superAdmin: Record<string, string> = {
-    name: 'Admin',
-    email: process.env.SUPER_ADMIN_EMAIL as string,
-  };
+  private readonly superAdmin: string = process.env.SUPER_ADMIN_EMAIL as string;
 
   constructor(
     private readonly prisma: DbService,
@@ -630,7 +627,7 @@ export class CryptoService implements OnModuleInit {
 
           // Notify user of successful deposit
           const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
-          await this.utils.sendEmail(user, 'Deposit Complete', content);
+          await this.utils.sendEmail(user.email, 'Deposit Complete', content);
 
           this.utils
             .logger()
@@ -737,7 +734,7 @@ export class CryptoService implements OnModuleInit {
 
           // Notify user of successful deposit
           const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
-          await this.utils.sendEmail(user, 'Deposit Complete', content);
+          await this.utils.sendEmail(user.email, 'Deposit Complete', content);
 
           this.utils
             .logger()

@@ -76,7 +76,7 @@ export class AuthService {
 
       // Create new user through Google authentication
       const username =
-        details.firstName.toLowerCase() + `${randomUUID().split('-')[3]}`;
+        details.firstName.toLowerCase() + `_${randomUUID().split('-')[3]}`;
       return this.prisma.user.create({
         data: {
           ...details,
@@ -110,7 +110,7 @@ export class AuthService {
       const user = await this.createNewUser(details, file);
 
       // Send an onboarding email to the new user
-      await this.authQueue.add('signup', { user });
+      await this.authQueue.add('signup', { email: user.email });
       // Process wallet monitoring and prefilling with gas fees
       await this.authQueue.add('setup-wallet', { user });
 
@@ -249,7 +249,7 @@ export class AuthService {
         await this.sessionService.set(dto.email, data);
 
         // Send the OTP via email
-        await this.authQueue.add('otp', { user, otp: data.otp });
+        await this.authQueue.add('otp', { email: user.email, otp: data.otp });
 
         return data.otp;
       } else {
@@ -275,7 +275,7 @@ export class AuthService {
 
         // Send another email with the new OTP
         await this.authQueue.add('otp', {
-          email: data.email,
+          email: data.email as string,
           otp: data.otp,
         });
 

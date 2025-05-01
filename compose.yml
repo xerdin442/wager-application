@@ -26,18 +26,18 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
 
-  # admin-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/admin/Dockerfile
-  #   restart: always
-  #   networks:
-  #     - app-network
-  #   env_file:
-  #     - ./.env
-  #   depends_on:
-  #     - database
-  #     - nats-server
+  admin-service:
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile
+    restart: always
+    networks:
+      - app-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+      - nats-server
 
   auth-service:
     build:

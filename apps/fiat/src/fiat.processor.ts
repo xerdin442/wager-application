@@ -61,7 +61,7 @@ export class FiatProcessor {
 
         // Notify user of successful deposit
         const content = `$${amount} has been deposited in your wallet. Your balance is $${user.balance}`;
-        await this.utils.sendEmail(user, 'Deposit Complete', content);
+        await this.utils.sendEmail(user.email, 'Deposit Complete', content);
 
         this.utils
           .logger()
@@ -90,7 +90,7 @@ export class FiatProcessor {
 
         // Notify user of failed deposit
         const content = `Your deposit of $${amount} was unsuccessful. Please try again later.`;
-        await this.utils.sendEmail(user, 'Failed Deposit', content);
+        await this.utils.sendEmail(user.email, 'Failed Deposit', content);
 
         this.utils
           .logger()
@@ -208,7 +208,11 @@ export class FiatProcessor {
 
         // Notify user of successful withdrawal
         const content = `Your withdrawal of $${amount} on ${date} was successful. Your balance is $${user.balance}`;
-        await this.utils.sendEmail(user, 'Withdrawal Successful', content);
+        await this.utils.sendEmail(
+          user.email,
+          'Withdrawal Successful',
+          content,
+        );
 
         this.utils
           .logger()
@@ -235,7 +239,7 @@ export class FiatProcessor {
 
         // Notify user of failed withdrawal
         const content = `Your withdrawal of $${amount} on ${date} was unsuccessful. Please try again later.`;
-        await this.utils.sendEmail(user, 'Failed Withdrawal', content);
+        await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
 
         this.utils
           .logger()

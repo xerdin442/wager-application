@@ -17,7 +17,7 @@ import { Server, Socket } from 'socket.io';
   new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
 )
 @UseFilters(new BaseWsExceptionFilter())
-@WebSocketGateway(8081, { path: 'wallet/fiat' })
+@WebSocketGateway(8080, { path: 'wallet/fiat' })
 export class FiatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private readonly server: Server;

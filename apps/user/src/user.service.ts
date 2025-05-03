@@ -1,14 +1,16 @@
 import { DbService } from '@app/db';
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Transaction, User, Wager } from '@prisma/client';
 import { UpdateProfileDto, GetTransactionsDto, FundsTransferDto } from './dto';
 import { UtilsService } from '@app/utils';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prisma: DbService,
     private readonly utils: UtilsService,
+    @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   async updateProfile(
@@ -40,11 +42,28 @@ export class UserService {
     }
   }
 
-  async deleteAccount(userId: number): Promise<void> {
+  async deleteAccount(user: User): Promise<void> {
     try {
-      await this.prisma.user.delete({
-        where: { id: userId },
-      });
+      if (user.balance < 5 && user.balance > 1) {
+        throw new RpcException({
+          status: HttpStatus.FORBIDDEN,
+          message: `Your wallet balance is $${user.balance}. Create or join a wager to max out your balance before deleting your profile`,
+        });
+      } else if (user.balance > 5) {
+        throw new RpcException({
+          status: HttpStatus.FORBIDDEN,
+          message: 'Withdraw your wallet balance before deleting your profile',
+        });
+      } else {
+        // Delete user profile
+        await this.prisma.user.delete({
+          where: { id: user.id },
+        });
+
+        // Initiate clearing of user wallets
+      }
+
+      return;
     } catch (error) {
       throw error;
     }

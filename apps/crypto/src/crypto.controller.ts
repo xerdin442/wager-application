@@ -232,4 +232,7 @@ export class CryptoController {
       throw error;
     }
   }
+
+  @MessagePattern('clear-wallet')
+  async clearUserWallet(data: { chain: Chain; user: User }): Promise<boolean> {}
 }

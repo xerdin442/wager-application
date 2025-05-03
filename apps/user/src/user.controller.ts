@@ -57,7 +57,7 @@ export class UserController {
   async deleteAccount(data: { user: User }): Promise<{ message: string }> {
     try {
       const { user } = data;
-      await this.userService.deleteAccount(user.id);
+      await this.userService.deleteAccount(user);
 
       this.utils
         .logger()

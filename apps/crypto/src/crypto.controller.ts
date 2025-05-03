@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, HttpStatus } from '@nestjs/common';
 import { CryptoService } from './crypto.service';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
@@ -36,7 +36,7 @@ export class CryptoController {
 
         default:
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message:
               'Invalid value for chain query parameter. Expected "base" or "solana".',
           });
@@ -47,6 +47,7 @@ export class CryptoController {
         .error(
           `[${this.context}] An error occurred while retrieving user's deposit address. Error: ${error.message}\n`,
         );
+
       throw error;
     }
   }
@@ -70,7 +71,7 @@ export class CryptoController {
       // Check if request contains a valid idempotency key
       if (!idempotencyKey) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: '"Idempotency-Key" header is required',
         });
       }
@@ -90,7 +91,7 @@ export class CryptoController {
       // Check if withdrawal amount exceeds user balance
       if (user.balance < dto.amount) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: `Insufficient funds. $${user.balance} is available for withdrawal`,
         });
       }
@@ -98,7 +99,7 @@ export class CryptoController {
       // Check if withdrawal amount is below the allowed minimum
       if (dto.amount < 5) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Minimum withdrawal amount is $5',
         });
       }
@@ -139,7 +140,7 @@ export class CryptoController {
 
         default:
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message:
               'Invalid value for chain query parameter. Expected "base" or "solana".',
           });
@@ -234,5 +235,24 @@ export class CryptoController {
   }
 
   @MessagePattern('clear-wallet')
-  async clearUserWallet(data: { chain: Chain; user: User }): Promise<boolean> {}
+  async clearUserWallet(data: { user: User }): Promise<void> {
+    try {
+      const { user } = data;
+      await this.cryptoService.clearUserWallets(user);
+
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] User wallets successfully cleared. Email: ${user.email}\n`,
+        );
+    } catch (error) {
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occurred while clearing user wallets. Error: ${error.message}\n`,
+        );
+
+      throw error;
+    }
+  }
 }

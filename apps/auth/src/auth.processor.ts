@@ -3,7 +3,6 @@ import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
 import { UtilsService } from '@app/utils';
 import { ClientProxy } from '@nestjs/microservices';
-import { User } from '@prisma/client';
 
 @Injectable()
 @Processor('auth-queue')
@@ -47,31 +46,6 @@ export class AuthProcessor {
         .error(
           `[${this.context}] An error occured while processing otp email. Error: ${error.message}\n`,
         );
-      throw error;
-    }
-  }
-
-  @Process('setup-wallet')
-  setupWallet(job: Job<Record<string, User>>): void {
-    try {
-      const { user } = job.data;
-
-      // Subscribe to wallet activity to check for deposits
-      this.natsClient.send('monitor-deposit', { user, chain: 'base' });
-      this.natsClient.send('monitor-deposit', { user, chain: 'solana' });
-
-      // Prefill user wallets with gas fees for transactions
-      this.natsClient.send('prefill', { user, chain: 'base' });
-      this.natsClient.send('prefill', { user, chain: 'solana' });
-
-      return;
-    } catch (error) {
-      this.utils
-        .logger()
-        .error(
-          `[${this.context}] An error occured while processing setup of user wallet. Error: ${error.message}\n`,
-        );
-
       throw error;
     }
   }

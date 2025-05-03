@@ -1,7 +1,7 @@
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
 import { InjectQueue } from '@nestjs/bull';
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Queue } from 'bull';
 import * as argon from 'argon2';
@@ -92,7 +92,7 @@ export class AuthService {
         if (error.code === 'P2002') {
           const meta = error.meta as Record<string, any>;
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message: `This ${meta.target[0]} already exists. Please try again!`,
           });
         }
@@ -111,8 +111,14 @@ export class AuthService {
 
       // Send an onboarding email to the new user
       await this.authQueue.add('signup', { email: user.email });
-      // Process wallet monitoring and prefilling with gas fees
-      await this.authQueue.add('setup-wallet', { user });
+
+      // Subscribe to wallet activity to check for deposits
+      this.natsClient.send('monitor-deposit', { user, chain: 'base' });
+      this.natsClient.send('monitor-deposit', { user, chain: 'solana' });
+
+      // Prefill user wallets with gas fees for transactions
+      this.natsClient.send('prefill', { user, chain: 'base' });
+      this.natsClient.send('prefill', { user, chain: 'solana' });
 
       // Sanitize user output
       user.password = '';
@@ -137,7 +143,7 @@ export class AuthService {
       // Check if user is found with given email address
       if (!user) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'No user found with that email address',
         });
       }
@@ -146,7 +152,7 @@ export class AuthService {
       const checkPassword = await argon.verify(user.password, dto.password);
       if (!checkPassword) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid password',
         });
       }
@@ -254,7 +260,7 @@ export class AuthService {
         return data.otp;
       } else {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'No user found with that email address',
         });
       }
@@ -282,7 +288,7 @@ export class AuthService {
         return data.otp;
       } else {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Email not found',
         });
       }
@@ -299,14 +305,14 @@ export class AuthService {
       if (session.email) {
         if (session.otp !== dto.otp) {
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message: 'Invalid OTP',
           });
         }
 
         if ((session.otpExpiration as number) < Date.now()) {
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message: 'This OTP has expired',
           });
         }
@@ -332,7 +338,7 @@ export class AuthService {
         const samePassword = await argon.verify(user.password, dto.newPassword);
         if (samePassword) {
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message:
               'New password cannot be the same value as previous password',
           });
@@ -354,7 +360,7 @@ export class AuthService {
         return;
       } else {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Email not found',
         });
       }

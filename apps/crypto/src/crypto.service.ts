@@ -1,6 +1,6 @@
 import { DbService } from '@app/db';
 import { hdkey } from '@ethereumjs/wallet';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { HttpStatus, Injectable, OnModuleInit } from '@nestjs/common';
 import { TransactionStatus, TransactionType, User } from '@prisma/client';
 import {
   getAssociatedTokenAddress,
@@ -182,7 +182,7 @@ export class CryptoService implements OnModuleInit {
           address === '0x0000000000000000000000000000000000000000'
         ) {
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message: 'Invalid or unregistered ENS domain',
           });
         }
@@ -198,7 +198,7 @@ export class CryptoService implements OnModuleInit {
 
       if (!registry.owner) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid or unregistered SNS domain',
         });
       }
@@ -367,7 +367,7 @@ export class CryptoService implements OnModuleInit {
       // Verify recipient address
       if (!isAddress(dto.address)) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid recipient address',
         });
       }
@@ -446,7 +446,7 @@ export class CryptoService implements OnModuleInit {
       const msg = error.message as string;
       if (msg.includes('transaction underpriced')) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message:
             'The network is congested at the moment. Please try again later',
         });
@@ -486,7 +486,7 @@ export class CryptoService implements OnModuleInit {
       const recipient = new PublicKey(dto.address);
       if (!PublicKey.isOnCurve(recipient)) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid recipient address',
         });
       }
@@ -1000,105 +1000,105 @@ export class CryptoService implements OnModuleInit {
     }
   }
 
-  async clearUserWallet(user: User, chain: Chain): Promise<boolean> {
+  async clearUserWallets(user: User): Promise<void> {
     try {
-      if (chain === 'solana') {
-        // Generate the Keypair of the user and platform wallets
-        const userWallet = Keypair.fromSecretKey(
-          Uint8Array.from(user.solPrivateKey),
-        );
-        const platformWallet = this.getPlatformPrivateKey(chain) as Keypair;
+      // -- CLEAR SOLANA WALLET --
+      const userSolWallet = Keypair.fromSecretKey(
+        Uint8Array.from(user.solPrivateKey),
+      );
+      const platformSolWallet = this.getPlatformPrivateKey('solana') as Keypair;
 
-        // Get the user wallet balance
-        const balance = await this.connection.getBalance(userWallet.publicKey);
-        // Fetch the recent blockhash and block height
-        const { blockhash, lastValidBlockHeight } =
-          await this.connection.getLatestBlockhash();
+      // Get the user wallet balance
+      const balanceInLamports = await this.connection.getBalance(
+        userSolWallet.publicKey,
+      );
+      // Fetch the recent blockhash and block height
+      const { blockhash, lastValidBlockHeight } =
+        await this.connection.getLatestBlockhash();
 
-        // Build the preliminary transaction instruction for use in the transaction message
-        const preliminaryInstruction = new TransactionInstruction(
-          SystemProgram.transfer({
-            fromPubkey: userWallet.publicKey,
-            toPubkey: platformWallet.publicKey,
-            lamports: balance,
-          }),
-        );
+      // Build the preliminary transaction instruction for use in the transaction message
+      const preliminaryInstruction = new TransactionInstruction(
+        SystemProgram.transfer({
+          fromPubkey: userSolWallet.publicKey,
+          toPubkey: platformSolWallet.publicKey,
+          lamports: balanceInLamports,
+        }),
+      );
 
-        // Compile transaction message for fee estimation
-        const txMessage = new TransactionMessage({
-          recentBlockhash: blockhash,
-          payerKey: userWallet.publicKey,
-          instructions: [preliminaryInstruction],
-        }).compileToV0Message();
+      // Compile transaction message for fee estimation
+      const txMessage = new TransactionMessage({
+        recentBlockhash: blockhash,
+        payerKey: userSolWallet.publicKey,
+        instructions: [preliminaryInstruction],
+      }).compileToV0Message();
 
-        // Get the estimated gas fees in lamports for the transaction message
-        const feeResult = await this.connection.getFeeForMessage(txMessage);
-        // Ensure the balance is sufficient for the transfer
-        const totalFee = feeResult.value as number;
-        const amountToTransfer = balance > totalFee ? balance - totalFee : 0;
+      // Get the estimated gas fees in lamports for the transaction message
+      const feeResult = await this.connection.getFeeForMessage(txMessage);
+      // Ensure the balance is sufficient for the transfer
+      const totalFee = feeResult.value as number;
+      const amountToTransfer =
+        balanceInLamports > totalFee ? balanceInLamports - totalFee : 0;
 
-        // Configure final transaction instruction for transfer
-        const tx = new SolTransaction().add(
-          SystemProgram.transfer({
-            fromPubkey: userWallet.publicKey,
-            toPubkey: platformWallet.publicKey,
-            lamports: amountToTransfer,
-          }),
-        );
-        tx.lastValidBlockHeight = lastValidBlockHeight;
+      // Configure final transaction instruction for transfer
+      const solTx = new SolTransaction().add(
+        SystemProgram.transfer({
+          fromPubkey: userSolWallet.publicKey,
+          toPubkey: platformSolWallet.publicKey,
+          lamports: amountToTransfer,
+        }),
+      );
+      solTx.lastValidBlockHeight = lastValidBlockHeight;
 
-        // Sign, send and confirm the transaction on the network
-        await sendAndConfirmTransaction(this.connection, tx, [userWallet]);
-        return true;
-      }
+      // Sign, send and confirm the transaction on the solana network
+      await sendAndConfirmTransaction(this.connection, solTx, [userSolWallet]);
 
-      if (chain === 'base') {
-        const platformPrivateKey = this.getPlatformPrivateKey(chain) as string;
-        const platformAccount =
-          this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+      // -- CLEAR ETHEREUM WALLET --
+      const platformEthPrivateKey = this.getPlatformPrivateKey(
+        'base',
+      ) as string;
+      const platformEthAccount = this.web3.eth.accounts.privateKeyToAccount(
+        platformEthPrivateKey,
+      );
 
-        // Get user wallet balance
-        const balanceInWei = await this.web3.eth.getBalance(user.ethAddress);
-        // Determine gas limit for the transfer
-        const gasLimit = 21000;
-        // Estimate the gas price based on recent transactions on the network
-        const gasPrice = await this.web3.eth.getGasPrice();
-        // Calculate the total transaction fees
-        const totalFeeInWei = BigInt(gasLimit) * BigInt(gasPrice);
+      // Get user wallet balance
+      const balanceInWei = await this.web3.eth.getBalance(user.ethAddress);
+      // Determine gas limit for the transfer
+      const gasLimit = 21000;
+      // Estimate the gas price based on recent transactions
+      const gasPrice = await this.web3.eth.getGasPrice();
+      // Calculate the total transaction fees
+      const totalFeeInWei = BigInt(gasLimit) * BigInt(gasPrice);
 
-        // Ensure the balance is sufficient for the transfer
-        const amountToSendInWei =
-          BigInt(balanceInWei) > totalFeeInWei
-            ? BigInt(balanceInWei) - totalFeeInWei
-            : BigInt(0);
+      // Ensure the balance is sufficient for the transfer
+      const amountToSendInWei =
+        BigInt(balanceInWei) > totalFeeInWei
+          ? BigInt(balanceInWei) - totalFeeInWei
+          : BigInt(0);
 
-        // Get the current nonce
-        const nonce = await this.web3.eth.getTransactionCount(
-          user.ethAddress,
-          'pending',
-        );
+      // Get the current nonce
+      const nonce = await this.web3.eth.getTransactionCount(
+        user.ethAddress,
+        'pending',
+      );
 
-        // Configure transaction details
-        const tx: EthTransaction = {
-          from: user.ethAddress,
-          to: platformAccount.address,
-          value: amountToSendInWei,
-          gasPrice,
-          gas: gasLimit,
-          nonce,
-        };
+      // Configure transaction details
+      const ethTx: EthTransaction = {
+        from: user.ethAddress,
+        to: platformEthAccount.address,
+        value: amountToSendInWei,
+        gasPrice,
+        gas: gasLimit,
+        nonce,
+      };
 
-        // Sign and broadcast the transaction to the network
-        const signedTx = await this.web3.eth.accounts.signTransaction(
-          tx,
-          user.ethPrivateKey,
-        );
-        await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+      // Sign and broadcast the transaction to the ethereum network
+      const signedTx = await this.web3.eth.accounts.signTransaction(
+        ethTx,
+        user.ethPrivateKey,
+      );
+      await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-        return true;
-      }
-
-      return false;
+      return;
     } catch (error) {
       throw error;
     }

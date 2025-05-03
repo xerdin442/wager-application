@@ -1,6 +1,6 @@
 import { DbService } from '@app/db';
 import { InjectQueue } from '@nestjs/bull';
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Wager, Message, User } from '@prisma/client';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
@@ -25,14 +25,14 @@ export class WagerService {
       // Check if stake is less than the mininmum
       if (dto.stake < 1) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Minimum stake is $1',
         });
       }
       // Check if user has sufficient funds to stake in the wager
       if (dto.stake > user.balance) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Insufficient balance',
         });
       }
@@ -71,13 +71,13 @@ export class WagerService {
 
       if (wager.playerOne !== userId) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Details of a wager can only be modified by its creator',
         });
       }
       if (wager.status === 'ACTIVE') {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Details of an active wager cannot be modified',
         });
       }
@@ -102,7 +102,7 @@ export class WagerService {
 
       if (!wager) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid wager invite code',
         });
       }
@@ -121,14 +121,14 @@ export class WagerService {
 
       if (wager.playerOne === userId) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message:
             'The creator of a wager cannot join the wager. Please invite another user',
         });
       }
       if (wager.playerOne && wager.playerTwo) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'This wager cannot have more than two players',
         });
       }
@@ -141,7 +141,7 @@ export class WagerService {
       const stake = wager.amount / 2;
       if (stake > user.balance) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Insufficient balance',
         });
       }
@@ -187,13 +187,13 @@ export class WagerService {
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'This wager has already been settled!',
         });
       }
       if (wager.playerOne !== userId || wager.playerTwo !== userId) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message:
             'A prize claim can only be made by any of the two players in this wager',
         });
@@ -249,7 +249,7 @@ export class WagerService {
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'This wager has already been settled!',
         });
       }
@@ -280,7 +280,7 @@ export class WagerService {
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'This wager has already been settled!',
         });
       }
@@ -311,13 +311,13 @@ export class WagerService {
 
       if (wager.playerOne !== userId) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'A wager can only be deleted by its creator',
         });
       }
       if (wager.status === 'ACTIVE') {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'An active wager cannot be deleted',
         });
       }
@@ -356,7 +356,7 @@ export class WagerService {
       });
       if (!user) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Invalid username',
         });
       }

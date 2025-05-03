@@ -61,9 +61,10 @@ export class UserService {
         });
 
         // Initiate clearing of user wallets
-      }
+        this.natsClient.send('clear-wallet', { user });
 
-      return;
+        return;
+      }
     } catch (error) {
       throw error;
     }

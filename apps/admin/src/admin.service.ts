@@ -1,5 +1,5 @@
 import { DbService } from '@app/db';
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Admin, Chat } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -23,7 +23,7 @@ export class AdminService {
       const admins = await this.prisma.admin.findMany();
       if (admins.length >= 1) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Only one Super Admin profile can be created',
         });
       }
@@ -55,7 +55,7 @@ export class AdminService {
       // Check if admin is found with given email address
       if (!admin) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'No admin found with that email address',
         });
       }
@@ -64,7 +64,7 @@ export class AdminService {
       const checkPassword = await argon.verify(admin.passcode, dto.passcode);
       if (!checkPassword) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Access denied. Invalid passcode',
         });
       }

@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, HttpStatus } from '@nestjs/common';
 import { FiatService } from './fiat.service';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
@@ -80,7 +80,7 @@ export class FiatController {
       // Check if request contains a valid idempotency key
       if (!idempotencyKey) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: '"Idempotency-Key" header is required',
         });
       }
@@ -100,7 +100,7 @@ export class FiatController {
       // Check if withdrawal amount exceeds user balance
       if (user.balance < dto.amount) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: `Insufficient funds. $${user.balance} is available for withdrawal`,
         });
       }
@@ -108,7 +108,7 @@ export class FiatController {
       // Check if withdrawal amount is below the allowed minimum
       if (dto.amount < 5) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Minimum withdrawal amount is $5',
         });
       }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import { FiatAmountDto } from './dto';
 import { AccountDetails, BankData } from './types';
@@ -45,7 +45,7 @@ export class FiatService {
 
       if (!recipientBank) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message: 'Bank not found. Kindly input the correct bank name',
         });
       }
@@ -78,7 +78,7 @@ export class FiatService {
           details.accountName.toUpperCase()
       ) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message:
             'Please check the spelling or order of your account name. The names should be ordered as it was during your account opening at the bank',
         });
@@ -94,7 +94,7 @@ export class FiatService {
 
       if (axios.isAxiosError(error)) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.BAD_REQUEST,
           message:
             'Failed to verify account details. Please check your account number and try again',
         });
@@ -237,7 +237,7 @@ export class FiatService {
 
         default:
           throw new RpcException({
-            status: 400,
+            status: HttpStatus.BAD_REQUEST,
             message:
               'Invalid currency code provided in query parameter. Expected "USD" or "NGN"',
           });

@@ -7,11 +7,15 @@ x-prod-setup: &prod-setup
 services:
   api-gateway:
     <<: *prod-setup
+  admin-service:
+    <<: *prod-setup    
   auth-service:
     <<: *prod-setup
   fiat-service:
     <<: *prod-setup
   crypto-service:
+    <<: *prod-setup
+  user-service:
     <<: *prod-setup
   wager-service:
     <<: *prod-setup

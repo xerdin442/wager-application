@@ -28,6 +28,11 @@ services:
     command: >
       sh -c "npm run start:dev crypto"
 
+  user-service:
+    <<: *dev-setup
+    command: >
+      sh -c "npm run start:dev user"
+
   wager-service:
     <<: *dev-setup
     command: >

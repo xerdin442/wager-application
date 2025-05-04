@@ -165,6 +165,19 @@ services:
     command: >
       /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
+  user-service:
+    build:
+      context: .
+      dockerfile: ./apps/user/Dockerfile
+    restart: always
+    networks:
+      - app-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+      - nats-server
+
   nats-server:
     image: nats:latest
     restart: always

@@ -1,0 +1,64 @@
+x-test-setup: &test-setup
+  volumes:
+    - ./:/usr/src/app:rw
+  environment:
+    - NODE_ENV=test
+    - DATABASE_NAME="test-DB"
+    - DATABASE_URL="postgresql://postgres:postgres@database:5432/test-DB?schema=public"
+
+services:
+  api-gateway:
+    <<: *test-setup
+    command: >
+      sh -c "npm run deploy && npm run start:dev"
+
+  admin-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev admin"
+
+  auth-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev auth"
+
+  fiat-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev fiat"
+
+  crypto-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev crypto"
+
+  user-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev user"
+
+  wager-service:
+    <<: *test-setup
+    command: >
+      sh -c "npm run start:dev wager"
+  
+  database:
+    volumes: null
+  
+  wager-redis:
+    volumes: null
+
+  fiat-redis:
+    volumes: null
+
+  auth-redis:
+    volumes: null
+
+  crypto-redis:
+    volumes: null
+    
+  prometheus:
+    volumes: null
+  
+  grafana:
+    volumes: null

@@ -3,11 +3,12 @@ FROM node:latest
 WORKDIR /usr/src/app
 
 COPY package.json .
+COPY package-lock.json .
 
 ARG NODE_ENV
-RUN if [ "$NODE_ENV" = "development" ]; \
-      then npm install -f; \
-      else npm install -f --only=production; \
+RUN if [ "$NODE_ENV" = "development" ] || [ "$NODE_ENV" = "test" ]; \
+      then npm ci; \
+      else npm ci --only=production; \
       fi
 
 COPY . .

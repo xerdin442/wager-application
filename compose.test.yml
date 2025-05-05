@@ -3,62 +3,211 @@ x-test-setup: &test-setup
     - ./:/usr/src/app:rw
   environment:
     - NODE_ENV=test
-    - DATABASE_NAME="test-DB"
-    - DATABASE_URL="postgresql://postgres:postgres@database:5432/test-DB?schema=public"
+    - DATABASE_NAME=test-DB
+    - DATABASE_URL=postgresql://postgres:postgres@database:5432/test-DB?schema=public
 
 services:
   api-gateway:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/api-gateway/Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+      - "5555:5555"
+    networks:
+      - app-network      
+    depends_on:
+      - database
+      - nats-server
     command: >
-      sh -c "npm run deploy && npm run start:dev"
+      sh -c "npm run deploy && npm run start:dev"      
+
+  database:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
 
   admin-service:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile
+    restart: always
+    networks:
+      - app-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+      - nats-server
     command: >
-      sh -c "npm run start:dev admin"
+      sh -c "npm run start:dev admin"      
 
   auth-service:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/auth/Dockerfile
+    restart: always
+    networks:
+      - app-network
+      - auth-network
+    env_file:
+      - ./.env
+      - ./apps/auth/.env
+    depends_on:
+      - database
+      - auth-redis
+      - nats-server
     command: >
       sh -c "npm run start:dev auth"
 
+  auth-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    env_file:
+      - ./apps/auth/.env
+    networks:
+      - auth-network
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
   fiat-service:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/fiat/Dockerfile
+    restart: always
+    ports:
+      - "8081:8080"
+    networks:
+      - app-network
+      - fiat-network
+    env_file:
+      - ./.env
+      - ./apps/fiat/.env
+    depends_on:
+      - database
+      - fiat-redis
+      - nats-server
     command: >
       sh -c "npm run start:dev fiat"
 
+  fiat-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    env_file:
+      - ./apps/fiat/.env
+    networks:
+      - fiat-network
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
   crypto-service:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/crypto/Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+      - crypto-network
+    env_file:
+      - ./.env
+      - ./apps/crypto/.env
+    depends_on:
+      - database
+      - crypto-redis
+      - nats-server
     command: >
       sh -c "npm run start:dev crypto"
 
-  user-service:
-    <<: *test-setup
+  crypto-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6381:6379"
+    env_file:
+      - ./apps/crypto/.env
+    networks:
+      - crypto-network
     command: >
-      sh -c "npm run start:dev user"
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wager-service:
     <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/wager/Dockerfile
+    restart: always
+    ports:
+      - "8082:8080"
+    env_file:
+      - ./.env
+      - ./apps/wager/.env
+    networks:
+      - app-network
+      - wager-network
+    depends_on:
+      - database
+      - wager-redis
+      - nats-server
     command: >
       sh -c "npm run start:dev wager"
-  
-  database:
-    volumes: null
-  
+
   wager-redis:
-    volumes: null
+    image: redis:latest
+    restart: always
+    ports:
+      - "6382:6379"
+    env_file:
+      - ./apps/wager/.env
+    networks:
+      - wager-network
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
-  fiat-redis:
-    volumes: null
+  user-service:
+    <<: *test-setup
+    build:
+      context: .
+      dockerfile: ./apps/user/Dockerfile
+    restart: always
+    networks:
+      - app-network
+    env_file:
+      - ./.env
+    depends_on:
+      - database
+      - nats-server
+    command: >
+      sh -c "npm run start:dev user"
 
-  auth-redis:
-    volumes: null
+  nats-server:
+    image: nats:latest
+    restart: always
+    ports:
+      - "4222:4222"
+    networks:
+      - app-network
 
-  crypto-redis:
-    volumes: null
-    
-  prometheus:
-    volumes: null
-  
-  grafana:
-    volumes: null
+networks:
+  app-network:
+  auth-network:
+  crypto-network:
+  fiat-network:
+  wager-network:

@@ -5,8 +5,6 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { SessionService } from 'apps/auth/src/session';
 import { DbService } from '@app/db';
-import { natsOptions } from '@app/utils';
-import { MicroserviceOptions } from '@nestjs/microservices';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -39,12 +37,6 @@ describe('E2E Tests', () => {
         whitelist: true,
       }),
     );
-
-    // Connect and start all microservices
-    app.connectMicroservice<MicroserviceOptions>(
-      natsOptions as MicroserviceOptions,
-    );
-    await app.startAllMicroservices();
 
     // Clean database and session store before running tests
     prisma = app.get(DbService);

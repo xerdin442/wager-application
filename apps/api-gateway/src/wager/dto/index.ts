@@ -7,7 +7,7 @@ import {
   IsString,
 } from 'class-validator';
 
-export class CreateWagerDto {
+export class CreateWagerDTO {
   @IsString()
   @IsNotEmpty()
   title: string;
@@ -25,7 +25,7 @@ export class CreateWagerDto {
   stake: number;
 }
 
-export class UpdateWagerDto {
+export class UpdateWagerDTO {
   @IsString()
   @IsOptional()
   title?: string;
@@ -39,7 +39,7 @@ export class UpdateWagerDto {
   stake?: number;
 }
 
-export class WagerInviteDto {
+export class WagerInviteDTO {
   @IsString()
   @IsNotEmpty()
   inviteCode: string;

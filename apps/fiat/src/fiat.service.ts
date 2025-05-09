@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import axios from 'axios';
-import { FiatAmountDto } from './dto';
+import { FiatAmountDTO } from './dto';
 import { AccountDetails, BankData } from './types';
 import { RpcException } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
@@ -217,7 +217,7 @@ export class FiatService {
   }
 
   async fiatConversion(
-    dto: FiatAmountDto,
+    dto: FiatAmountDTO,
     targetCurrency: string,
   ): Promise<number> {
     try {

@@ -2,7 +2,7 @@ import { Controller } from '@nestjs/common';
 import { WagerService } from './wager.service';
 import { MessagePattern } from '@nestjs/microservices';
 import { Message, User, Wager } from '@prisma/client';
-import { CreateWagerDto, UpdateWagerDto, WagerInviteDto } from './dto';
+import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { UtilsService } from '@app/utils';
 
 @Controller()
@@ -16,7 +16,7 @@ export class WagerController {
   @MessagePattern('create')
   async createWager(data: {
     user: User;
-    dto: CreateWagerDto;
+    dto: CreateWagerDTO;
   }): Promise<{ wager: Wager }> {
     try {
       const { dto, user } = data;
@@ -43,7 +43,7 @@ export class WagerController {
   @MessagePattern('update')
   async updateWager(data: {
     userId: number;
-    dto: UpdateWagerDto;
+    dto: UpdateWagerDTO;
     wagerId: number;
   }): Promise<{ message: string }> {
     try {
@@ -64,7 +64,7 @@ export class WagerController {
 
   @MessagePattern('invite')
   async findWagerByInviteCode(data: {
-    dto: WagerInviteDto;
+    dto: WagerInviteDTO;
   }): Promise<{ wager: Wager }> {
     try {
       return { wager: await this.wagerService.findWagerByInviteCode(data.dto) };

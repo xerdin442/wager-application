@@ -21,7 +21,7 @@ import { GetUser } from '../custom/decorators';
 import { handleError } from '../utils/error';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
-import { FundsTransferDto, GetTransactionsDto, UpdateProfileDto } from './dto';
+import { FundsTransferDTO, GetTransactionsDTO, UpdateProfileDTO } from './dto';
 
 @Controller('user')
 @UseGuards(AuthGuard('jwt'))
@@ -65,7 +65,7 @@ export class UserController {
   )
   updateProfile(
     @GetUser() user: User,
-    @Body() dto: UpdateProfileDto,
+    @Body() dto: UpdateProfileDTO,
     @UploadedFile() file?: Express.Multer.File,
   ): Observable<any> {
     return this.natsClient
@@ -90,7 +90,7 @@ export class UserController {
   @Get('transactions')
   getTransactionHistory(
     @GetUser() user: User,
-    @Query() dto: GetTransactionsDto,
+    @Query() dto: GetTransactionsDTO,
   ): Observable<any> {
     return this.natsClient
       .send('transactions', { userId: user.id, dto })
@@ -101,7 +101,7 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   transferFunds(
     @GetUser() user: User,
-    @Body() dto: FundsTransferDto,
+    @Body() dto: FundsTransferDTO,
   ): Observable<any> {
     return this.natsClient
       .send('transfer-funds', { user, dto })

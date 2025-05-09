@@ -8,7 +8,7 @@ import { FiatService } from './fiat.service';
 import { AccountDetails, FiatTransactionNotification } from './types';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
-import { FiatWithdrawalDto } from './dto';
+import { FiatWithdrawalDTO } from './dto';
 import { FiatGateway } from './fiat.gateway';
 
 @Injectable()
@@ -115,18 +115,8 @@ export class FiatProcessor {
 
     try {
       const { email, userId } = job.data;
-      const dto = job.data.dto as FiatWithdrawalDto;
+      const dto = job.data.dto as FiatWithdrawalDTO;
 
-      // Deduct withdrawal amount from user balance
-      await this.prisma.user.update({
-        where: { id: userId as number },
-        data: { balance: { decrement: dto.amount } },
-      });
-
-      // Verify account details
-      await this.fiatService.verifyAccountDetails({
-        ...dto,
-      });
       // Convert USD to naira and transfer to specified withdrawal account
       const withdrawalAmount = await this.fiatService.fiatConversion(
         { ...dto },
@@ -141,6 +131,12 @@ export class FiatProcessor {
           email: email as string,
         },
       );
+
+      // Deduct withdrawal amount from user balance
+      await this.prisma.user.update({
+        where: { id: userId as number },
+        data: { balance: { decrement: dto.amount } },
+      });
 
       // Check if withdrawal details with account number already exists
       const data = await redis.get(email as string);

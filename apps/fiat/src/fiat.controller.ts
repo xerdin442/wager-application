@@ -2,7 +2,7 @@ import { Controller, HttpStatus } from '@nestjs/common';
 import { FiatService } from './fiat.service';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
-import { FiatAmountDto, FiatWithdrawalDto } from './dto';
+import { FiatAmountDTO, FiatWithdrawalDTO } from './dto';
 import { UtilsService } from '@app/utils';
 import { RedisClientType } from 'redis';
 import { ConfigService } from '@nestjs/config';
@@ -28,7 +28,7 @@ export class FiatController {
   @MessagePattern('deposit')
   async processDeposit(data: {
     user: User;
-    dto: FiatAmountDto;
+    dto: FiatAmountDTO;
   }): Promise<{ checkout: string }> {
     try {
       const { user, dto } = data;
@@ -65,7 +65,7 @@ export class FiatController {
   @MessagePattern('withdraw')
   async processWithdrawal(data: {
     user: User;
-    dto: FiatWithdrawalDto;
+    dto: FiatWithdrawalDTO;
     idempotencyKey?: string;
   }): Promise<{ message: string }> {
     const redis: RedisClientType = await this.utils.connectToRedis(
@@ -113,6 +113,12 @@ export class FiatController {
         });
       }
 
+      // Verify account details
+      await this.fiatService.verifyAccountDetails({
+        ...dto,
+      });
+
+      // Initiate processing of the withdrawal
       await this.fiatQueue.add('initiate-withdrawal', {
         dto,
         email: user.email,
@@ -186,7 +192,7 @@ export class FiatController {
 
   @MessagePattern('convert')
   async fiatConversion(data: {
-    dto: FiatAmountDto;
+    dto: FiatAmountDTO;
     targetCurrency: string;
   }): Promise<{ amount: number }> {
     try {
@@ -288,6 +294,7 @@ export class FiatController {
         .error(
           `[${this.context}] An error occurred while listening on webhook URL. Error: ${error.message}\n`,
         );
+
       throw error;
     }
   }

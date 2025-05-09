@@ -3,7 +3,7 @@ import { UserService } from './user.service';
 import { UtilsService } from '@app/utils';
 import { MessagePattern } from '@nestjs/microservices';
 import { Transaction, User, Wager } from '@prisma/client';
-import { FundsTransferDto, GetTransactionsDto, UpdateProfileDto } from './dto';
+import { FundsTransferDTO, GetTransactionsDTO, UpdateProfileDTO } from './dto';
 
 @Controller()
 export class UserController {
@@ -26,9 +26,9 @@ export class UserController {
   @MessagePattern('update-profile')
   async updateProfile(data: {
     user: User;
-    dto: UpdateProfileDto;
+    dto: UpdateProfileDTO;
     file?: Express.Multer.File;
-  }): Promise<{ user: User }> {
+  }): Promise<{ user: User; message: string }> {
     try {
       const { dto, user, file } = data;
       const updatedUser = await this.userService.updateProfile(
@@ -41,7 +41,7 @@ export class UserController {
         .logger()
         .info(`[${this.context}] Profile updated by ${user.email}.\n`);
 
-      return { user: updatedUser };
+      return { user: updatedUser, message: 'Profile updated successfully' };
     } catch (error) {
       this.utils
         .logger()
@@ -93,7 +93,7 @@ export class UserController {
   @MessagePattern('transactions')
   async getTransactionHistory(data: {
     userId: number;
-    dto: GetTransactionsDto;
+    dto: GetTransactionsDTO;
   }): Promise<{ transactions: Transaction[] }> {
     try {
       const { userId, dto } = data;
@@ -114,7 +114,7 @@ export class UserController {
   @MessagePattern('transfer-funds')
   async transferFunds(data: {
     user: User;
-    dto: FundsTransferDto;
+    dto: FundsTransferDTO;
   }): Promise<{ message: string }> {
     try {
       const { user, dto } = data;

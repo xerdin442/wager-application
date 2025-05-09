@@ -4,7 +4,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { Wager, Message, User } from '@prisma/client';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
-import { CreateWagerDto, UpdateWagerDto, WagerInviteDto } from './dto';
+import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
 
@@ -16,7 +16,7 @@ export class WagerService {
     @InjectQueue('wager-queue') private readonly wagersQueue: Queue,
   ) {}
 
-  async createWager(userId: number, dto: CreateWagerDto): Promise<Wager> {
+  async createWager(userId: number, dto: CreateWagerDTO): Promise<Wager> {
     try {
       const user = (await this.prisma.user.findUnique({
         where: { id: userId },
@@ -62,25 +62,47 @@ export class WagerService {
   async updateWager(
     userId: number,
     wagerId: number,
-    dto: UpdateWagerDto,
+    dto: UpdateWagerDTO,
   ): Promise<void> {
     try {
       const wager = (await this.prisma.wager.findUnique({
         where: { id: wagerId },
       })) as Wager;
 
+      const user = (await this.prisma.user.findUnique({
+        where: { id: userId },
+      })) as User;
+
+      // Verify that the user is the wager creator
       if (wager.playerOne !== userId) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Details of a wager can only be modified by its creator',
         });
       }
+      // Confirm wager status
       if (wager.status === 'ACTIVE') {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Details of an active wager cannot be modified',
         });
       }
+
+      // Check if stake is less than the mininmum
+      if ((dto.stake as number) < 1) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Minimum stake is $1',
+        });
+      }
+      // Check if user has sufficient funds to stake in the wager
+      if ((dto.stake as number) > user.balance) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Insufficient balance',
+        });
+      }
+
       if (wager.status === 'PENDING') {
         await this.prisma.wager.update({
           where: { id: wagerId },
@@ -94,7 +116,7 @@ export class WagerService {
     }
   }
 
-  async findWagerByInviteCode(dto: WagerInviteDto): Promise<Wager> {
+  async findWagerByInviteCode(dto: WagerInviteDTO): Promise<Wager> {
     try {
       const wager = await this.prisma.wager.findUnique({
         where: { ...dto },

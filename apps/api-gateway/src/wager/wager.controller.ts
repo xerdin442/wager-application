@@ -19,7 +19,7 @@ import { User } from '@prisma/client';
 import { Observable, catchError } from 'rxjs';
 import { GetUser } from '../custom/decorators';
 import { handleError } from '../utils/error';
-import { CreateWagerDto, UpdateWagerDto, WagerInviteDto } from './dto';
+import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { AdminGuard } from '../custom/guards/admin.guard';
 
 @Controller('wagers')
@@ -32,7 +32,7 @@ export class WagerController {
   @Post('create')
   createWager(
     @GetUser() user: User,
-    @Body() dto: CreateWagerDto,
+    @Body() dto: CreateWagerDTO,
   ): Observable<any> {
     return this.natsClient
       .send('create', { user, dto })
@@ -43,7 +43,7 @@ export class WagerController {
   updateWager(
     @GetUser() user: User,
     @Param('wagerId', ParseIntPipe) wagerId: number,
-    @Body() dto: UpdateWagerDto,
+    @Body() dto: UpdateWagerDTO,
   ): Observable<any> {
     return this.natsClient
       .send('update', { wagerId, userId: user.id, dto })
@@ -52,7 +52,7 @@ export class WagerController {
 
   @Post('invite')
   @HttpCode(HttpStatus.OK)
-  findWagerByInviteCode(@Body() dto: WagerInviteDto): Observable<any> {
+  findWagerByInviteCode(@Body() dto: WagerInviteDTO): Observable<any> {
     return this.natsClient
       .send('invite', { dto })
       .pipe(catchError(handleError));

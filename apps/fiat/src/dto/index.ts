@@ -1,12 +1,12 @@
 import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
-export class FiatAmountDto {
+export class FiatAmountDTO {
   @IsNumber()
   @IsNotEmpty()
   amount: number;
 }
 
-export class FiatWithdrawalDto {
+export class FiatWithdrawalDTO {
   @IsNumber()
   @IsNotEmpty()
   amount: number;

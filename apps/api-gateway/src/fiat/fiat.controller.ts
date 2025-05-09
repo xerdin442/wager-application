@@ -16,7 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { catchError, Observable } from 'rxjs';
 import { GetUser } from '../custom/decorators';
-import { FiatAmountDto, FiatWithdrawalDto } from './dto';
+import { FiatAmountDTO, FiatWithdrawalDTO } from './dto';
 import { handleError } from '../utils/error';
 import { Request } from 'express';
 
@@ -31,7 +31,7 @@ export class FiatController {
   @UseGuards(AuthGuard('jwt'))
   processDeposit(
     @GetUser() user: User,
-    @Body() dto: FiatAmountDto,
+    @Body() dto: FiatAmountDTO,
   ): Observable<any> {
     return this.natsClient
       .send('deposit', { user, dto })
@@ -43,7 +43,7 @@ export class FiatController {
   @UseGuards(AuthGuard('jwt'))
   processWithdrawal(
     @GetUser() user: User,
-    @Body() dto: FiatWithdrawalDto,
+    @Body() dto: FiatWithdrawalDTO,
     @Headers('Idempotency-Key') idempotencyKey?: string,
   ): Observable<any> {
     return this.natsClient
@@ -60,7 +60,6 @@ export class FiatController {
   }
 
   @Get('withdraw/banks')
-  @UseGuards(AuthGuard('jwt'))
   getSupportedBanks(): Observable<any> {
     return this.natsClient
       .send('supported-banks', {})
@@ -69,9 +68,8 @@ export class FiatController {
 
   @Post('convert')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
   fiatConversion(
-    @Body() dto: FiatAmountDto,
+    @Body() dto: FiatAmountDTO,
     @Query('target') targetCurrency: string,
   ): Observable<any> {
     return this.natsClient

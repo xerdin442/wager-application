@@ -1,7 +1,7 @@
 import { DbService } from '@app/db';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Transaction, User, Wager } from '@prisma/client';
-import { UpdateProfileDto, GetTransactionsDto, FundsTransferDto } from './dto';
+import { FundsTransferDTO, GetTransactionsDTO, UpdateProfileDTO } from './dto';
 import { UtilsService } from '@app/utils';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 
@@ -15,7 +15,7 @@ export class UserService {
 
   async updateProfile(
     userId: number,
-    dto: UpdateProfileDto,
+    dto: UpdateProfileDTO,
     file?: Express.Multer.File,
   ): Promise<User> {
     try {
@@ -85,7 +85,7 @@ export class UserService {
 
   async getTransactionHistory(
     userId: number,
-    dto: GetTransactionsDto,
+    dto: GetTransactionsDTO,
   ): Promise<Transaction[]> {
     try {
       return this.prisma.transaction.findMany({
@@ -97,7 +97,7 @@ export class UserService {
     }
   }
 
-  async transferFunds(userId: number, dto: FundsTransferDto): Promise<string> {
+  async transferFunds(userId: number, dto: FundsTransferDTO): Promise<string> {
     try {
       // Update wallet balance of the sender and recipient
       await this.prisma.user.update({

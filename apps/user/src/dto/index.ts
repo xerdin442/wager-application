@@ -13,7 +13,7 @@ import {
   IsString,
 } from 'class-validator';
 
-export class UpdateProfileDto {
+export class UpdateProfileDTO {
   @IsEmail()
   @IsOptional()
   email?: string;
@@ -39,7 +39,7 @@ export class UpdateProfileDto {
   twoFAEnabled?: boolean;
 }
 
-export class GetTransactionsDto {
+export class GetTransactionsDTO {
   @IsEnum(TransactionStatus, {
     message: 'Invalid "status" value. Expected "SUCCESS" or "FAILED"',
   })
@@ -59,7 +59,7 @@ export class GetTransactionsDto {
   method?: TransactionMethod;
 }
 
-export class FundsTransferDto {
+export class FundsTransferDTO {
   @IsString()
   @IsNotEmpty()
   username: string;

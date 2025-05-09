@@ -128,12 +128,10 @@ export class AdminController {
   }
 
   @MessagePattern('dispute-chats')
-  async getDisputeChats(data: {
-    adminId: number;
-  }): Promise<{ disputes: Chat[] }> {
+  async getDisputeChats(data: { adminId: number }): Promise<{ chats: Chat[] }> {
     try {
       return {
-        disputes: await this.adminService.getDisputeChats(data.adminId),
+        chats: await this.adminService.getDisputeChats(data.adminId),
       };
     } catch (error) {
       this.utils

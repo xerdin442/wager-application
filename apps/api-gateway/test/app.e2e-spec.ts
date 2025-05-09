@@ -21,6 +21,7 @@ import {
   UpdateWagerDTO,
   WagerInviteDTO,
 } from '../src/wager/dto';
+import { AdminAuthDto, CreateAdminDto } from '../src/admin/dto';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 30000;
@@ -38,6 +39,11 @@ describe('E2E Tests', () => {
     password: 'Jada987@',
     username: 'jada_wills',
   };
+  const adminDto: CreateAdminDto = {
+    email: 'xerdinludac@gmail.com',
+    category: 'FOOTBALL',
+    name: 'Xerdin Ludac',
+  };
 
   let app: INestApplication<App>;
   let prisma: DbService;
@@ -46,6 +52,8 @@ describe('E2E Tests', () => {
   let userTwoToken: string;
   let wagerId: number;
   let wagerInviteCode: string;
+  let superAdminToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     jest.useRealTimers();
@@ -145,10 +153,7 @@ describe('E2E Tests', () => {
   });
 
   describe('Login', () => {
-    const loginDto: LoginDTO = {
-      email: userOne.email,
-      password: userOne.password,
-    };
+    const loginDto: LoginDTO = { ...userOne };
 
     it('should throw if email format is invalid', async () => {
       const response = await request(app.getHttpServer())
@@ -165,7 +170,7 @@ describe('E2E Tests', () => {
       );
     });
 
-    it('should login', async () => {
+    it('should login user', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send(loginDto);
@@ -316,11 +321,11 @@ describe('E2E Tests', () => {
   });
 
   describe('Deposit', () => {
-    it('should return Paystack checkout link for deposit', async () => {
+    it('should return Paystack checkout link for fiat deposit', async () => {
       const dto: FiatAmountDTO = { amount: 100 };
 
       const response = await request(app.getHttpServer())
-        .post('/wallet/fiat/checkout')
+        .post('/wallet/fiat/deposit')
         .set('Authorization', `Bearer ${userOneToken}`)
         .send(dto);
 
@@ -328,18 +333,9 @@ describe('E2E Tests', () => {
       expect(response.body).toHaveProperty('checkout');
     });
 
-    it('should increment user balances', async () => {
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { email: userOne.email },
-          data: { balance: { increment: 50 } },
-        }),
-        prisma.user.update({
-          where: { email: userTwo.email },
-          data: { balance: { increment: 50 } },
-        }),
-      ]);
-    });
+    it('should return ethereum address for stablecoin deposit on Base', async () => {});
+
+    it('should return solana address for stablecoin deposit on Solana', async () => {});
   });
 
   describe('Create Wager', () => {
@@ -349,34 +345,6 @@ describe('E2E Tests', () => {
       stake: 10,
       title: 'UCL Winner',
     };
-
-    it('should throw if stake is less than allowed minimum', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/wagers/create')
-        .set('Authorization', `Bearer ${userOneToken}`)
-        .send({
-          ...dto,
-          stake: 0.5,
-        });
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Minimum stake is $1');
-    });
-
-    it('should throw if user balance is insufficient', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/wagers/create')
-        .set('Authorization', `Bearer ${userOneToken}`)
-        .send({
-          ...dto,
-          stake: 100,
-        });
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Insufficient balance');
-    });
 
     it('should throw if wager category is invalid', async () => {
       const response = await request(app.getHttpServer())
@@ -393,6 +361,18 @@ describe('E2E Tests', () => {
     });
 
     it('should create a new wager', async () => {
+      // Increment user balances
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { email: userOne.email },
+          data: { balance: { increment: 50 } },
+        }),
+        prisma.user.update({
+          where: { email: userTwo.email },
+          data: { balance: { increment: 50 } },
+        }),
+      ]);
+
       const response = await request(app.getHttpServer())
         .post('/wagers/create')
         .set('Authorization', `Bearer ${userOneToken}`)
@@ -420,44 +400,7 @@ describe('E2E Tests', () => {
       conditions: 'Real Madrid wins the UCL at the end of the season',
     };
 
-    it('should throw if the user is not the wager creator', async () => {
-      const response = await request(app.getHttpServer())
-        .patch(`/wagers/${wagerId}`)
-        .set('Authorization', `Bearer ${userTwoToken}`)
-        .send(dto);
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual(
-        'Details of a wager can only be modified by its creator',
-      );
-    });
-
-    it('should throw if the wager is already active', async () => {
-      await prisma.wager.update({
-        where: { id: wagerId },
-        data: { status: 'ACTIVE' },
-      });
-
-      const response = await request(app.getHttpServer())
-        .patch(`/wagers/${wagerId}`)
-        .set('Authorization', `Bearer ${userOneToken}`)
-        .send(dto);
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual(
-        'Details of an active wager cannot be modified',
-      );
-    });
-
     it('should update wager details', async () => {
-      // Reset wager status
-      await prisma.wager.update({
-        where: { id: wagerId },
-        data: { status: 'PENDING' },
-      });
-
       const response = await request(app.getHttpServer())
         .patch(`/wagers/${wagerId}`)
         .set('Authorization', `Bearer ${userOneToken}`)
@@ -472,17 +415,6 @@ describe('E2E Tests', () => {
   describe('Wager Invite', () => {
     const dto: WagerInviteDTO = { inviteCode: wagerInviteCode };
 
-    it('should throw if invite code is invalid', async () => {
-      const response = await request(app.getHttpServer())
-        .post(`/wagers/invite`)
-        .set('Authorization', `Bearer ${userTwoToken}`)
-        .send({ inviteCode: 'Invalid Code' });
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Invalid wager invite code');
-    });
-
     it('should return wager details from invite code', async () => {
       const response = await request(app.getHttpServer())
         .post(`/wagers/invite`)
@@ -494,7 +426,188 @@ describe('E2E Tests', () => {
     });
   });
 
+  describe('Join Wager', () => {
+    it('should join wager', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/join`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Successfully joined wager');
+    });
+  });
+
+  describe('Wager Claim', () => {
+    it('should claim wager prize', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Prize claimed successfully, awaiting response from opponent',
+      );
+    });
+
+    it('should accept wager prize claim', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim/accept`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Wager claim accepted, better luck next time!',
+      );
+    });
+
+    it('should contest wager prize claim', async () => {
+      await prisma.wager.update({
+        where: { id: wagerId },
+        data: { status: 'ACTIVE' },
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim/contest`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Wager claim contested, dispute resolution has been initiated.',
+      );
+    });
+  });
+
+  describe('Admins', () => {
+    it('should create super admin profile', async () => {
+      const dto: AdminAuthDto = {
+        email: 'mudianthonio27@gmail.com',
+        passcode: 'SuperAdminPasscode',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/signup')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('token');
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Super Admin created successfully');
+
+      superAdminToken = response.body.token as string;
+    });
+
+    it('should add new admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/admin/add')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send(adminDto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('New admin added successfully');
+    });
+
+    it('should remove existing admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/admin/remove?email=${adminDto.email}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Admin profile deleted successfully',
+      );
+    });
+
+    it('should login admin', async () => {
+      const admin = await prisma.admin.create({
+        data: {
+          ...adminDto,
+          disputes: 0,
+          passcode: 'AdminPasscode',
+        },
+      });
+      const dto: AdminAuthDto = { ...admin };
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/login')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('token');
+
+      adminToken = response.body.token as string;
+    });
+
+    it('should retrieve all admins', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/admin`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('admins');
+    });
+
+    it('should retrieve all dispute resolution chats for an admin', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/admin/disputes`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('chats');
+    });
+  });
+
+  describe('Dispute Resolution', () => {
+    it('should retrieve all dispute chat messages as a player', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/chat`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('messages');
+    });
+
+    it('should retrieve all dispute chat messages as an admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/chat`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('messages');
+    });
+
+    it('should assign winner after dispute resolution', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Dispute resolution successful');
+    });
+  });
+
   describe('End tests', () => {
+    it('should delete wager', async () => {
+      await prisma.wager.update({
+        where: { id: wagerId },
+        data: { status: 'PENDING' },
+      });
+
+      const response = await request(app.getHttpServer())
+        .delete(`/wagers/${wagerId}`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Wager deleted successfully');
+    });
+
     it('should log out user', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/logout')

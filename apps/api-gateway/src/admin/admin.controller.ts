@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, Observable } from 'rxjs';
-import { AdminAuthDto, CreateAdminDto } from './dto';
+import { AdminAuthDTO, CreateAdminDTO } from './dto';
 import { handleError } from '../utils/error';
 import { AuthGuard } from '@nestjs/passport';
 import { SuperAdminGuard } from '../custom/guards/admin.guard';
@@ -25,7 +25,7 @@ export class AdminController {
   ) {}
 
   @Post('signup')
-  signup(@Body() dto: AdminAuthDto): Observable<any> {
+  signup(@Body() dto: AdminAuthDTO): Observable<any> {
     return this.natsClient
       .send('signup', { dto })
       .pipe(catchError(handleError));
@@ -33,7 +33,7 @@ export class AdminController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: AdminAuthDto): Observable<any> {
+  login(@Body() dto: AdminAuthDTO): Observable<any> {
     return this.natsClient.send('login', { dto }).pipe(catchError(handleError));
   }
 
@@ -48,7 +48,7 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @UseGuards(SuperAdminGuard)
-  addAdmin(@Body() dto: CreateAdminDto): Observable<any> {
+  addAdmin(@Body() dto: CreateAdminDTO): Observable<any> {
     return this.natsClient.send('add', { dto }).pipe(catchError(handleError));
   }
 

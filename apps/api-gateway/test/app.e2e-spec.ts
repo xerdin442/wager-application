@@ -14,14 +14,16 @@ import {
   VerifyOtpDTO,
 } from '../src/auth/dto';
 import * as path from 'path';
-import { UpdateProfileDTO } from '../src/user/dto';
-import { FiatAmountDTO } from '../src/fiat/dto';
+import { FundsTransferDTO, UpdateProfileDTO } from '../src/user/dto';
+import { FiatAmountDTO, FiatWithdrawalDTO } from '../src/fiat/dto';
 import {
   CreateWagerDTO,
   UpdateWagerDTO,
   WagerInviteDTO,
 } from '../src/wager/dto';
-import { AdminAuthDto, CreateAdminDto } from '../src/admin/dto';
+import { AdminAuthDTO, CreateAdminDTO } from '../src/admin/dto';
+import { ConfigService } from '@nestjs/config';
+import { User } from '@prisma/client';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 30000;
@@ -39,7 +41,7 @@ describe('E2E Tests', () => {
     password: 'Jada987@',
     username: 'jada_wills',
   };
-  const adminDto: CreateAdminDto = {
+  const adminDto: CreateAdminDTO = {
     email: 'xerdinludac@gmail.com',
     category: 'FOOTBALL',
     name: 'Xerdin Ludac',
@@ -48,6 +50,7 @@ describe('E2E Tests', () => {
   let app: INestApplication<App>;
   let prisma: DbService;
   let session: SessionService;
+  let config: ConfigService;
   let userOneToken: string;
   let userTwoToken: string;
   let wagerId: number;
@@ -76,6 +79,8 @@ describe('E2E Tests', () => {
     session = app.get(SessionService);
     await session.onModuleInit();
     await session.clear();
+
+    config = app.get(ConfigService);
 
     await app.init();
   });
@@ -333,9 +338,35 @@ describe('E2E Tests', () => {
       expect(response.body).toHaveProperty('checkout');
     });
 
-    it('should return ethereum address for stablecoin deposit on Base', async () => {});
+    it('should return ethereum address for stablecoin deposit on Base', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/deposit?chain=base')
+        .set('Authorization', `Bearer ${userOneToken}`);
 
-    it('should return solana address for stablecoin deposit on Solana', async () => {});
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('address');
+    });
+
+    it('should return solana address for stablecoin deposit on Solana', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/deposit?chain=solana')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('address');
+    });
+
+    it('should throw if chain parameter in stablecoin deposit is invalid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/deposit?chain=INVALID')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Invalid value for chain query parameter. Expected "base" or "solana".',
+      );
+    });
   });
 
   describe('Create Wager', () => {
@@ -392,6 +423,15 @@ describe('E2E Tests', () => {
 
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('wager');
+    });
+
+    it('should return all wagers for a user', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/user/wagers')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('wagers');
     });
   });
 
@@ -483,7 +523,7 @@ describe('E2E Tests', () => {
 
   describe('Admins', () => {
     it('should create super admin profile', async () => {
-      const dto: AdminAuthDto = {
+      const dto: AdminAuthDTO = {
         email: 'mudianthonio27@gmail.com',
         passcode: 'SuperAdminPasscode',
       };
@@ -531,7 +571,7 @@ describe('E2E Tests', () => {
           passcode: 'AdminPasscode',
         },
       });
-      const dto: AdminAuthDto = { ...admin };
+      const dto: AdminAuthDTO = { ...admin };
 
       const response = await request(app.getHttpServer())
         .post('/admin/login')
@@ -591,6 +631,175 @@ describe('E2E Tests', () => {
       expect(response.body.message).toEqual('Dispute resolution successful');
     });
   });
+
+  describe('Funds Transfer', () => {
+    it('should transfer funds from user wallet to another user', async () => {
+      const dto: FundsTransferDTO = {
+        amount: 20,
+        username: userTwo.username,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/user/wallet/transfer')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        `$${dto.amount} transfer to @${dto.username} was successful!`,
+      );
+    });
+  });
+
+  describe('Fiat Conversion', () => {
+    const dto: FiatAmountDTO = { amount: 100 };
+
+    it('should convert NGN to USD', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/convert?targetCurrency=USD')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('amount');
+      expect(response.body).toHaveProperty('from');
+      expect(response.body.from).toEqual('NGN');
+      expect(response.body).toHaveProperty('to');
+      expect(response.body.to).toEqual('USD');
+    });
+
+    it('should convert USD to NGN', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/convert?targetCurrency=NGN')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('amount');
+      expect(response.body).toHaveProperty('from');
+      expect(response.body.from).toEqual('USD');
+      expect(response.body).toHaveProperty('to');
+      expect(response.body.to).toEqual('NGN');
+    });
+  });
+
+  describe('Fiat Withdrawal', () => {
+    const dto: FiatWithdrawalDTO = {
+      amount: 15,
+      accountName: config.getOrThrow<string>('ACCOUNT_NAME'),
+      accountNumber: config.getOrThrow<string>('ACCOUNT_NUMBER'),
+      bankName: config.getOrThrow<string>('BANK_NAME'),
+    };
+
+    it('should return all supported banks for fiat withdrawal', async () => {
+      const response = await request(app.getHttpServer()).get(
+        '/wallet/fiat/withdraw/banks',
+      );
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('banks');
+    });
+
+    it('should return recent account details for fiat withdrawal', async () => {
+      const response = await request(app.getHttpServer()).get(
+        '/wallet/fiat/withdraw/recent',
+      );
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('details');
+    });
+
+    it('should throw if idempotency key is missing', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual('"Idempotency-Key" header is required');
+    });
+
+    it('should throw if withdrawal amount exceeds user balance', async () => {
+      const user = (await prisma.user.findUnique({
+        where: { email: userOne.email },
+      })) as User;
+
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+        .send({
+          ...dto,
+          amount: 1000,
+        });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual(
+        `Insufficient funds. $${user.balance} is available for withdrawal`,
+      );
+    });
+
+    it('should throw if withdrawal amount is below the allowed minimum', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+        .send({
+          ...dto,
+          amount: 4.5,
+        });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual('Minimum withdrawal amount is $5');
+    });
+
+    it('should initiate processing of fiat withdrawal', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual('Your withdrawal is being processed');
+    });
+
+    it('should prevent duplicate processing of similar fiat withdrawal', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/fiat/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual('Your withdrawal is still being processed');
+    });
+
+    it('should return all transactions for a user', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/user/transactions')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('transactions');
+    });
+  });
+
+  describe('Paystack Webhook', () => {
+    it('should receive 200 OK response from callback url', async () => {
+      const response = await request(app.getHttpServer()).post(
+        '/wallet/fiat/callback',
+      );
+
+      expect(response.status).toEqual(200);
+    });
+  });
+
+  describe('Crypto Withdrawal', () => {});
 
   describe('End tests', () => {
     it('should delete wager', async () => {

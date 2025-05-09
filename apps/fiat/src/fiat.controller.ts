@@ -194,11 +194,20 @@ export class FiatController {
   async fiatConversion(data: {
     dto: FiatAmountDTO;
     targetCurrency: string;
-  }): Promise<{ amount: number }> {
+  }): Promise<{ from: string; to: string; amount: number }> {
     try {
       const { dto, targetCurrency } = data;
+      const amount = await this.fiatService.fiatConversion(dto, targetCurrency);
+
+      let baseCurrency: string;
+      targetCurrency === 'USD'
+        ? (baseCurrency = 'NGN')
+        : (baseCurrency = 'USD');
+
       return {
-        amount: await this.fiatService.fiatConversion(dto, targetCurrency),
+        from: baseCurrency,
+        to: targetCurrency,
+        amount,
       };
     } catch (error) {
       this.utils

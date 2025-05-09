@@ -3,7 +3,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Admin, Chat } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { AdminAuthDto, CreateAdminDto } from './dto';
+import { AdminAuthDTO, CreateAdminDTO } from './dto';
 import * as argon from 'argon2';
 import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
@@ -18,7 +18,7 @@ export class AdminService {
     private readonly config: ConfigService,
   ) {}
 
-  async signup(dto: AdminAuthDto): Promise<string> {
+  async signup(dto: AdminAuthDTO): Promise<string> {
     try {
       const admins = await this.prisma.admin.findMany();
       if (admins.length >= 1) {
@@ -47,7 +47,7 @@ export class AdminService {
     }
   }
 
-  async login(dto: AdminAuthDto): Promise<string> {
+  async login(dto: AdminAuthDTO): Promise<string> {
     try {
       const admin = await this.prisma.admin.findUnique({
         where: { email: dto.email },
@@ -87,7 +87,7 @@ export class AdminService {
     }
   }
 
-  async addAddmin(dto: CreateAdminDto): Promise<void> {
+  async addAddmin(dto: CreateAdminDTO): Promise<void> {
     try {
       const passcode = randomUUID().split('-').slice(1, 3).join('-');
       const hash = await argon.hash(passcode);

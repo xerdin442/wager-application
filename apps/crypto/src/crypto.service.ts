@@ -25,7 +25,7 @@ import Web3, {
   Transaction as EthTransaction,
 } from 'web3';
 import { isAddress } from 'web3-validator';
-import { CryptoWithdrawalDto } from './dto';
+import { CryptoWithdrawalDTO } from './dto';
 import { Chain, CryptoTransactionNotification } from './types';
 import { selectRpcUrl, selectUSDCTokenAddress } from './utils';
 import { UtilsService } from '@app/utils';
@@ -335,7 +335,7 @@ export class CryptoService implements OnModuleInit {
 
   async processWithdrawalOnBase(
     userId: number,
-    dto: CryptoWithdrawalDto,
+    dto: CryptoWithdrawalDTO,
     notificationId: string,
   ): Promise<string> {
     const notification: CryptoTransactionNotification = {
@@ -458,7 +458,7 @@ export class CryptoService implements OnModuleInit {
 
   async processWithdrawalOnSolana(
     userId: number,
-    dto: CryptoWithdrawalDto,
+    dto: CryptoWithdrawalDTO,
     notificationId: string,
   ): Promise<string> {
     const notification: CryptoTransactionNotification = {

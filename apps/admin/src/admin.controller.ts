@@ -2,7 +2,7 @@ import { Controller } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UtilsService } from '@app/utils';
 import { MessagePattern } from '@nestjs/microservices';
-import { AdminAuthDto, CreateAdminDto } from './dto';
+import { AdminAuthDTO, CreateAdminDTO } from './dto';
 import { Admin, Chat } from '@prisma/client';
 
 @Controller()
@@ -16,7 +16,7 @@ export class AdminController {
 
   @MessagePattern('signup')
   async signup(data: {
-    dto: AdminAuthDto;
+    dto: AdminAuthDTO;
   }): Promise<{ message: string; token: string }> {
     try {
       const { dto } = data;
@@ -41,7 +41,7 @@ export class AdminController {
   }
 
   @MessagePattern('login')
-  async login(data: { dto: AdminAuthDto }): Promise<{ token: string }> {
+  async login(data: { dto: AdminAuthDTO }): Promise<{ token: string }> {
     try {
       const { dto } = data;
       const token = await this.adminService.login(dto);
@@ -80,7 +80,7 @@ export class AdminController {
   }
 
   @MessagePattern('add')
-  async addAdmin(data: { dto: CreateAdminDto }): Promise<{ message: string }> {
+  async addAdmin(data: { dto: CreateAdminDTO }): Promise<{ message: string }> {
     try {
       const { dto } = data;
       await this.adminService.addAddmin(dto);

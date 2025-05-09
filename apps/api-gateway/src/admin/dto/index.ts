@@ -1,7 +1,7 @@
 import { WagerCategory } from '@prisma/client';
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
-export class AdminAuthDto {
+export class AdminAuthDTO {
   @IsEmail({}, { message: 'Please enter a valid email address' })
   @IsNotEmpty()
   email: string;
@@ -11,7 +11,7 @@ export class AdminAuthDto {
   passcode: string;
 }
 
-export class CreateAdminDto {
+export class CreateAdminDTO {
   @IsEmail({}, { message: 'Please enter a valid email address' })
   @IsNotEmpty()
   email: string;

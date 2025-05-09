@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
 import { Chain, CryptoTransactionNotification } from './types';
-import { CryptoWithdrawalDto } from './dto';
+import { CryptoWithdrawalDTO } from './dto';
 import { RedisClientType } from 'redis';
 import { CryptoGateway } from './crypto.gateway';
 import { randomUUID } from 'crypto';
@@ -56,7 +56,7 @@ export class CryptoController {
   async processWithdrawal(data: {
     chain: Chain;
     user: User;
-    dto: CryptoWithdrawalDto;
+    dto: CryptoWithdrawalDTO;
     idempotencyKey?: string;
   }): Promise<{ message: string }> {
     const redis: RedisClientType = await this.utils.connectToRedis(
@@ -235,7 +235,7 @@ export class CryptoController {
   }
 
   @MessagePattern('clear-wallet')
-  async clearUserWallet(data: { user: User }): Promise<void> {
+  async clearUserWallets(data: { user: User }): Promise<void> {
     try {
       const { user } = data;
       await this.cryptoService.clearUserWallets(user);

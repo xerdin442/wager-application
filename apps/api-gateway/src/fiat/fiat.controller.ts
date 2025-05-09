@@ -77,7 +77,7 @@ export class FiatController {
       .pipe(catchError(handleError));
   }
 
-  @Post('webhook')
+  @Post('callback')
   @HttpCode(HttpStatus.OK)
   paystackWebhook(@Req() req: Request): Observable<any> {
     return this.natsClient

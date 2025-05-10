@@ -24,6 +24,7 @@ import {
 import { AdminAuthDTO, CreateAdminDTO } from '../src/admin/dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
+import { CryptoWithdrawalDTO } from '../src/crypto/dto';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 30000;
@@ -799,7 +800,49 @@ describe('E2E Tests', () => {
     });
   });
 
-  describe('Crypto Withdrawal', () => {});
+  describe('Crypto Withdrawal', () => {
+    const dto: CryptoWithdrawalDTO = {
+      amount: 8,
+      address: '0x',
+    };
+
+    it('should throw if chain parameter is invalid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/withdraw?chain=INVALID')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+        .send(dto);
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toEqual(
+        'Invalid value for chain query parameter. Expected "base" or "solana".',
+      );
+    });
+
+    it('should process stablecoin withdrawal on Base', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/withdraw?chain=base')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY-BASE')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+    });
+
+    it('should process stablecoin withdrawal on Solana', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/crypto/withdraw?chain=solana')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', 'IDEMPOTENCY-KEY-SOLANA')
+        .send({
+          ...dto,
+          address: '',
+        });
+
+      expect(response.status).toEqual(200);
+    });
+  });
 
   describe('End tests', () => {
     it('should delete wager', async () => {

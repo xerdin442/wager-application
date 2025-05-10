@@ -8,10 +8,27 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CryptoGateway } from './crypto.gateway';
 import { BullModule } from '@nestjs/bull';
 import { CryptoProcessor } from './crypto.processor';
+import * as fs from 'fs';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
+      load: [
+        () => {
+          try {
+            const keyPhrase = fs.readFileSync(
+              'run/secrets/platform_wallet_keyphrase',
+            );
+            return { PLATFORM_WALLET_KEYPHRASE: keyPhrase.toString().trim() };
+          } catch (error) {
+            console.warn(
+              `Platform wallet secret file not found. Error: ${error.message}`,
+            );
+
+            return { PLATFORM_WALLET_KEYPHRASE: null };
+          }
+        },
+      ],
       isGlobal: true,
       envFilePath: ['./apps/crypto/.env', './env'],
     }),

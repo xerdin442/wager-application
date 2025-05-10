@@ -118,6 +118,8 @@ services:
       - database
       - crypto-redis
       - nats-server
+    secrets:
+      - platform_wallet_keyphrase
 
   crypto-redis:
     image: redis:latest
@@ -226,3 +228,7 @@ networks:
   fiat-network:
   wager-network:
   monitoring:
+
+secrets:
+  platform_wallet_keyphrase:
+    file: phrase.txt

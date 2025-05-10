@@ -133,6 +133,8 @@ services:
       - database
       - crypto-redis
       - nats-server
+    secrets:
+      - platform_wallet_keyphrase
     command: >
       sh -c "npm run start:dev crypto"
 
@@ -211,3 +213,7 @@ networks:
   crypto-network:
   fiat-network:
   wager-network:
+
+secrets:
+  platform_wallet_keyphrase:
+    file: phrase.txt

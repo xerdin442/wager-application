@@ -9,7 +9,7 @@ import { CryptoWithdrawalDTO } from './dto';
 import { RedisClientType } from 'redis';
 import { CryptoGateway } from './crypto.gateway';
 import { randomUUID } from 'crypto';
-import { selectChainExplorer } from './utils';
+import { selectChainExplorer } from './utils/helper';
 
 @Controller()
 export class CryptoController {

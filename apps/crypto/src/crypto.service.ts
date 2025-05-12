@@ -27,7 +27,7 @@ import Web3, {
 import { isAddress } from 'web3-validator';
 import { CryptoWithdrawalDTO } from './dto';
 import { Chain, CryptoTransactionNotification } from './types';
-import { selectRpcUrl, selectUSDCTokenAddress } from './utils';
+import { selectRpcUrl, selectUSDCTokenAddress } from './utils/helper';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
 import { RpcException } from '@nestjs/microservices';
@@ -44,6 +44,7 @@ import {
   Network,
   TransactionResponse,
 } from 'alchemy-sdk';
+import { usdcContractAbi } from './utils/abi';
 
 @Injectable()
 export class CryptoService implements OnModuleInit {
@@ -58,25 +59,6 @@ export class CryptoService implements OnModuleInit {
     'confirmed',
   );
 
-  private readonly USDC_CONTRACT_ABI: ContractAbi = [
-    {
-      name: 'transfer',
-      type: 'function',
-      constant: false,
-      inputs: [
-        { name: '_to', type: 'address' },
-        { name: '_value', type: 'uint256' },
-      ],
-      outputs: [{ name: '', type: 'bool' }],
-    },
-    {
-      name: 'balanceOf',
-      type: 'function',
-      constant: true,
-      inputs: [{ name: '_owner', type: 'address' }],
-      outputs: [{ name: 'balance', type: 'uint256' }],
-    },
-  ];
   private readonly BASE_USDC_TOKEN_ADDRESS: string =
     selectUSDCTokenAddress('base');
   private readonly SOLANA_USDC_MINT_ADDRESS: string =
@@ -157,13 +139,13 @@ export class CryptoService implements OnModuleInit {
     switch (chain) {
       case 'base':
         wallet = hdkey.EthereumHDKey.fromMnemonic(
-          this.config.getOrThrow<string>('PLATFORM_WALLET_RECOVERY_PHRASE'),
+          this.config.getOrThrow<string>('PLATFORM_WALLET_KEYPHRASE'),
         );
         return wallet.getWallet().getPrivateKeyString();
 
       case 'solana':
         privateKey = Uint8Array.from(
-          this.config.getOrThrow<string>('PLATFORM_WALLET_RECOVERY_PHRASE'),
+          this.config.getOrThrow<string>('PLATFORM_WALLET_KEYPHRASE'),
         );
         return Keypair.fromSecretKey(privateKey);
 
@@ -351,7 +333,7 @@ export class CryptoService implements OnModuleInit {
       const account =
         this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
       const contract = new this.web3.eth.Contract(
-        this.USDC_CONTRACT_ABI,
+        usdcContractAbi,
         this.BASE_USDC_TOKEN_ADDRESS,
       );
 
@@ -642,7 +624,7 @@ export class CryptoService implements OnModuleInit {
           const account =
             this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
           const contract = new this.web3.eth.Contract(
-            this.USDC_CONTRACT_ABI,
+            usdcContractAbi,
             this.BASE_USDC_TOKEN_ADDRESS,
           );
           await this.transferTokensOnBase(
@@ -942,7 +924,7 @@ export class CryptoService implements OnModuleInit {
         const account =
           this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
         const contract = new this.web3.eth.Contract(
-          this.USDC_CONTRACT_ABI,
+          usdcContractAbi,
           this.BASE_USDC_TOKEN_ADDRESS,
         );
 

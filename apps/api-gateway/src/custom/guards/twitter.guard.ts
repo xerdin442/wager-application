@@ -5,8 +5,8 @@ import { Request, Response } from 'express';
 
 @Injectable()
 export class TwitterAuthGuard extends AuthGuard('twitter') {
-  private readonly TWITTER_REDIRECT_COOKIE_KEY: string =
-    'twitter_auth_redirect_url';
+  private readonly SOCIAL_AUTH_REDIRECT_COOKIE_KEY: string =
+    'social_auth_redirect_url';
 
   constructor(private readonly config: ConfigService) {
     super();
@@ -19,7 +19,7 @@ export class TwitterAuthGuard extends AuthGuard('twitter') {
     // Store client redirect URL before Twitter invokes the callback
     const redirectUrl = req.query.redirectUrl as string;
     if (redirectUrl) {
-      res.cookie(this.TWITTER_REDIRECT_COOKIE_KEY, redirectUrl, {
+      res.cookie(this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY, redirectUrl, {
         httpOnly: true,
         secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
         sameSite: 'lax',

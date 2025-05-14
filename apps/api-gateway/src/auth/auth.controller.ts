@@ -32,14 +32,15 @@ import { handleError } from '../utils/error';
 import { GoogleAuthGuard } from '../custom/guards/google.guard.';
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { GoogleAuthCallbackData, SocialAuthUser } from './types';
+import { SocialAuthCallbackData, SocialAuthUser } from './types';
 import { generateCallbackHtml } from './utils';
 import { randomBytes } from 'crypto';
+import { TwitterAuthGuard } from '../custom/guards/twitter.guard';
 
 @Controller('auth')
 export class AuthController {
-  private readonly GOOGLE_REDIRECT_COOKIE_KEY: string =
-    'google_auth_redirect_url';
+  private readonly SOCIAL_AUTH_REDIRECT_COOKIE_KEY: string =
+    'social_auth_redirect_url';
 
   constructor(
     private readonly config: ConfigService,
@@ -88,7 +89,7 @@ export class AuthController {
   }
 
   @UseGuards(GoogleAuthGuard)
-  @Get('google/login')
+  @Get('google')
   googleLogin(): void {}
 
   @UseGuards(GoogleAuthGuard)
@@ -98,16 +99,53 @@ export class AuthController {
     const { token, twoFactorAuth, user } = authenticatedUser;
 
     if (!authenticatedUser || !token) {
-      res.clearCookie(this.GOOGLE_REDIRECT_COOKIE_KEY);
+      res.clearCookie(this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY);
       throw new UnauthorizedException('Google authentication error');
     }
 
     const nonce = randomBytes(16).toString('base64');
-    const data: GoogleAuthCallbackData = {
+    const data: SocialAuthCallbackData = {
       user,
       twoFactorAuth,
       token,
-      redirectUrl: req.cookies?.[this.GOOGLE_REDIRECT_COOKIE_KEY] as string,
+      redirectUrl: req.cookies?.[
+        this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY
+      ] as string,
+      nonce,
+    };
+
+    // Add CSP header to protect against XSS attacks
+    res.setHeader(
+      'Content-Security-Policy',
+      `script-src 'self' 'nonce-${nonce}'`,
+    );
+    // Render authentication success page
+    res.status(HttpStatus.OK).send(generateCallbackHtml(data));
+  }
+
+  @UseGuards(TwitterAuthGuard)
+  @Get('twitter')
+  twitterLogin(): void {}
+
+  @UseGuards(TwitterAuthGuard)
+  @Get('twitter/callback')
+  twitterCallback(@Req() req: Request, @Res() res: Response): void {
+    const authenticatedUser = req.user as SocialAuthUser;
+    const { token, twoFactorAuth, user } = authenticatedUser;
+
+    if (!authenticatedUser || !token) {
+      res.clearCookie(this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY);
+      throw new UnauthorizedException('Twitter authentication error');
+    }
+
+    const nonce = randomBytes(16).toString('base64');
+    const data: SocialAuthCallbackData = {
+      user,
+      twoFactorAuth,
+      token,
+      redirectUrl: req.cookies?.[
+        this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY
+      ] as string,
       nonce,
     };
 

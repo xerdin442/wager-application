@@ -14,7 +14,7 @@ export type SocialAuthPayload = {
   username?: string;
 };
 
-export type GoogleAuthCallbackData = {
+export type SocialAuthCallbackData = {
   user?: User;
   token: string;
   redirectUrl: string;

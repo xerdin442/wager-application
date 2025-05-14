@@ -51,10 +51,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       });
 
       if (user) {
-        const dto: LoginDTO = {
-          email: user.email,
-          password: user.password,
-        };
+        const dto: LoginDTO = { ...user };
 
         // Sign in existing user
         const authResponse = await lastValueFrom(

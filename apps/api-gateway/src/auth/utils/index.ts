@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { GoogleAuthCallbackData } from '../types';
+import { SocialAuthCallbackData } from '../types';
 
 export const selectCallbackUrl = (type: 'google' | 'twitter'): string => {
   const NODE_ENV = process.env.NODE_ENV as string;
@@ -16,7 +16,7 @@ export const selectCallbackUrl = (type: 'google' | 'twitter'): string => {
   return callbackUrl;
 };
 
-export function generateCallbackHtml(data: GoogleAuthCallbackData): string {
+export function generateCallbackHtml(data: SocialAuthCallbackData): string {
   // Use Cheerio to create a simple HTML structure
   const $ = cheerio.load(
     '<!DOCTYPE html><html><head><title>Success</title></head><body></body></html>',

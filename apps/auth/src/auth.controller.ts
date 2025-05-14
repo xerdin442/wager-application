@@ -1,7 +1,7 @@
 import { Controller, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
-import { GoogleAuthPayload, SessionData } from './types';
+import { SocialAuthPayload, SessionData } from './types';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -25,7 +25,7 @@ export class AuthController {
 
   @MessagePattern('signup')
   async signup(data: {
-    details: SignupDTO | GoogleAuthPayload;
+    details: SignupDTO | SocialAuthPayload;
     file?: Express.Multer.File;
   }): Promise<{ user: User; token: string }> {
     try {

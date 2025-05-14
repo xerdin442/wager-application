@@ -1,19 +1,18 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { Profile, Strategy, VerifyCallback } from 'passport-google-oauth20';
-import { selectCallbackUrl } from '../utils';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { catchError, lastValueFrom } from 'rxjs';
-import { handleError } from '../../utils/error';
-import { SocialAuthPayload, SocialAuthUser } from '../types';
-import { UtilsService } from '@app/utils';
 import { DbService } from '@app/db';
-import { Request } from 'express';
+import { UtilsService } from '@app/utils';
+import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { PassportStrategy } from '@nestjs/passport';
+import { Profile, Strategy } from 'passport-twitter';
+import { selectCallbackUrl } from '../utils';
+import { lastValueFrom, catchError } from 'rxjs';
+import { handleError } from '../../utils/error';
 import { LoginDTO } from '../dto';
+import { SocialAuthUser, SocialAuthPayload } from '../types';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy) {
-  private readonly context: string = GoogleStrategy.name;
+export class TwitterStrategy extends PassportStrategy(Strategy) {
+  private readonly context: string = TwitterStrategy.name;
 
   constructor(
     private readonly utils: UtilsService,
@@ -21,25 +20,24 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {
     super({
-      clientID: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      callbackURL: selectCallbackUrl('google'),
+      consumerKey: process.env.TWITTER_CONSUMER_KEY as string,
+      consumerSecret: process.env.TWITTER_CONSUMER_SECRET as string,
+      callbackURL: selectCallbackUrl('twitter'),
       passReqToCallback: true,
-      scope: ['profile', 'email'],
     });
   }
 
   async validate(
     req: Request,
-    accessToken: string,
-    refreshToken: string,
+    token: string,
+    tokenSecret: string,
     profile: Profile,
-    done: VerifyCallback,
+    done: (err: any, user?: any) => void,
   ): Promise<void> {
-    const { emails, name, photos } = profile;
-    if (!emails || !name) {
+    const { emails, name, photos, username } = profile;
+    if (!emails || !name || !username) {
       return done(
-        new UnauthorizedException('Google authentication failed'),
+        new UnauthorizedException('Twitter authentication failed'),
         undefined,
       );
     }
@@ -70,6 +68,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
           firstName: name.givenName,
           lastName: name.familyName,
           profileImage: photos ? photos[0].value : '',
+          username,
         };
 
         // Sign up and onboard new user
@@ -85,7 +84,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       this.utils
         .logger()
         .error(
-          `[${this.context}] An error occurred while validating Google authentication strategy. Error: ${error.message}\n`,
+          `[${this.context}] An error occurred while validating Twitter authentication strategy. Error: ${error.message}\n`,
         );
 
       if (error instanceof RpcException) return done(error, undefined);

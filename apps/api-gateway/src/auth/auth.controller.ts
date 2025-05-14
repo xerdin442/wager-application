@@ -32,7 +32,7 @@ import { handleError } from '../utils/error';
 import { GoogleAuthGuard } from '../custom/guards/google.guard.';
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { GoogleAuthCallbackData, GoogleAuthUser } from './types';
+import { GoogleAuthCallbackData, SocialAuthUser } from './types';
 import { generateCallbackHtml } from './utils';
 import { randomBytes } from 'crypto';
 
@@ -94,7 +94,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @Get('google/callback')
   googleCallback(@Req() req: Request, @Res() res: Response): void {
-    const authenticatedUser = req.user as GoogleAuthUser;
+    const authenticatedUser = req.user as SocialAuthUser;
     const { token, twoFactorAuth, user } = authenticatedUser;
 
     if (!authenticatedUser || !token) {

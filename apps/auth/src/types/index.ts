@@ -9,9 +9,10 @@ export type CreateWalletResponse = {
   privateKey: string;
 };
 
-export type GoogleAuthPayload = {
+export type SocialAuthPayload = {
   email: string;
   firstName: string;
   lastName: string;
   profileImage?: string;
+  username?: string;
 };

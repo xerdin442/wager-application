@@ -1,14 +1,19 @@
 import * as cheerio from 'cheerio';
 import { GoogleAuthCallbackData } from '../types';
 
-export const selectGoogleCallbackUrl = (): string => {
+export const selectCallbackUrl = (type: 'google' | 'twitter'): string => {
   const NODE_ENV = process.env.NODE_ENV as string;
 
   if (NODE_ENV === 'development' || NODE_ENV === 'test') {
-    return 'http://localhost:3000/api/auth/google/callback';
+    return `http://localhost:3000/api/auth/${type}/callback`;
   }
 
-  return process.env.GOOGLE_CALLBACK_URL as string;
+  let callbackUrl: string = '';
+  type === 'google'
+    ? (callbackUrl = process.env.GOOGLE_CALLBACK_URL as string)
+    : (callbackUrl = process.env.TWITTER_CALLBACK_URL as string);
+
+  return callbackUrl;
 };
 
 export function generateCallbackHtml(data: GoogleAuthCallbackData): string {

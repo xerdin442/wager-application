@@ -1,16 +1,17 @@
 import { User } from '@prisma/client';
 
-export type GoogleAuthUser = {
+export type SocialAuthUser = {
   user?: User;
   token: string;
   twoFactorAuth?: boolean;
 };
 
-export type GoogleAuthPayload = {
+export type SocialAuthPayload = {
   email: string;
   firstName: string;
   lastName: string;
   profileImage?: string;
+  username?: string;
 };
 
 export type GoogleAuthCallbackData = {

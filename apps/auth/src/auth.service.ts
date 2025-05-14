@@ -11,7 +11,7 @@ import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { GoogleAuthPayload, SessionData } from './types';
+import { SocialAuthPayload, SessionData } from './types';
 import {
   LoginDTO,
   NewPasswordDTO,
@@ -39,7 +39,7 @@ export class AuthService {
   ) {}
 
   async createNewUser(
-    details: SignupDTO | GoogleAuthPayload,
+    details: SignupDTO | SocialAuthPayload,
     file?: Express.Multer.File,
   ): Promise<User> {
     try {
@@ -76,7 +76,9 @@ export class AuthService {
 
       // Create new user through Google authentication
       const username =
+        details.username ||
         details.firstName.toLowerCase() + `_${randomUUID().split('-')[3]}`;
+
       return this.prisma.user.create({
         data: {
           ...details,
@@ -103,7 +105,7 @@ export class AuthService {
   }
 
   async signup(
-    details: SignupDTO | GoogleAuthPayload,
+    details: SignupDTO | SocialAuthPayload,
     file?: Express.Multer.File,
   ): Promise<{ user: User; token: string }> {
     try {

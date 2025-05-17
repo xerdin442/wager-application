@@ -31,7 +31,6 @@ import * as multer from 'multer';
 import { handleError } from '../utils/error';
 import { GoogleAuthGuard } from '../custom/guards/google.guard.';
 import { Request, Response } from 'express';
-import { ConfigService } from '@nestjs/config';
 import { SocialAuthCallbackData, SocialAuthUser } from './types';
 import { generateCallbackHtml } from './utils';
 import { randomBytes } from 'crypto';
@@ -43,7 +42,6 @@ export class AuthController {
     'social_auth_redirect_url';
 
   constructor(
-    private readonly config: ConfigService,
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
@@ -108,9 +106,7 @@ export class AuthController {
       user,
       twoFactorAuth,
       token,
-      redirectUrl: req.cookies?.[
-        this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY
-      ] as string,
+      redirectUrl: req.cookies[this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY] as string,
       nonce,
     };
 
@@ -143,9 +139,7 @@ export class AuthController {
       user,
       twoFactorAuth,
       token,
-      redirectUrl: req.cookies?.[
-        this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY
-      ] as string,
+      redirectUrl: req.cookies[this.SOCIAL_AUTH_REDIRECT_COOKIE_KEY] as string,
       nonce,
     };
 

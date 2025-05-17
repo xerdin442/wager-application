@@ -3,12 +3,13 @@ import { UtilsService } from '@app/utils';
 import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { PassportStrategy } from '@nestjs/passport';
-import { Profile, Strategy } from 'passport-twitter';
+import { Profile, Strategy } from '@superfaceai/passport-twitter-oauth2';
 import { selectCallbackUrl } from '../utils';
 import { lastValueFrom, catchError } from 'rxjs';
 import { handleError } from '../../utils/error';
 import { LoginDTO } from '../dto';
 import { SocialAuthUser, SocialAuthPayload } from '../types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TwitterStrategy extends PassportStrategy(Strategy) {
@@ -17,13 +18,16 @@ export class TwitterStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly utils: UtilsService,
     private readonly prisma: DbService,
+    private readonly config: ConfigService,
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {
     super({
-      consumerKey: process.env.TWITTER_CONSUMER_KEY as string,
-      consumerSecret: process.env.TWITTER_CONSUMER_SECRET as string,
+      clientID: process.env.TWITTER_CLIENT_ID as string,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET as string,
+      clientType: 'confidential',
       callbackURL: selectCallbackUrl('twitter'),
       passReqToCallback: true,
+      scope: ['tweet.read', 'tweet.write', 'users.read'],
     });
   }
 
@@ -49,7 +53,10 @@ export class TwitterStrategy extends PassportStrategy(Strategy) {
       });
 
       if (user) {
-        const dto: LoginDTO = { ...user };
+        const dto: LoginDTO = {
+          ...user,
+          password: this.config.getOrThrow<string>('SOCIAL_AUTH_PASSWORD'),
+        };
 
         // Sign in existing user
         const authResponse = await lastValueFrom(

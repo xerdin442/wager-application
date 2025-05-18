@@ -88,7 +88,7 @@ export class AuthController {
   }
 
   @UseGuards(GoogleAuthGuard)
-  @Get('google/login')
+  @Get('google')
   googleLogin(): void {}
 
   @UseGuards(GoogleAuthGuard)

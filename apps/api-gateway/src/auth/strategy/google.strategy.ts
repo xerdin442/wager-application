@@ -55,7 +55,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       if (user) {
         const dto: LoginDTO = {
           email: user.email,
-          password: this.config.getOrThrow<string>('SOCIAL_AUTH_APSSWORD'),
+          password: this.config.getOrThrow<string>('SOCIAL_AUTH_PASSWORD'),
         };
 
         // Sign in existing user

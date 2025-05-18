@@ -8,6 +8,7 @@ import * as argon from 'argon2';
 import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class AdminService {
@@ -107,6 +108,16 @@ export class AdminService {
 
       return;
     } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          const meta = error.meta as Record<string, any>;
+          throw new RpcException({
+            status: HttpStatus.BAD_REQUEST,
+            message: `This ${meta.target[0]} already exists. Please try again!`,
+          });
+        }
+      }
+
       throw error;
     }
   }

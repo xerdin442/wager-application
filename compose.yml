@@ -231,4 +231,4 @@ networks:
 
 secrets:
   platform_wallet_keyphrase:
-    file: phrase.txt
+    file: ./phrase.txt

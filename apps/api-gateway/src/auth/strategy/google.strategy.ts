@@ -10,6 +10,7 @@ import { UtilsService } from '@app/utils';
 import { DbService } from '@app/db';
 import { Request } from 'express';
 import { LoginDTO } from '../dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
@@ -18,6 +19,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly utils: UtilsService,
     private readonly prisma: DbService,
+    private readonly config: ConfigService,
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {
     super({
@@ -53,7 +55,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
       if (user) {
         const dto: LoginDTO = {
           email: user.email,
-          password: user.password,
+          password: this.config.getOrThrow<string>('SOCIAL_AUTH_APSSWORD'),
         };
 
         // Sign in existing user

@@ -77,10 +77,14 @@ export class AuthService {
       // Create new user through Google authentication
       const username =
         details.firstName.toLowerCase() + `_${randomUUID().split('-')[3]}`;
+      const password = await argon.hash(
+        this.config.getOrThrow<string>('SOCIAL_AUTH_PASSWORD'),
+      );
+
       return this.prisma.user.create({
         data: {
           ...details,
-          password: await argon.hash(randomUUID()),
+          password,
           username,
           ...walletDetails,
           balance: 0,

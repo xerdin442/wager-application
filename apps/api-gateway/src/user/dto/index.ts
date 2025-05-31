@@ -1,9 +1,4 @@
-import {
-  Chain,
-  Coin,
-  TransactionStatus,
-  TransactionType,
-} from '@prisma/client';
+import { Chain, TransactionStatus, TransactionType } from '@prisma/client';
 import {
   IsBoolean,
   IsEmail,
@@ -58,12 +53,6 @@ export class GetTransactionsDTO {
   })
   @IsOptional()
   chain?: Chain;
-
-  @IsEnum(Coin, {
-    message: 'Invalid "coin" value. Expected "USDC" or "USDT"',
-  })
-  @IsOptional()
-  coin?: Coin;
 }
 
 export class FundsTransferDTO {

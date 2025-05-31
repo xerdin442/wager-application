@@ -42,11 +42,6 @@ enum Chain {
   SOLANA
 }
 
-enum Coin {
-  USDC
-  USDT
-}
-
 model User {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
@@ -136,9 +131,9 @@ model Transaction {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
+  txHash String @unique
   type   TransactionType
   chain  Chain
-  coin   Coin
   status TransactionStatus
   amount Int
 

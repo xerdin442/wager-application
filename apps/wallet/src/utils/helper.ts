@@ -1,0 +1,58 @@
+import { ConfigService } from '@nestjs/config';
+import { Chain } from '@prisma/client';
+
+const config = new ConfigService();
+const NODE_ENV = config.getOrThrow<string>('NODE_ENV');
+const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
+const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
+
+export const selectRpcUrl = (chain: Chain): string => {
+  let url: string = 'https://';
+
+  if (NODE_ENV === 'production') {
+    chain === 'BASE'
+      ? (url += `base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`)
+      : (url += `mainnet.helius-rpc.com?api-key=${HELIUS_API_KEY}`);
+  }
+
+  chain === 'BASE'
+    ? (url += `base-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`)
+    : (url += `devnet.helius-rpc.com?api-key=${HELIUS_API_KEY}`);
+
+  return url;
+};
+
+export const selectUSDCTokenAddress = (chain: Chain): string => {
+  let address: string = '';
+
+  if (NODE_ENV === 'production') {
+    chain === 'BASE'
+      ? (address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
+      : (address = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  }
+
+  chain === 'BASE'
+    ? (address = '0x036CbD53842c5426634e7929541eC2318f3dCF7e')
+    : (address = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+
+  return address;
+};
+
+export const selectChainExplorer = (
+  chain: Chain,
+  txIdentifier: string,
+): string => {
+  let url: string = '';
+
+  if (NODE_ENV === 'production') {
+    chain === 'BASE'
+      ? (url = `https://basescan.org/tx/${txIdentifier}`)
+      : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=mainnet`);
+  }
+
+  chain === 'BASE'
+    ? (url = `https://sepolia.basescan.org/tx/${txIdentifier}`)
+    : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=devnet`);
+
+  return url;
+};

@@ -6,6 +6,7 @@ import { Injectable } from '@nestjs/common';
 import { User, Wager } from '@prisma/client';
 import { Job } from 'bull';
 import { WagerGateway } from './wager.gateway';
+import { calculatePlatformFee } from './utils';
 
 @Injectable()
 @Processor('wager-queue')
@@ -33,7 +34,11 @@ export class WagerProcessor {
       // Subtract platform fee and add winnings to the claimant's balance
       const claimant = await this.prisma.user.update({
         where: { id: userId },
-        data: { balance: { increment: wager.amount * 0.95 } },
+        data: {
+          balance: {
+            increment: wager.amount - calculatePlatformFee(wager.amount),
+          },
+        },
       });
 
       const opponent = (await this.prisma.user.findUnique({

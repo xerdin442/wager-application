@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
+import { calculatePlatformFee } from './utils';
 
 @Injectable()
 export class WagerService {
@@ -285,7 +286,11 @@ export class WagerService {
       // Subtract platform fee and add winnings to winner's balance
       await this.prisma.user.update({
         where: { id: wager.winner as number },
-        data: { balance: { increment: wager.amount * 0.95 } },
+        data: {
+          balance: {
+            increment: wager.amount - calculatePlatformFee(wager.amount),
+          },
+        },
       });
 
       return;
@@ -395,7 +400,11 @@ export class WagerService {
       // Subtract platform fee and add winnings to the winner's balance
       await this.prisma.user.update({
         where: { username },
-        data: { balance: { increment: wager.amount * 0.95 } },
+        data: {
+          balance: {
+            increment: wager.amount - calculatePlatformFee(wager.amount),
+          },
+        },
       });
     } catch (error) {
       throw error;

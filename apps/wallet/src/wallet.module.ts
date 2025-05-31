@@ -6,6 +6,7 @@ import { DbModule } from '@app/db';
 import { MetricsModule } from '@app/metrics';
 import { UtilsModule } from '@app/utils';
 import { ConfigModule } from '@nestjs/config';
+import { WalletGateway } from './wallet.gateway';
 
 @Module({
   imports: [
@@ -34,6 +35,6 @@ import { ConfigModule } from '@nestjs/config';
     MetricsModule,
   ],
   controllers: [WalletController],
-  providers: [WalletService],
+  providers: [WalletService, WalletGateway],
 })
 export class WalletModule {}

@@ -4,11 +4,6 @@ export type SessionData = {
   otpExpiration?: number;
 };
 
-export type CreateWalletResponse = {
-  address: string;
-  privateKey: string;
-};
-
 export type GoogleAuthPayload = {
   email: string;
   firstName: string;

@@ -1,18 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
 import { UtilsService } from '@app/utils';
-import { ClientProxy } from '@nestjs/microservices';
 
 @Injectable()
 @Processor('auth-queue')
 export class AuthProcessor {
   private context = AuthProcessor.name;
 
-  constructor(
-    private readonly utils: UtilsService,
-    @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
-  ) {}
+  constructor(private readonly utils: UtilsService) {}
 
   @Process('signup')
   async signup(job: Job<Record<string, string>>): Promise<void> {

@@ -10,8 +10,6 @@ export const GetUser = createParamDecorator(
     >;
 
     request.user.password = '';
-    request.user.ethPrivateKey = '';
-    request.user.solPrivateKey = '';
     return request.user as User;
   },
 );

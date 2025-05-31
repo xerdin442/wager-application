@@ -1,12 +1,12 @@
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
 import { InjectQueue } from '@nestjs/bull';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Queue } from 'bull';
 import * as argon from 'argon2';
 import { SessionService } from './session';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { RpcException } from '@nestjs/microservices';
 import * as speakeasy from 'speakeasy';
 import * as qrCode from 'qrcode';
 import { User } from '@prisma/client';
@@ -21,7 +21,6 @@ import {
   VerifyOtpDTO,
 } from './dto';
 import { ConfigService } from '@nestjs/config';
-import { createWallet } from './utils';
 import { randomUUID } from 'crypto';
 import { UtilsService } from '@app/utils';
 
@@ -35,7 +34,6 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly utils: UtilsService,
     @InjectQueue('auth-queue') private readonly authQueue: Queue,
-    @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   async createNewUser(
@@ -44,18 +42,6 @@ export class AuthService {
   ): Promise<User> {
     try {
       const defaultImage = this.config.getOrThrow<string>('DEFAULT_IMAGE');
-
-      // Generate user wallets for crypto transactions
-      const ethWallet = await createWallet(this.natsClient, { chain: 'base' });
-      const solWallet = await createWallet(this.natsClient, {
-        chain: 'solana',
-      });
-      const walletDetails = {
-        ethAddress: ethWallet.address,
-        ethPrivateKey: ethWallet.privateKey,
-        solAddress: solWallet.address,
-        solPrivateKey: solWallet.privateKey,
-      };
 
       // Create new user through custom authentication
       if (details instanceof SignupDTO) {
@@ -68,7 +54,6 @@ export class AuthService {
             ...details,
             password: await argon.hash(details.password),
             profileImage: filePath || defaultImage,
-            ...walletDetails,
             balance: 0,
           },
         });
@@ -86,7 +71,6 @@ export class AuthService {
           ...details,
           password,
           username,
-          ...walletDetails,
           balance: 0,
           profileImage: details.profileImage || defaultImage,
         },
@@ -116,18 +100,7 @@ export class AuthService {
       // Send an onboarding email to the new user
       await this.authQueue.add('signup', { email: user.email });
 
-      // Subscribe to wallet activity to check for deposits
-      this.natsClient.send('monitor-deposit', { user, chain: 'base' });
-      this.natsClient.send('monitor-deposit', { user, chain: 'solana' });
-
-      // Prefill user wallets with gas fees for transactions
-      this.natsClient.send('prefill', { user, chain: 'base' });
-      this.natsClient.send('prefill', { user, chain: 'solana' });
-
-      // Sanitize user output
-      user.password = '';
-      user.ethPrivateKey = '';
-      user.solPrivateKey = '';
+      user.password = 'X-X-X'; // Sanitize user output
 
       const payload = { sub: user.id, email: user.email }; // Create JWT payload
 

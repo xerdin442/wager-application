@@ -1,5 +1,6 @@
 import {
-  TransactionMethod,
+  Chain,
+  Coin,
   TransactionStatus,
   TransactionType,
 } from '@prisma/client';
@@ -52,11 +53,17 @@ export class GetTransactionsDTO {
   @IsOptional()
   type?: TransactionType;
 
-  @IsEnum(TransactionMethod, {
-    message: 'Invalid "method" value. Expected "FIAT" or "CRYPTO"',
+  @IsEnum(Chain, {
+    message: 'Invalid "chain" value. Expected "BASE" or "SOLANA"',
   })
   @IsOptional()
-  method?: TransactionMethod;
+  chain?: Chain;
+
+  @IsEnum(Coin, {
+    message: 'Invalid "coin" value. Expected "USDC" or "USDT"',
+  })
+  @IsOptional()
+  coin?: Coin;
 }
 
 export class FundsTransferDTO {

@@ -34,8 +34,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       })) as User;
 
       user.password = '';
-      user.ethPrivateKey = '';
-      user.solPrivateKey = '';
 
       return user;
     } catch (error) {

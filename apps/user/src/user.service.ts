@@ -30,10 +30,7 @@ export class UserService {
         },
       });
 
-      // Sanitize user output
-      user.password = '';
-      user.ethPrivateKey = '';
-      user.solPrivateKey = '';
+      user.password = ''; // Sanitize user output
 
       return user;
     } catch (error) {

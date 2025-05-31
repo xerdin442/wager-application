@@ -5,8 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { NatsModule, UtilsModule } from '@app/utils';
 import { WagerModule } from './wager/wager.module';
-import { CryptoModule } from './crypto/crypto.module';
-import { FiatModule } from './fiat/fiat.module';
+import { WalletModule } from './wallet/wallet.module';
 import { MetricsModule } from '@app/metrics';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
@@ -40,8 +39,7 @@ import { UserModule } from './user/user.module';
     UtilsModule,
     MetricsModule,
     WagerModule,
-    CryptoModule,
-    FiatModule,
+    WalletModule,
     AuthModule,
     AdminModule,
     UserModule,

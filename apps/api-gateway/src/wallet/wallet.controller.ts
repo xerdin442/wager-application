@@ -19,11 +19,11 @@ import { CryptoWithdrawalDTO } from './dto';
 import { handleError } from '../utils/error';
 import { AuthGuard } from '@nestjs/passport';
 
-@Controller('wallet/crypto')
+@Controller('wallet')
 @UseGuards(AuthGuard('jwt'))
-export class CryptoController {
+export class WalletController {
   constructor(
-    @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
+    @Inject('WALLET_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   @Get('deposit')

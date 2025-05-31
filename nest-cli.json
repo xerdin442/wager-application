@@ -37,15 +37,6 @@
         "tsConfigPath": "apps/auth/tsconfig.app.json"
       }
     },
-    "crypto": {
-      "type": "application",
-      "root": "apps/crypto",
-      "entryFile": "main",
-      "sourceRoot": "apps/crypto/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/crypto/tsconfig.app.json"
-      }
-    },
     "db": {
       "type": "library",
       "root": "libs/db",
@@ -53,15 +44,6 @@
       "sourceRoot": "libs/db/src",
       "compilerOptions": {
         "tsConfigPath": "libs/db/tsconfig.lib.json"
-      }
-    },
-    "fiat": {
-      "type": "application",
-      "root": "apps/fiat",
-      "entryFile": "main",
-      "sourceRoot": "apps/fiat/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/fiat/tsconfig.app.json"
       }
     },
     "metrics": {
@@ -98,6 +80,15 @@
       "sourceRoot": "apps/wager/src",
       "compilerOptions": {
         "tsConfigPath": "apps/wager/tsconfig.app.json"
+      }
+    },
+    "wallet": {
+      "type": "application",
+      "root": "apps/wallet",
+      "entryFile": "main",
+      "sourceRoot": "apps/wallet/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/wallet/tsconfig.app.json"
       }
     }
   }

@@ -24,7 +24,7 @@ import {
 import { AdminAuthDTO, CreateAdminDTO } from '../src/admin/dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
-import { CryptoWithdrawalDTO } from '../src/crypto/dto';
+import { CryptoWithdrawalDTO } from '../src/wallet/dto';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 30000;

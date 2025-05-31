@@ -1,12 +1,12 @@
 import { NestFactory } from '@nestjs/core';
-import { MicroserviceOptions, RpcException } from '@nestjs/microservices';
+import { WalletModule } from './wallet.module';
 import { natsOptions } from '@app/utils';
-import { FiatModule } from './fiat.module';
 import { ValidationPipe } from '@nestjs/common';
+import { MicroserviceOptions, RpcException } from '@nestjs/microservices';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    FiatModule,
+    WalletModule,
     natsOptions as MicroserviceOptions,
   );
 

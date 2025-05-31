@@ -18,11 +18,7 @@ import { natsOptions } from './nats.options';
       useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
     },
     {
-      provide: 'FIAT_SERVICE',
-      useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
-    },
-    {
-      provide: 'CRYPTO_SERVICE',
+      provide: 'WALLET_SERVICE',
       useFactory: () => ClientProxyFactory.create(natsOptions as ClientOptions),
     },
     {
@@ -34,8 +30,7 @@ import { natsOptions } from './nats.options';
     'AUTH_SERVICE',
     'ADMIN_SERVICE',
     'WAGER_SERVICE',
-    'FIAT_SERVICE',
-    'CRYPTO_SERVICE',
+    'WALLET_SERVICE',
     'USER_SERVICE',
   ],
 })

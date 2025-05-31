@@ -37,9 +37,14 @@ enum TransactionStatus {
   FAILED
 }
 
-enum TransactionMethod {
-  FIAT
-  CRYPTO
+enum Chain {
+  BASE
+  SOLANA
+}
+
+enum Coin {
+  USDC
+  USDT
 }
 
 model User {
@@ -55,10 +60,6 @@ model User {
   username      String  @unique
   twoFASecret   String?
   twoFAEnabled  Boolean @default(false)
-  ethAddress    String
-  ethPrivateKey String
-  solAddress    String
-  solPrivateKey String
   balance       Int
 
   transactions Transaction[]
@@ -136,7 +137,8 @@ model Transaction {
   createdAt DateTime @default(now())
 
   type   TransactionType
-  method TransactionMethod
+  chain  Chain
+  coin   Coin
   status TransactionStatus
   amount Int
 

@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
-export class CryptoWithdrawalDTO {
+export class WithdrawalDTO {
   @IsNumber()
   @IsNotEmpty()
   amount: number;

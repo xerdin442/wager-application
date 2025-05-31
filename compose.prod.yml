@@ -11,9 +11,7 @@ services:
     <<: *prod-setup    
   auth-service:
     <<: *prod-setup
-  fiat-service:
-    <<: *prod-setup
-  crypto-service:
+  wallet-service:
     <<: *prod-setup
   user-service:
     <<: *prod-setup

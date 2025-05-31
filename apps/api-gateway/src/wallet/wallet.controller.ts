@@ -15,7 +15,7 @@ import { User } from '@prisma/client';
 import { GetUser } from '../custom/decorators';
 import { catchError, Observable } from 'rxjs';
 import { Chain } from './types';
-import { CryptoWithdrawalDTO } from './dto';
+import { WithdrawalDTO } from './dto';
 import { handleError } from '../utils/error';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -41,7 +41,7 @@ export class WalletController {
   processWithdrawal(
     @GetUser() user: User,
     @Query('chain') chain: Chain,
-    @Body() dto: CryptoWithdrawalDTO,
+    @Body() dto: WithdrawalDTO,
     @Headers('Idempotency-Key') idempotencyKey?: string,
   ): Observable<any> {
     return this.natsClient

@@ -82,73 +82,26 @@ services:
     command: >
       /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
-  fiat-service:
+  wallet-service:
     <<: *test-setup
     build:
       context: .
-      dockerfile: ./apps/fiat/Dockerfile
-    restart: always
-    ports:
-      - "8081:8080"
-    networks:
-      - app-network
-      - fiat-network
-    env_file:
-      - ./.env
-      - ./apps/fiat/.env
-    depends_on:
-      - database
-      - fiat-redis
-      - nats-server
-    command: >
-      sh -c "npm run start:dev fiat"
-
-  fiat-redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6380:6379"
-    env_file:
-      - ./apps/fiat/.env
-    networks:
-      - fiat-network
-    command: >
-      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
-
-  crypto-service:
-    <<: *test-setup
-    build:
-      context: .
-      dockerfile: ./apps/crypto/Dockerfile
+      dockerfile: ./apps/wallet/Dockerfile
     restart: always
     ports:
       - "8080:8080"
     networks:
       - app-network
-      - crypto-network
     env_file:
       - ./.env
-      - ./apps/crypto/.env
+      - ./apps/wallet/.env
     depends_on:
       - database
-      - crypto-redis
       - nats-server
     secrets:
       - platform_wallet_keyphrase
     command: >
-      sh -c "npm run start:dev crypto"
-
-  crypto-redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6381:6379"
-    env_file:
-      - ./apps/crypto/.env
-    networks:
-      - crypto-network
-    command: >
-      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+      sh -c "npm run start:dev wallet"
 
   wager-service:
     <<: *test-setup
@@ -210,8 +163,6 @@ services:
 networks:
   app-network:
   auth-network:
-  crypto-network:
-  fiat-network:
   wager-network:
 
 secrets:

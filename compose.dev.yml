@@ -18,15 +18,10 @@ services:
     command: >
       sh -c "npm run start:dev auth"
 
-  fiat-service:
+  wallet-service:
     <<: *dev-setup
     command: >
-      sh -c "npm run start:dev fiat"
-
-  crypto-service:
-    <<: *dev-setup
-    command: >
-      sh -c "npm run start:dev crypto"
+      sh -c "npm run start:dev wallet"
 
   user-service:
     <<: *dev-setup

@@ -1,16 +1,15 @@
 import { DbService } from '@app/db';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Transaction, User, Wager } from '@prisma/client';
 import { FundsTransferDTO, GetTransactionsDTO, UpdateProfileDTO } from './dto';
 import { UtilsService } from '@app/utils';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prisma: DbService,
     private readonly utils: UtilsService,
-    @Inject('CRYPTO_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   async updateProfile(
@@ -59,9 +58,6 @@ export class UserService {
         await this.prisma.user.delete({
           where: { id: user.id },
         });
-
-        // Initiate clearing of user wallets
-        this.natsClient.send('clear-wallet', { user });
 
         return;
       }

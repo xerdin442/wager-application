@@ -47,15 +47,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email         String  @unique
-  password      String
-  profileImage  String
-  firstName     String
-  lastName      String
-  username      String  @unique
-  twoFASecret   String?
-  twoFAEnabled  Boolean @default(false)
-  balance       Int
+  email        String  @unique
+  password     String
+  profileImage String
+  firstName    String
+  lastName     String
+  username     String  @unique
+  twoFASecret  String?
+  twoFAEnabled Boolean @default(false)
+  balance      Int
 
   transactions Transaction[]
 
@@ -131,11 +131,11 @@ model Transaction {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
 
-  txHash String @unique
-  type   TransactionType
-  chain  Chain
-  status TransactionStatus
-  amount Int
+  txIdentifier String?
+  type         TransactionType
+  chain        Chain
+  status       TransactionStatus
+  amount       Int
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)

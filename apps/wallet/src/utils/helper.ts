@@ -37,22 +37,3 @@ export const selectUSDCTokenAddress = (chain: Chain): string => {
 
   return address;
 };
-
-export const selectChainExplorer = (
-  chain: Chain,
-  txIdentifier: string,
-): string => {
-  let url: string = '';
-
-  if (NODE_ENV === 'production') {
-    chain === 'BASE'
-      ? (url = `https://basescan.org/tx/${txIdentifier}`)
-      : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=mainnet`);
-  }
-
-  chain === 'BASE'
-    ? (url = `https://sepolia.basescan.org/tx/${txIdentifier}`)
-    : (url = `https://explorer.solana.com/tx/${txIdentifier}?cluster=devnet`);
-
-  return url;
-};

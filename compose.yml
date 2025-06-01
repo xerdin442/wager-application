@@ -78,6 +78,7 @@ services:
       - "8080:8080"
     networks:
       - app-network
+      - wallet-network
     env_file:
       - ./.env
       - ./apps/wallet/.env
@@ -86,6 +87,20 @@ services:
       - nats-server
     secrets:
       - platform_wallet_keyphrase
+
+  wallet-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    env_file:
+      - ./apps/wallet/.env
+    networks:
+      - wallet-network
+    volumes:
+      - wallet-redis-data:/redis/data
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wager-service:
     build:
@@ -168,6 +183,7 @@ volumes:
   db-data:
   auth-redis-data:
   wager-redis-data:
+  wallet-redis-data:
   metrics-data:
   grafana-data:
 
@@ -175,6 +191,7 @@ networks:
   app-network:
   auth-network:
   wager-network:
+  wallet-network:
   monitoring:
 
 secrets:

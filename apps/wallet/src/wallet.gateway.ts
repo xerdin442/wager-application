@@ -78,14 +78,14 @@ export class WalletGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  sendTransactionStatus(email: string, notification: Transaction) {
+  sendTransactionStatus(email: string, transaction: Transaction) {
     try {
       const client = Array.from(this.server.sockets.sockets.values()).find(
         (socket) => socket.data.email === email,
       );
 
       if (client) {
-        client.emit('status', notification);
+        client.emit('status', transaction);
       } else {
         throw new WsException(
           `Transaction notification failed: No active socket for ${email}.`,

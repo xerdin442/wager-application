@@ -92,6 +92,7 @@ services:
       - "8080:8080"
     networks:
       - app-network
+      - wallet-network
     env_file:
       - ./.env
       - ./apps/wallet/.env
@@ -102,6 +103,18 @@ services:
       - platform_wallet_keyphrase
     command: >
       sh -c "npm run start:dev wallet"
+
+  wallet-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6380:6379"
+    env_file:
+      - ./apps/wallet/.env
+    networks:
+      - wallet-network
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wager-service:
     <<: *test-setup
@@ -164,6 +177,7 @@ networks:
   app-network:
   auth-network:
   wager-network:
+  wallet-network:
 
 secrets:
   platform_wallet_keyphrase:

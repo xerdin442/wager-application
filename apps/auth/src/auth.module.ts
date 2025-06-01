@@ -8,7 +8,7 @@ import { SessionService } from './session';
 import { JwtModule } from '@nestjs/jwt';
 import { DbModule } from '@app/db';
 import { MetricsModule } from '@app/metrics';
-import { NatsModule, UtilsModule } from '@app/utils';
+import { UtilsModule } from '@app/utils';
 
 @Module({
   imports: [
@@ -39,7 +39,6 @@ import { NatsModule, UtilsModule } from '@app/utils';
       inject: [ConfigService],
     }),
     DbModule,
-    NatsModule,
     UtilsModule,
     MetricsModule,
   ],

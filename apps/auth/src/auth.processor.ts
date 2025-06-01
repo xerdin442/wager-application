@@ -6,7 +6,7 @@ import { UtilsService } from '@app/utils';
 @Injectable()
 @Processor('auth-queue')
 export class AuthProcessor {
-  private context = AuthProcessor.name;
+  private readonly context: string = AuthProcessor.name;
 
   constructor(private readonly utils: UtilsService) {}
 
@@ -29,7 +29,7 @@ export class AuthProcessor {
   }
 
   @Process('otp')
-  async passwordReset(job: Job<{ email: string; otp: string }>): Promise<void> {
+  async passwordReset(job: Job<Record<string, string>>): Promise<void> {
     try {
       const { email, otp } = job.data;
       const subject = 'Password Reset';

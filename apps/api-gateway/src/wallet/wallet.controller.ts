@@ -33,7 +33,7 @@ export class WalletController {
       .pipe(catchError(handleError));
   }
 
-  @Post('withdraw')
+  @Post('withdrawal')
   @HttpCode(HttpStatus.OK)
   processWithdrawal(
     @GetUser() user: User,

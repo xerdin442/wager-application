@@ -2,23 +2,16 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { WalletGateway } from './wallet.gateway';
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
-import { UtilsService } from '@app/utils';
 import { ConfigService } from '@nestjs/config';
 import Web3, { Transaction as EthTransaction } from 'web3';
 import { selectRpcUrl, selectUSDCTokenAddress } from './utils/helper';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { RpcException } from '@nestjs/microservices';
-import {
-  Chain,
-  Transaction,
-  TransactionStatus,
-  TransactionType,
-  User,
-} from '@prisma/client';
+import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
 import { hdkey } from '@ethereumjs/wallet';
 import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
-import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
 import { isAddress } from 'web3-validator';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/abi';
@@ -50,7 +43,6 @@ export class WalletService {
 
   constructor(
     private readonly prisma: DbService,
-    private readonly utils: UtilsService,
     private readonly config: ConfigService,
     private readonly metrics: MetricsService,
     private readonly gateway: WalletGateway,
@@ -162,18 +154,17 @@ export class WalletService {
     status: TransactionStatus,
   ): Promise<{ user: User; updatedTx: Transaction }> {
     try {
-      let user: User | undefined;
       const { id: txId, type, userId, amount } = tx;
 
       // Update user balance
       if (status === 'SUCCESS') {
         if (type === 'WITHDRAWAL') {
-          user = await this.prisma.user.update({
+          await this.prisma.user.update({
             where: { id: userId },
             data: { balance: { decrement: amount } },
           });
         } else {
-          user = await this.prisma.user.update({
+          await this.prisma.user.update({
             where: { id: userId },
             data: { balance: { increment: amount } },
           });
@@ -184,47 +175,21 @@ export class WalletService {
       const updatedTx = await this.prisma.transaction.update({
         where: { id: txId },
         data: { status, txIdentifier },
+        include: { user: true },
       });
+      const user = updatedTx.user as User;
 
-      return { user: user as User, updatedTx };
+      return { user, updatedTx };
     } catch (error) {
       throw error;
     }
   }
 
-  async sendTxStatusEmail(
-    status: TransactionStatus,
-    type: TransactionType,
-    user: User,
-    amount: number,
-  ): Promise<void> {
-    const date: string = new Date().toISOString();
-    let subject: string = '';
-    let content: string = '';
-
-    if (type === 'WITHDRAWAL') {
-      if (status === 'SUCCESS') {
-        subject = 'Withdrawal Successful';
-        content = `Your withdrawal of $${amount} on ${date} was successful. Your balance is $${user.balance}`;
-      } else if (status === 'FAILED') {
-        subject = 'Failed Withdrawal';
-        content = `Your withdrawal of $${amount} on ${date} was unsuccessful. Please try again later.`;
-      }
-    }
-
-    await this.utils.sendEmail(user.email, subject, content);
-  }
-
   async processWithdrawalOnBase(
-    userId: number,
     dto: WithdrawalDTO,
-    transactionId: number,
+    transaction: Transaction,
   ): Promise<void> {
     let txHash: string = '';
-
-    const transaction = (await this.prisma.transaction.findUnique({
-      where: { id: transactionId },
-    })) as Transaction;
 
     try {
       const platformPrivateKey = this.getPlatformWalletPrivateKey(
@@ -336,6 +301,94 @@ export class WalletService {
             'The network is congested at the moment. Please try again later',
         });
       }
+
+      throw error;
+    }
+  }
+
+  async processWithdrawalOnSolana(
+    dto: WithdrawalDTO,
+    transaction: Transaction,
+  ): Promise<void> {
+    let signature: string = '';
+
+    try {
+      const sender = this.getPlatformWalletPrivateKey('SOLANA') as Keypair;
+
+      // Resolve recipient's domain name if provided
+      if (dto.address.endsWith('.sol')) {
+        const resolvedAddress = await this.resolveDomainName(
+          'SOLANA',
+          dto.address,
+        );
+
+        dto.address = resolvedAddress;
+      }
+
+      // Verify recipient address
+      const recipient = new PublicKey(dto.address);
+      if (!PublicKey.isOnCurve(recipient)) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Invalid recipient address',
+        });
+      }
+
+      // Get the token account addresses of platform wallet and recipient address
+      const senderTokenAddress = await this.getTokenAccountAddress(
+        sender.publicKey,
+      );
+      const recipientTokenAddress =
+        await this.getTokenAccountAddress(recipient);
+
+      // Initiate transfer of USDC tokens from platform wallet
+      signature = await transfer(
+        this.connection,
+        sender,
+        senderTokenAddress,
+        recipientTokenAddress,
+        sender.publicKey,
+        dto.amount * 1e6,
+      );
+
+      // Update user balance and store transaction details
+      const { user, updatedTx } = await this.updateDbAfterTransaction(
+        transaction,
+        signature,
+        'SUCCESS',
+      );
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'successful_withdrawals',
+        this.solanaMetricLabels,
+      );
+      this.metrics.incrementCounter(
+        'withdrawal_volume',
+        this.solanaMetricLabels,
+        dto.amount,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+      return;
+    } catch (error) {
+      // Store failed transaction details
+      const { user, updatedTx } = await this.updateDbAfterTransaction(
+        transaction,
+        signature,
+        'FAILED',
+      );
+
+      // Update withdrawal metrics
+      this.metrics.incrementCounter(
+        'failed_withdrawals',
+        this.solanaMetricLabels,
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(user.email, updatedTx);
 
       throw error;
     }

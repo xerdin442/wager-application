@@ -7,6 +7,7 @@ import { Transaction, User } from '@prisma/client';
 import { WalletService } from './wallet.service';
 
 interface TransactionJob {
+  dto: DepositDTO | WithdrawalDTO;
   user: User;
   transaction: Transaction;
 }
@@ -22,23 +23,43 @@ export class WalletProcessor {
   ) {}
 
   @Process('deposit')
-  async processDeposit(job: Job<Record<string, any>>): Promise<void> {
-    const { user, transaction } = job.data as TransactionJob;
+  async processDeposit(job: Job<TransactionJob>): Promise<void> {
+    const { user, transaction } = job.data;
     const dto = job.data.dto as DepositDTO;
     const date: string = transaction.createdAt.toISOString();
 
     try {
+      dto.chain === 'BASE'
+        ? await this.walletService.processDepositOnBase(dto, transaction)
+        : await this.walletService.processDepositOnSolana(dto, transaction);
+
       // Notify user of successful deposit
+      const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
+      await this.utils.sendEmail(user.email, 'Deposit Successful', content);
+
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
+        );
     } catch (error) {
       // Notify user of failed deposit
+      const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+      await this.utils.sendEmail(user.email, 'Failed Deposit', content);
+
+      this.utils
+        .logger()
+        .info(
+          `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
+        );
 
       throw error;
     }
   }
 
   @Process('withdrawal')
-  async processWithdrawal(job: Job<Record<string, any>>): Promise<void> {
-    const { user, transaction } = job.data as TransactionJob;
+  async processWithdrawal(job: Job<TransactionJob>): Promise<void> {
+    const { user, transaction } = job.data;
     const dto = job.data.dto as WithdrawalDTO;
     const date: string = transaction.createdAt.toISOString();
 
@@ -48,9 +69,8 @@ export class WalletProcessor {
         : await this.walletService.processWithdrawalOnSolana(dto, transaction);
 
       // Notify user of successful withdrawal
-      const subject = 'Withdrawal Successful';
       const content = `Your withdrawal of $${dto.amount} on ${date} was successful. Your balance is $${user.balance}`;
-      await this.utils.sendEmail(user.email, subject, content);
+      await this.utils.sendEmail(user.email, 'Withdrawal Successful', content);
 
       this.utils
         .logger()
@@ -58,12 +78,13 @@ export class WalletProcessor {
           `[${this.context}] Successful withdrawal by ${user.email}. Amount: $${dto.amount}\n`,
         );
 
-      // Check platform wallet balance
+      // Check balance of native assets and stablecoins in platform wallet
+      await this.walletService.checkStablecoinBalance(dto.chain);
+      await this.walletService.checkNativeAssetBalance(dto.chain);
     } catch (error) {
       // Notify user of failed withdrawal
-      const subject = 'Failed Withdrawal';
       const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-      await this.utils.sendEmail(user.email, subject, content);
+      await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
 
       this.utils
         .logger()

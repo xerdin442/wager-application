@@ -57,6 +57,7 @@ export class WalletController {
     dto: WithdrawalDTO;
     idempotencyKey?: string;
   }): Promise<Transaction | { message: string } | undefined> {
+    // Initialize Redis connection
     const redis: RedisClientType = await this.utils.connectToRedis(
       this.config.getOrThrow<string>('REDIS_URL'),
       'Idempotency Keys',
@@ -65,6 +66,7 @@ export class WalletController {
 
     try {
       const { user, dto, idempotencyKey } = data;
+      const { address, chain, amount } = dto;
 
       // Check if request contains a valid idempotency key
       if (!idempotencyKey) {
@@ -86,8 +88,19 @@ export class WalletController {
         return { message: 'Your withdrawal is still being processed' };
       }
 
+      // Resolve recipient's domain name if provided
+      if (address.endsWith('.eth') || address.endsWith('.sol')) {
+        dto.address = await this.walletService.resolveDomainName(
+          chain,
+          address,
+        );
+      }
+
+      // Verify recipient address
+      this.walletService.verifyWalletAddress(chain, address);
+
       // Check if withdrawal amount exceeds user balance
-      if (user.balance < dto.amount) {
+      if (user.balance < amount) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: `Insufficient funds. Your balance is $${user.balance}`,
@@ -95,7 +108,7 @@ export class WalletController {
       }
 
       // Check if withdrawal amount is below the allowed minimum
-      if (dto.amount < 5) {
+      if (amount < 5) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Minimum withdrawal amount is $5',

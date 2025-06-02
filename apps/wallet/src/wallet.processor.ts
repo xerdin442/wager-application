@@ -103,16 +103,11 @@ export class WalletProcessor {
     const transaction = await this.prisma.transaction.findUniqueOrThrow({
       where: { id: transactionId },
     });
-    const date: string = transaction.createdAt.toISOString();
 
     try {
       dto.chain === 'BASE'
         ? await this.walletService.processWithdrawalOnBase(dto, transaction)
         : await this.walletService.processWithdrawalOnSolana(dto, transaction);
-
-      // Notify user of successful withdrawal
-      const content = `Your withdrawal of $${dto.amount} on ${date} was successful. Your balance is $${user.balance}`;
-      await this.utils.sendEmail(user.email, 'Withdrawal Successful', content);
 
       this.utils
         .logger()
@@ -124,14 +119,10 @@ export class WalletProcessor {
       await this.walletService.checkStablecoinBalance(dto.chain);
       await this.walletService.checkNativeAssetBalance(dto.chain);
     } catch (error) {
-      // Notify user of failed withdrawal
-      const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-      await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
-
       this.utils
         .logger()
         .error(
-          `[${this.context}] Failed withdrawal by ${user.email}. Amount: $${dto.amount}\n`,
+          `[${this.context}] Failed withdrawal of $${dto.amount} for ${user.email}. Error: $${error.message}\n`,
         );
 
       throw error;

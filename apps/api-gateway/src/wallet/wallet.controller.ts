@@ -33,7 +33,7 @@ export class WalletController {
       .pipe(catchError(handleError));
   }
 
-  @Post('withdrawal')
+  @Post('withdraw')
   @HttpCode(HttpStatus.OK)
   processWithdrawal(
     @GetUser() user: User,
@@ -41,7 +41,7 @@ export class WalletController {
     @Headers('Idempotency-Key') idempotencyKey?: string,
   ): Observable<any> {
     return this.natsClient
-      .send('withdraw', { user, dto, idempotencyKey })
+      .send('withdrawal', { user, dto, idempotencyKey })
       .pipe(catchError(handleError));
   }
 }

@@ -3,7 +3,10 @@ import { WalletGateway } from './wallet.gateway';
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
 import { ConfigService } from '@nestjs/config';
-import Web3, { Transaction as EthTransaction } from 'web3';
+import Web3, {
+  Transaction as EthTransaction,
+  TransactionError as EthTransactionErrror,
+} from 'web3';
 import { selectRpcUrl, selectUSDCTokenAddress } from './utils/helper';
 import {
   Connection,
@@ -11,6 +14,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   TokenBalance,
+  SendTransactionError as SolanaTransactionError,
 } from '@solana/web3.js';
 import { RpcException } from '@nestjs/microservices';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
@@ -112,6 +116,20 @@ export class WalletService {
     }
   }
 
+  verifyWalletAddress(chain: Chain, address: string): void {
+    let verified: boolean;
+    chain === 'BASE'
+      ? (verified = isAddress(address))
+      : (verified = PublicKey.isOnCurve(new PublicKey(address)));
+
+    if (!verified) {
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Invalid recipient address',
+      });
+    }
+  }
+
   async getTokenAccountAddress(owner: PublicKey): Promise<PublicKey> {
     try {
       return getAssociatedTokenAddress(
@@ -182,9 +200,8 @@ export class WalletService {
         data: { status, txIdentifier },
         include: { user: true },
       });
-      const user = updatedTx.user as User;
 
-      return { user, updatedTx };
+      return { user: updatedTx.user as User, updatedTx };
     } catch (error) {
       throw error;
     }
@@ -471,23 +488,6 @@ export class WalletService {
         this.BASE_USDC_TOKEN_ADDRESS,
       );
 
-      // Resolve recipient's domain name if provided
-      if (dto.address.endsWith('.eth')) {
-        const resolvedAddress = await this.resolveDomainName(
-          'BASE',
-          dto.address,
-        );
-
-        dto.address = resolvedAddress;
-      }
-      // Verify recipient address
-      if (!isAddress(dto.address)) {
-        throw new RpcException({
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid recipient address',
-        });
-      }
-
       // Convert transfer amount to smallest unit of USDC
       const amountInUSDC = this.web3.utils.toBigInt(dto.amount * 1e6);
       // Encode the transaction for the transfer function using the ABI
@@ -540,29 +540,31 @@ export class WalletService {
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);
 
+      // Notify user of successful withdrawal
+      const date: string = updatedTx.createdAt.toISOString();
+      const content = `Your withdrawal of $${dto.amount} on ${date} was successful. Your balance is $${user.balance}`;
+      await this.utils.sendEmail(user.email, 'Withdrawal Successful', content);
+
       return;
     } catch (error) {
-      // Store failed transaction details
-      const { user, updatedTx } = await this.updateDbAfterTransaction(
-        transaction,
-        txHash,
-        'FAILED',
-      );
+      if (error instanceof EthTransactionErrror) {
+        // Store failed transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          txHash,
+          'FAILED',
+        );
 
-      // Update withdrawal metrics
-      this.metrics.incrementCounter('failed_withdrawals', metricLabels);
+        // Update withdrawal metrics
+        this.metrics.incrementCounter('failed_withdrawals', metricLabels);
 
-      // Notify client of transaction status
-      this.gateway.sendTransactionStatus(user.email, updatedTx);
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
 
-      // Network congestion error check
-      const msg = error.message as string;
-      if (msg.includes('transaction underpriced')) {
-        throw new RpcException({
-          status: HttpStatus.BAD_REQUEST,
-          message:
-            'The network is congested at the moment. Please try again later',
-        });
+        // Notify user of failed withdrawal
+        const date: string = updatedTx.createdAt.toISOString();
+        const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+        await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
       }
 
       throw error;
@@ -578,25 +580,7 @@ export class WalletService {
 
     try {
       const sender = this.getPlatformWalletPrivateKey('SOLANA') as Keypair;
-
-      // Resolve recipient's domain name if provided
-      if (dto.address.endsWith('.sol')) {
-        const resolvedAddress = await this.resolveDomainName(
-          'SOLANA',
-          dto.address,
-        );
-
-        dto.address = resolvedAddress;
-      }
-
-      // Verify recipient address
       const recipient = new PublicKey(dto.address);
-      if (!PublicKey.isOnCurve(recipient)) {
-        throw new RpcException({
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid recipient address',
-        });
-      }
 
       // Get the token account addresses of platform wallet and recipient address
       const senderTokenAddress = await this.getTokenAccountAddress(
@@ -633,20 +617,32 @@ export class WalletService {
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);
 
+      // Notify user of successful withdrawal
+      const date: string = updatedTx.createdAt.toISOString();
+      const content = `Your withdrawal of $${dto.amount} on ${date} was successful. Your balance is $${user.balance}`;
+      await this.utils.sendEmail(user.email, 'Withdrawal Successful', content);
+
       return;
     } catch (error) {
-      // Store failed transaction details
-      const { user, updatedTx } = await this.updateDbAfterTransaction(
-        transaction,
-        signature,
-        'FAILED',
-      );
+      if (error instanceof SolanaTransactionError) {
+        // Store failed transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          signature,
+          'FAILED',
+        );
 
-      // Update withdrawal metrics
-      this.metrics.incrementCounter('failed_withdrawals', metricLabels);
+        // Update withdrawal metrics
+        this.metrics.incrementCounter('failed_withdrawals', metricLabels);
 
-      // Notify client of transaction status
-      this.gateway.sendTransactionStatus(user.email, updatedTx);
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+        // Notify user of failed withdrawal
+        const date: string = updatedTx.createdAt.toISOString();
+        const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+        await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
+      }
 
       throw error;
     }

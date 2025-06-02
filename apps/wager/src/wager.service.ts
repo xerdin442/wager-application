@@ -1,7 +1,7 @@
 import { DbService } from '@app/db';
 import { InjectQueue } from '@nestjs/bull';
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Wager, Message, User } from '@prisma/client';
+import { Wager, Message } from '@prisma/client';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
 import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
@@ -19,9 +19,9 @@ export class WagerService {
 
   async createWager(userId: number, dto: CreateWagerDTO): Promise<Wager> {
     try {
-      const user = (await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-      })) as User;
+      });
 
       // Check if stake is less than the mininmum
       if (dto.stake < 1) {
@@ -66,13 +66,13 @@ export class WagerService {
     dto: UpdateWagerDTO,
   ): Promise<void> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
-      const user = (await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-      })) as User;
+      });
 
       // Verify that the user is the wager creator
       if (wager.playerOne !== userId) {
@@ -138,9 +138,9 @@ export class WagerService {
 
   async joinWager(userId: number, wagerId: number): Promise<string> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
       if (wager.playerOne === userId) {
         throw new RpcException({
@@ -156,9 +156,9 @@ export class WagerService {
         });
       }
 
-      const user = (await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-      })) as User;
+      });
 
       // Check if user has sufficient funds to stake and join the wager
       const stake = wager.amount / 2;
@@ -192,11 +192,9 @@ export class WagerService {
 
   async getWagerDetails(wagerId: number): Promise<Wager> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      return this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
-
-      return wager;
+      });
     } catch (error) {
       throw error;
     }
@@ -204,9 +202,9 @@ export class WagerService {
 
   async claimWager(userId: number, wagerId: number): Promise<string> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
@@ -218,9 +216,14 @@ export class WagerService {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message:
-            'A prize claim can only be made by any of the two players in this wager',
+            'A prize can only be claimed by any of the two players in this wager',
         });
       }
+
+      let opponentId: number;
+      wager.playerOne === userId
+        ? (opponentId = wager.playerTwo)
+        : (opponentId = wager.playerOne);
 
       // Store the claimant as the winner temporarily until the opponent takes action within 24 hours
       await this.prisma.wager.update({
@@ -228,30 +231,17 @@ export class WagerService {
         data: { winner: userId },
       });
 
-      const claimant = (await this.prisma.user.findUnique({
-        where: { id: userId },
-      })) as User;
-
-      let opponentId: number;
-      wager.playerOne === userId
-        ? (opponentId = wager.playerTwo)
-        : (opponentId = wager.playerOne);
-
-      const opponent = (await this.prisma.user.findUnique({
-        where: { id: opponentId },
-      })) as User;
-
-      // Notify the opponent via email
-      const subject = 'Accept or Contest Claim';
-      const content = `@${claimant.username} has claimed the prize in the ${wager.title} wager.
-        Accepting the claim means that you accept defeat and forfeit the prize.
-        Contesting the claim means that you disagree and the claim will be settled through dispute resolution.`;
-      await this.utils.sendEmail(opponent.email, subject, content);
+      // Notify the opponent of the claim
+      await this.wagersQueue.add('claim-wager', {
+        claimantId: userId,
+        wagerId,
+        opponentId,
+      });
 
       // Automatically settle the wager after 24 hours if the opponent takes no action
       await this.wagersQueue.add(
         'settle-wager',
-        { wagerId, userId, opponentId },
+        { wagerId, claimantId: userId, opponentId },
         {
           jobId: `wager-${wagerId}`,
           delay: 24 * 60 * 60 * 1000,
@@ -266,9 +256,9 @@ export class WagerService {
 
   async acceptWagerClaim(wagerId: number): Promise<void> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
@@ -301,9 +291,9 @@ export class WagerService {
 
   async contestWagerClaim(wagerId: number): Promise<void> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
       if (wager.status === 'SETTLED') {
         throw new RpcException({
@@ -332,9 +322,9 @@ export class WagerService {
 
   async deleteWager(userId: number, wagerId: number): Promise<void> {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: wagerId },
-      })) as Wager;
+      });
 
       if (wager.playerOne !== userId) {
         throw new RpcException({

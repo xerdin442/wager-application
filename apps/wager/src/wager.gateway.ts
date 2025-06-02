@@ -13,7 +13,6 @@ import {
 } from '@nestjs/websockets';
 import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { User } from '@prisma/client';
 
 @UsePipes(
   new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
@@ -80,15 +79,27 @@ export class WagerGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  async joinDisputeChat(chatId: number, members: number[]): Promise<void> {
+  async joinDisputeChat(
+    chatId: number,
+    admin: string,
+    players: number[],
+  ): Promise<void> {
     try {
-      for (const member of members) {
-        const user = (await this.prisma.user.findUnique({
-          where: { id: member },
-        })) as User;
+      const members: string[] = [admin];
 
+      // Get the email addresses of the players
+      for (const player of players) {
+        const user = await this.prisma.user.findUniqueOrThrow({
+          where: { id: player },
+        });
+
+        members.push(user.email);
+      }
+
+      // Add the admin and players to the chat room
+      for (const member of members) {
         const client = Array.from(this.server.sockets.sockets.values()).find(
-          (socket) => socket.data.email === user.email,
+          (socket) => socket.data.email === member,
         );
 
         if (client) await client.join(`room-${chatId}`);

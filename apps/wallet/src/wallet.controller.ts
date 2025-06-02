@@ -36,7 +36,7 @@ export class WalletController {
       await this.walletQueue.add('deposit', {
         dto,
         user,
-        transaction,
+        transactionId: transaction.id,
       });
 
       return transaction;
@@ -110,7 +110,7 @@ export class WalletController {
       await this.walletQueue.add('withdrawal', {
         dto,
         user,
-        transaction,
+        transactionId: transaction.id,
       });
 
       // Store idempotency key to prevent similar withdrawal attempts within the next 15 mins

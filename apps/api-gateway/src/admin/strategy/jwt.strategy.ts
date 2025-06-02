@@ -29,10 +29,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Session expired. Please log in.');
       }
 
-      const admin = (await this.prisma.admin.findUnique({
+      const admin = await this.prisma.admin.findUniqueOrThrow({
         where: { id: payload.sub as number },
-      })) as Admin;
-
+      });
       admin.passcode = '';
 
       return admin;

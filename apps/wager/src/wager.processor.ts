@@ -3,10 +3,15 @@ import { MetricsService } from '@app/metrics';
 import { UtilsService } from '@app/utils';
 import { Processor, Process } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
-import { User, Wager } from '@prisma/client';
 import { Job } from 'bull';
 import { WagerGateway } from './wager.gateway';
 import { calculatePlatformFee } from './utils';
+
+interface WagerClaimJob {
+  claimantId: number;
+  wagerId: number;
+  opponentId: number;
+}
 
 @Injectable()
 @Processor('wager-queue')
@@ -20,10 +25,35 @@ export class WagerProcessor {
     private readonly gateway: WagerGateway,
   ) {}
 
-  @Process('settle-wager')
-  async settleWager(job: Job<Record<string, number>>) {
+  @Process('claim-wager')
+  async claimWager(job: Job<WagerClaimJob>) {
     try {
-      const { wagerId, userId, opponentId } = job.data;
+      const { claimantId, wagerId, opponentId } = job.data;
+
+      const wager = await this.prisma.wager.findUniqueOrThrow({
+        where: { id: wagerId },
+      });
+      const claimant = await this.prisma.user.findUniqueOrThrow({
+        where: { id: claimantId },
+      });
+      const opponent = await this.prisma.user.findUniqueOrThrow({
+        where: { id: opponentId },
+      });
+
+      const subject = 'Accept or Contest Claim';
+      const content = `@${claimant.username} has claimed the prize in the ${wager.title} wager.
+        Accepting the claim means that you accept defeat and forfeit the prize.
+        Contesting the claim means that you disagree and the claim will be settled through dispute resolution.`;
+      await this.utils.sendEmail(opponent.email, subject, content);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Process('settle-wager')
+  async settleWager(job: Job<WagerClaimJob>) {
+    try {
+      const { wagerId, claimantId, opponentId } = job.data;
 
       // Update wager status
       const wager = await this.prisma.wager.update({
@@ -33,7 +63,7 @@ export class WagerProcessor {
 
       // Subtract platform fee and add winnings to the claimant's balance
       const claimant = await this.prisma.user.update({
-        where: { id: userId },
+        where: { id: claimantId },
         data: {
           balance: {
             increment: wager.amount - calculatePlatformFee(wager.amount),
@@ -41,18 +71,18 @@ export class WagerProcessor {
         },
       });
 
-      const opponent = (await this.prisma.user.findUnique({
+      const opponent = await this.prisma.user.findUniqueOrThrow({
         where: { id: opponentId },
-      })) as User;
+      });
 
       // Notify the claimant and opponent via email
       const subject = 'Wager Settled';
 
-      const claimantContent = `The 24-hour window for @${opponent.username} to accept or contest your claim in ${wager.title} wager has elapsed, and the wager has been settled in your favour. More wins, champ!`;
-      await this.utils.sendEmail(claimant.email, subject, claimantContent);
+      const claimantMailContent = `The 24-hour window for @${opponent.username} to accept or contest your claim in ${wager.title} wager has elapsed, and the wager has been settled in your favour. More wins, champ!`;
+      await this.utils.sendEmail(claimant.email, subject, claimantMailContent);
 
-      const opponentContent = `The 24-hour window to accept or contest @${claimant.username}'s claim in ${wager.title} wager has elapsed, and the wager has been settled in favour of @${claimant.username}. Better luck next time!`;
-      await this.utils.sendEmail(opponent.email, subject, opponentContent);
+      const opponentMailContent = `The 24-hour window to accept or contest @${claimant.username}'s claim in ${wager.title} wager has elapsed, and the wager has been settled in favour of @${claimant.username}. Better luck next time!`;
+      await this.utils.sendEmail(opponent.email, subject, opponentMailContent);
     } catch (error) {
       this.utils
         .logger()
@@ -67,9 +97,9 @@ export class WagerProcessor {
   @Process('contest-wager')
   async contestWagerClaim(job: Job<Record<string, number>>) {
     try {
-      const wager = (await this.prisma.wager.findUnique({
+      const wager = await this.prisma.wager.findUniqueOrThrow({
         where: { id: job.data.wagerId },
-      })) as Wager;
+      });
 
       // Assign the resolution chat to the admin in this category
       const admins = await this.prisma.admin.findMany({
@@ -103,8 +133,7 @@ export class WagerProcessor {
       });
 
       // Add the admin and wager players to the dispute chat
-      await this.gateway.joinDisputeChat(chat.id, [
-        selectedAdmin.id,
+      await this.gateway.joinDisputeChat(chat.id, selectedAdmin.email, [
         wager.playerOne,
         wager.playerTwo as number,
       ]);

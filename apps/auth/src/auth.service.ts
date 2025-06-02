@@ -154,9 +154,9 @@ export class AuthService {
 
   async enable2fa(userId: number): Promise<string> {
     try {
-      const user = (await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-      })) as User;
+      });
       const secret = speakeasy.generateSecret({
         name: `${this.config.getOrThrow<string>('APP_NAME')}:${user.email}`,
       });
@@ -199,9 +199,9 @@ export class AuthService {
 
   async verify2fa(userId: number, dto: Verify2faDTO): Promise<boolean> {
     try {
-      const user = (await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-      })) as User;
+      });
 
       return speakeasy.totp.verify({
         secret: user.twoFASecret as string,

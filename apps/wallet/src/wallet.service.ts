@@ -190,86 +190,10 @@ export class WalletService {
     }
   }
 
-  async retryDepositCheck(
-    userId: number,
-    dto: DepositDTO,
-    transaction: Transaction,
-    metricLabels: string[],
-  ): Promise<void> {
-    const tx = (await this.prisma.transaction.findUnique({
-      where: { id: transaction.id },
-    })) as Transaction;
-
-    if (tx.retries < 2) {
-      await this.prisma.transaction.update({
-        where: { id: transaction.id },
-        data: { retries: { increment: 1 } },
-      });
-
-      let depositComplete: boolean | null;
-      dto.chain === 'BASE'
-        ? (depositComplete = await this.processDepositOnBase(
-            userId,
-            dto,
-            transaction,
-          ))
-        : (depositComplete = await this.processDepositOnSolana(
-            userId,
-            dto,
-            transaction,
-          ));
-
-      const user = (await this.prisma.user.findUnique({
-        where: { id: userId },
-      })) as User;
-      const date: string = transaction.createdAt.toISOString();
-
-      if (depositComplete === true) {
-        // Notify user of successful deposit
-        const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
-        await this.utils.sendEmail(user.email, 'Deposit Successful', content);
-
-        this.utils
-          .logger()
-          .info(
-            `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
-          );
-      } else if (depositComplete === false) {
-        // Notify user of failed deposit
-        const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-        await this.utils.sendEmail(user.email, 'Failed Deposit', content);
-
-        this.utils
-          .logger()
-          .info(
-            `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
-          );
-      }
-
-      return;
-    } else {
-      // Store failed transaction details
-      const { user, updatedTx } = await this.updateDbAfterTransaction(
-        transaction,
-        dto.txIdentifier,
-        'FAILED',
-      );
-
-      // Notify client of transaction status
-      this.gateway.sendTransactionStatus(user.email, updatedTx);
-
-      // Update deposit metrics
-      this.metrics.incrementCounter('failed_deposits', metricLabels);
-
-      return;
-    }
-  }
-
   async processDepositOnBase(
-    userId: number,
     dto: DepositDTO,
     transaction: Transaction,
-  ): Promise<boolean | null> {
+  ): Promise<TransactionStatus> {
     const { amount, txIdentifier, chain, depositor } = dto;
     const metricLabels: string[] = [chain.toLowerCase()];
 
@@ -277,22 +201,37 @@ export class WalletService {
       // Get receipt of the deposit transaction
       const receipt = await this.web3.eth.getTransactionReceipt(txIdentifier);
 
-      // Retry confirmation check twice before recording transaction as failed
+      // If transaction is not confirmed, return deposit status based on number of retries
       if (!receipt) {
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await this.retryDepositCheck(
-                userId,
-                dto,
-                transaction,
-                metricLabels,
-              );
-            } catch (error) {
-              throw error;
-            }
-          })();
-        }, 30 * 1000);
+        if (transaction.retries < 2) {
+          const updatedTx = await this.prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { retries: { increment: 1 } },
+          });
+
+          this.utils
+            .logger()
+            .warn(
+              `[${this.context}] Deposit transaction (Tx: ${dto.txIdentifier}) is pending confirmation and a retry has been scheduled. Attempt: ${updatedTx.retries}\n`,
+            );
+
+          return 'PENDING';
+        } else {
+          // Store failed transaction details
+          const { user, updatedTx } = await this.updateDbAfterTransaction(
+            transaction,
+            txIdentifier,
+            'FAILED',
+          );
+
+          // Notify client of transaction status
+          this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+          // Update deposit metrics
+          this.metrics.incrementCounter('failed_deposits', metricLabels);
+
+          return 'FAILED';
+        }
       }
 
       // Get transaction details
@@ -356,7 +295,7 @@ export class WalletService {
         this.metrics.incrementCounter('successful_deposits', metricLabels);
         this.metrics.incrementCounter('deposit_volume', metricLabels, amount);
 
-        return true;
+        return 'SUCCESS';
       } else {
         // Store failed transaction details
         const { user, updatedTx } = await this.updateDbAfterTransaction(
@@ -371,7 +310,7 @@ export class WalletService {
         // Update deposit metrics
         this.metrics.incrementCounter('failed_deposits', metricLabels);
 
-        return false;
+        return 'FAILED';
       }
     } catch (error) {
       throw error;
@@ -379,10 +318,9 @@ export class WalletService {
   }
 
   async processDepositOnSolana(
-    userId: number,
     dto: DepositDTO,
     transaction: Transaction,
-  ): Promise<boolean | null> {
+  ): Promise<TransactionStatus> {
     const { amount, txIdentifier, chain, depositor } = dto;
     const metricLabels: string[] = [chain.toLowerCase()];
 
@@ -404,22 +342,37 @@ export class WalletService {
         },
       );
 
-      // Retry confirmation check twice before recording transaction as failed
+      // If transaction is not confirmed, return deposit status based on number of retries
       if (response.status === 200 && response.data.result === null) {
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await this.retryDepositCheck(
-                userId,
-                dto,
-                transaction,
-                metricLabels,
-              );
-            } catch (error) {
-              throw error;
-            }
-          })();
-        }, 30 * 1000);
+        if (transaction.retries < 2) {
+          const updatedTx = await this.prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { retries: { increment: 1 } },
+          });
+
+          this.utils
+            .logger()
+            .warn(
+              `[${this.context}] Deposit transaction (Tx: ${dto.txIdentifier}) is pending confirmation and a retry has been scheduled. Attempt: ${updatedTx.retries}\n`,
+            );
+
+          return 'PENDING';
+        } else {
+          // Store failed transaction details
+          const { user, updatedTx } = await this.updateDbAfterTransaction(
+            transaction,
+            txIdentifier,
+            'FAILED',
+          );
+
+          // Notify client of transaction status
+          this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+          // Update deposit metrics
+          this.metrics.incrementCounter('failed_deposits', metricLabels);
+
+          return 'FAILED';
+        }
       }
 
       let recipientAddress: string = '';
@@ -478,7 +431,7 @@ export class WalletService {
         this.metrics.incrementCounter('successful_deposits', metricLabels);
         this.metrics.incrementCounter('deposit_volume', metricLabels, amount);
 
-        return true;
+        return 'SUCCESS';
       } else {
         // Store failed transaction details
         const { user, updatedTx } = await this.updateDbAfterTransaction(
@@ -493,7 +446,7 @@ export class WalletService {
         // Update deposit metrics
         this.metrics.incrementCounter('failed_deposits', metricLabels);
 
-        return false;
+        return 'FAILED';
       }
     } catch (error) {
       throw error;

@@ -3,13 +3,14 @@ import { Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { Job } from 'bull';
 import { DepositDTO, WithdrawalDTO } from './dto';
-import { Transaction, User } from '@prisma/client';
+import { TransactionStatus, User } from '@prisma/client';
 import { WalletService } from './wallet.service';
+import { DbService } from '@app/db';
 
 interface TransactionJob {
   dto: DepositDTO | WithdrawalDTO;
   user: User;
-  transaction: Transaction;
+  transactionId: number;
 }
 
 @Injectable()
@@ -19,56 +20,70 @@ export class WalletProcessor {
 
   constructor(
     private readonly utils: UtilsService,
+    private readonly prisma: DbService,
     private readonly walletService: WalletService,
   ) {}
 
   @Process('deposit')
   async processDeposit(job: Job<TransactionJob>): Promise<void> {
-    const { user, transaction } = job.data;
+    const { user, transactionId } = job.data;
     const dto = job.data.dto as DepositDTO;
-    const date: string = transaction.createdAt.toISOString();
 
     try {
-      let depositComplete: boolean | null;
-      dto.chain === 'BASE'
-        ? (depositComplete = await this.walletService.processDepositOnBase(
-            user.id,
-            dto,
-            transaction,
-          ))
-        : (depositComplete = await this.walletService.processDepositOnSolana(
-            user.id,
-            dto,
-            transaction,
-          ));
+      const checkDepositStatus = async (
+        status: TransactionStatus,
+        date: string,
+      ): Promise<void> => {
+        if (status === 'SUCCESS') {
+          // Notify user of successful deposit
+          const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
+          await this.utils.sendEmail(user.email, 'Deposit Successful', content);
 
-      if (depositComplete === true) {
-        // Notify user of successful deposit
-        const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
-        await this.utils.sendEmail(user.email, 'Deposit Successful', content);
+          this.utils
+            .logger()
+            .info(
+              `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
+            );
+        } else if (status === 'FAILED') {
+          // Notify user of failed deposit
+          const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+          await this.utils.sendEmail(user.email, 'Failed Deposit', content);
 
-        this.utils
-          .logger()
-          .info(
-            `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
-          );
-      } else if (depositComplete === false) {
-        // Notify user of failed deposit
-        const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-        await this.utils.sendEmail(user.email, 'Failed Deposit', content);
+          this.utils
+            .logger()
+            .info(
+              `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
+            );
+        } else if (status === 'PENDING') {
+          // Retry pending transaction after 30 seconds
+          setTimeout(() => {
+            void (async () => await initiateDepositConfirmation())();
+          }, 30 * 1000);
+        }
+      };
 
-        this.utils
-          .logger()
-          .info(
-            `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
-          );
-      } else if (depositComplete === null) {
-        this.utils
-          .logger()
-          .warn(
-            `[${this.context}] Deposit transaction is pending confirmation and retries have been scheduled. Tx: ${dto.txIdentifier}\n`,
-          );
-      }
+      const initiateDepositConfirmation = async (): Promise<void> => {
+        let depositStatus: TransactionStatus;
+        const transaction = await this.prisma.transaction.findUniqueOrThrow({
+          where: { id: transactionId },
+        });
+
+        dto.chain === 'BASE'
+          ? (depositStatus = await this.walletService.processDepositOnBase(
+              dto,
+              transaction,
+            ))
+          : (depositStatus = await this.walletService.processDepositOnSolana(
+              dto,
+              transaction,
+            ));
+
+        const date: string = transaction.createdAt.toISOString();
+        await checkDepositStatus(depositStatus, date);
+      };
+
+      // Initiate first attempt to process deposit confirmation
+      await initiateDepositConfirmation();
     } catch (error) {
       this.utils
         .logger()
@@ -82,8 +97,12 @@ export class WalletProcessor {
 
   @Process('withdrawal')
   async processWithdrawal(job: Job<TransactionJob>): Promise<void> {
-    const { user, transaction } = job.data;
+    const { user, transactionId } = job.data;
     const dto = job.data.dto as WithdrawalDTO;
+
+    const transaction = await this.prisma.transaction.findUniqueOrThrow({
+      where: { id: transactionId },
+    });
     const date: string = transaction.createdAt.toISOString();
 
     try {

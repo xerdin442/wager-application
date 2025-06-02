@@ -54,7 +54,6 @@ export class AuthService {
             ...details,
             password: await argon.hash(details.password),
             profileImage: filePath || defaultImage,
-            balance: 0,
           },
         });
       }

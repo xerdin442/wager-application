@@ -6,6 +6,10 @@ export class DepositDTO {
   @IsNotEmpty()
   amount: number;
 
+  @IsString()
+  @IsNotEmpty()
+  depositor: string;
+
   @IsEnum(Chain, {
     message: 'Invalid chain parameter. Expected "BASE" or "SOLANA"',
   })

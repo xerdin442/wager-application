@@ -55,7 +55,7 @@ model User {
   username     String  @unique
   twoFASecret  String?
   twoFAEnabled Boolean @default(false)
-  balance      Int
+  balance      Int     @default(0)
 
   transactions Transaction[]
 
@@ -136,6 +136,7 @@ model Transaction {
   chain        Chain
   status       TransactionStatus
   amount       Int
+  retries      Int               @default(0)
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)

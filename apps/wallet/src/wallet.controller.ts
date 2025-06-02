@@ -28,7 +28,7 @@ export class WalletController {
     try {
       const { dto, user } = data;
 
-      // Initiate a pending transaction and confirm receipt of deposit
+      // Initiate a pending transaction and process confirmation of deposit
       const transaction = await this.walletService.initiateTransaction(
         user.id,
         dto,

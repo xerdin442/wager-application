@@ -10,6 +10,7 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  TokenBalance,
 } from '@solana/web3.js';
 import { RpcException } from '@nestjs/microservices';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
@@ -43,10 +44,6 @@ export class WalletService {
 
   // Minimum amount in USD for native assets and stablecoins
   private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 1000;
-
-  // Chain-specific metric labels
-  private readonly baseMetricLabels: string[] = ['base', 'crypto'];
-  private readonly solanaMetricLabels: string[] = ['solana', 'crypto'];
 
   constructor(
     private readonly prisma: DbService,
@@ -193,21 +190,322 @@ export class WalletService {
     }
   }
 
-  async processDepositOnBase(
+  async retryDepositCheck(
+    userId: number,
     dto: DepositDTO,
     transaction: Transaction,
-  ): Promise<void> {}
+    metricLabels: string[],
+  ): Promise<void> {
+    const tx = (await this.prisma.transaction.findUnique({
+      where: { id: transaction.id },
+    })) as Transaction;
+
+    if (tx.retries < 2) {
+      await this.prisma.transaction.update({
+        where: { id: transaction.id },
+        data: { retries: { increment: 1 } },
+      });
+
+      let depositComplete: boolean | null;
+      dto.chain === 'BASE'
+        ? (depositComplete = await this.processDepositOnBase(
+            userId,
+            dto,
+            transaction,
+          ))
+        : (depositComplete = await this.processDepositOnSolana(
+            userId,
+            dto,
+            transaction,
+          ));
+
+      const user = (await this.prisma.user.findUnique({
+        where: { id: userId },
+      })) as User;
+      const date: string = transaction.createdAt.toISOString();
+
+      if (depositComplete === true) {
+        // Notify user of successful deposit
+        const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
+        await this.utils.sendEmail(user.email, 'Deposit Successful', content);
+
+        this.utils
+          .logger()
+          .info(
+            `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
+          );
+      } else if (depositComplete === false) {
+        // Notify user of failed deposit
+        const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+        await this.utils.sendEmail(user.email, 'Failed Deposit', content);
+
+        this.utils
+          .logger()
+          .info(
+            `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
+          );
+      }
+
+      return;
+    } else {
+      // Store failed transaction details
+      const { user, updatedTx } = await this.updateDbAfterTransaction(
+        transaction,
+        dto.txIdentifier,
+        'FAILED',
+      );
+
+      // Notify client of transaction status
+      this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+      // Update deposit metrics
+      this.metrics.incrementCounter('failed_deposits', metricLabels);
+
+      return;
+    }
+  }
+
+  async processDepositOnBase(
+    userId: number,
+    dto: DepositDTO,
+    transaction: Transaction,
+  ): Promise<boolean | null> {
+    const { amount, txIdentifier, chain, depositor } = dto;
+    const metricLabels: string[] = [chain.toLowerCase()];
+
+    try {
+      // Get receipt of the deposit transaction
+      const receipt = await this.web3.eth.getTransactionReceipt(txIdentifier);
+
+      // Retry confirmation check twice before recording transaction as failed
+      if (!receipt) {
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await this.retryDepositCheck(
+                userId,
+                dto,
+                transaction,
+                metricLabels,
+              );
+            } catch (error) {
+              throw error;
+            }
+          })();
+        }, 30 * 1000);
+      }
+
+      // Get transaction details
+      const tx = await this.web3.eth.getTransaction(txIdentifier);
+
+      let recipientAddress: string = '';
+      let amountTransferred: number = 0;
+
+      // Get the ABI signature of the transfer function
+      const transferSignatureHash = this.web3.eth.abi.encodeFunctionSignature(
+        'transfer(address,uint256)',
+      );
+
+      const inputData = tx.data as string;
+      if (inputData.startsWith(transferSignatureHash)) {
+        // Strip the function signature from the data and decode the parameters
+        const encodedParameters = '0x' + inputData.slice(10);
+        const decodedData = this.web3.eth.abi.decodeParameters(
+          ['address', 'uint256'],
+          encodedParameters,
+        );
+
+        recipientAddress = decodedData[0] as string;
+
+        // Confirm that the transferred token is USDC
+        const tokenCheck = tx.to && tx.to === this.BASE_USDC_TOKEN_ADDRESS;
+
+        if (tokenCheck) {
+          // Convert transfer amount to smallest unit of USDC
+          const txAmount = this.web3.utils.fromWei(
+            decodedData[1] as bigint,
+            'mwei',
+          );
+          amountTransferred = parseFloat(txAmount);
+        }
+      }
+
+      // Confirm the transferred amount
+      const amountCheck = amount === parseFloat(amountTransferred.toFixed(2));
+      // Confirm that the recipient address is the platform wallet address
+      const walletCheck =
+        recipientAddress.toLowerCase() ===
+        this.config
+          .getOrThrow<string>('PLATFORM_ETHEREUM_WALLET')
+          .toLowerCase();
+      // Confirm that the sender address is the depositor's address
+      const senderCheck = tx.from === depositor;
+
+      if (amountCheck && walletCheck && senderCheck) {
+        // Update user balance and transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          txIdentifier,
+          'SUCCESS',
+        );
+
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+        // Update deposit metrics
+        this.metrics.incrementCounter('successful_deposits', metricLabels);
+        this.metrics.incrementCounter('deposit_volume', metricLabels, amount);
+
+        return true;
+      } else {
+        // Store failed transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          txIdentifier,
+          'FAILED',
+        );
+
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+        // Update deposit metrics
+        this.metrics.incrementCounter('failed_deposits', metricLabels);
+
+        return false;
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async processDepositOnSolana(
+    userId: number,
     dto: DepositDTO,
     transaction: Transaction,
-  ): Promise<void> {}
+  ): Promise<boolean | null> {
+    const { amount, txIdentifier, chain, depositor } = dto;
+    const metricLabels: string[] = [chain.toLowerCase()];
+
+    try {
+      // Get transaction details
+      const response = await axios.post(
+        selectRpcUrl('SOLANA'),
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getTransaction',
+          params: [
+            txIdentifier,
+            { commitment: 'confirmed', maxSupportedTransactionVersion: 0 },
+          ],
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+
+      // Retry confirmation check twice before recording transaction as failed
+      if (response.status === 200 && response.data.result === null) {
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await this.retryDepositCheck(
+                userId,
+                dto,
+                transaction,
+                metricLabels,
+              );
+            } catch (error) {
+              throw error;
+            }
+          })();
+        }, 30 * 1000);
+      }
+
+      let recipientAddress: string = '';
+      let senderAddress: string = '';
+      let amountTransferred: number = 0;
+
+      // Get the token balances from the transaction details
+      const meta = response.data.result.meta as Record<string, any>;
+      const preTokenBalances = meta.preTokenBalances as TokenBalance[];
+      const postTokenBalances = meta.postTokenBalances as TokenBalance[];
+
+      // Check for changes in the USDC token balances to get the sender and recipient addresses
+      for (const postBalance of postTokenBalances) {
+        if (postBalance.mint === this.SOLANA_USDC_MINT_ADDRESS) {
+          const owner = postBalance.owner as string;
+          const preBalance = preTokenBalances.find(
+            (balance) =>
+              balance.mint === this.SOLANA_USDC_MINT_ADDRESS &&
+              balance.owner === owner,
+          );
+
+          const preAmount = preBalance?.uiTokenAmount.uiAmount as number;
+          const postAmount = postBalance.uiTokenAmount.uiAmount as number;
+
+          if (preAmount < postAmount) {
+            recipientAddress = owner;
+            amountTransferred = postAmount - preAmount;
+          } else if (preAmount > postAmount) {
+            senderAddress = owner;
+            amountTransferred = preAmount - postAmount;
+          }
+        }
+      }
+
+      // Confirm the transferred amount
+      const amountCheck = amount === parseFloat(amountTransferred.toFixed(2));
+      // Confirm that the recipient address is the platform wallet address
+      const walletCheck =
+        recipientAddress ===
+        this.config.getOrThrow<string>('PLATFORM_SOLANA_WALLET');
+      // Confirm that the sender address is the depositor's address
+      const senderCheck = senderAddress === depositor;
+
+      if (amountCheck && walletCheck && senderCheck) {
+        // Update user balance and transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          txIdentifier,
+          'SUCCESS',
+        );
+
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+        // Update deposit metrics
+        this.metrics.incrementCounter('successful_deposits', metricLabels);
+        this.metrics.incrementCounter('deposit_volume', metricLabels, amount);
+
+        return true;
+      } else {
+        // Store failed transaction details
+        const { user, updatedTx } = await this.updateDbAfterTransaction(
+          transaction,
+          txIdentifier,
+          'FAILED',
+        );
+
+        // Notify client of transaction status
+        this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+        // Update deposit metrics
+        this.metrics.incrementCounter('failed_deposits', metricLabels);
+
+        return false;
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async processWithdrawalOnBase(
     dto: WithdrawalDTO,
     transaction: Transaction,
   ): Promise<void> {
     let txHash: string = '';
+    const metricLabels: string[] = [dto.chain.toLowerCase()];
 
     try {
       const platformPrivateKey = this.getPlatformWalletPrivateKey(
@@ -266,10 +564,10 @@ export class WalletService {
         tx,
         platformPrivateKey,
       );
-      const rawTxHash = await this.web3.eth.sendSignedTransaction(
+      const receipt = await this.web3.eth.sendSignedTransaction(
         signedTx.rawTransaction,
       );
-      txHash = rawTxHash.transactionHash.toString();
+      txHash = receipt.transactionHash.toString();
 
       // Update user balance and transaction details
       const { user, updatedTx } = await this.updateDbAfterTransaction(
@@ -279,13 +577,10 @@ export class WalletService {
       );
 
       // Update withdrawal metrics
-      this.metrics.incrementCounter(
-        'successful_withdrawals',
-        this.baseMetricLabels,
-      );
+      this.metrics.incrementCounter('successful_withdrawals', metricLabels);
       this.metrics.incrementCounter(
         'withdrawal_volume',
-        this.baseMetricLabels,
+        metricLabels,
         dto.amount,
       );
 
@@ -302,10 +597,7 @@ export class WalletService {
       );
 
       // Update withdrawal metrics
-      this.metrics.incrementCounter(
-        'failed_withdrawals',
-        this.baseMetricLabels,
-      );
+      this.metrics.incrementCounter('failed_withdrawals', metricLabels);
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);
@@ -329,6 +621,7 @@ export class WalletService {
     transaction: Transaction,
   ): Promise<void> {
     let signature: string = '';
+    const metricLabels: string[] = [dto.chain.toLowerCase()];
 
     try {
       const sender = this.getPlatformWalletPrivateKey('SOLANA') as Keypair;
@@ -377,13 +670,10 @@ export class WalletService {
       );
 
       // Update withdrawal metrics
-      this.metrics.incrementCounter(
-        'successful_withdrawals',
-        this.solanaMetricLabels,
-      );
+      this.metrics.incrementCounter('successful_withdrawals', metricLabels);
       this.metrics.incrementCounter(
         'withdrawal_volume',
-        this.solanaMetricLabels,
+        metricLabels,
         dto.amount,
       );
 
@@ -400,10 +690,7 @@ export class WalletService {
       );
 
       // Update withdrawal metrics
-      this.metrics.incrementCounter(
-        'failed_withdrawals',
-        this.solanaMetricLabels,
-      );
+      this.metrics.incrementCounter('failed_withdrawals', metricLabels);
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);

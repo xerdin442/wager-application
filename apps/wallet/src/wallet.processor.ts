@@ -29,28 +29,51 @@ export class WalletProcessor {
     const date: string = transaction.createdAt.toISOString();
 
     try {
+      let depositComplete: boolean | null;
       dto.chain === 'BASE'
-        ? await this.walletService.processDepositOnBase(dto, transaction)
-        : await this.walletService.processDepositOnSolana(dto, transaction);
+        ? (depositComplete = await this.walletService.processDepositOnBase(
+            user.id,
+            dto,
+            transaction,
+          ))
+        : (depositComplete = await this.walletService.processDepositOnSolana(
+            user.id,
+            dto,
+            transaction,
+          ));
 
-      // Notify user of successful deposit
-      const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
-      await this.utils.sendEmail(user.email, 'Deposit Successful', content);
+      if (depositComplete === true) {
+        // Notify user of successful deposit
+        const content = `$${dto.amount} has been deposited in your wallet. Your balance is $${user.balance}. Date: ${date}`;
+        await this.utils.sendEmail(user.email, 'Deposit Successful', content);
 
-      this.utils
-        .logger()
-        .info(
-          `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
-        );
+        this.utils
+          .logger()
+          .info(
+            `[${this.context}] Successful deposit by ${user.email}. Amount: $${dto.amount}\n`,
+          );
+      } else if (depositComplete === false) {
+        // Notify user of failed deposit
+        const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
+        await this.utils.sendEmail(user.email, 'Failed Deposit', content);
+
+        this.utils
+          .logger()
+          .info(
+            `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
+          );
+      } else if (depositComplete === null) {
+        this.utils
+          .logger()
+          .warn(
+            `[${this.context}] Deposit transaction is pending confirmation and retries have been scheduled. Tx: ${dto.txIdentifier}\n`,
+          );
+      }
     } catch (error) {
-      // Notify user of failed deposit
-      const content = `Your deposit of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-      await this.utils.sendEmail(user.email, 'Failed Deposit', content);
-
       this.utils
         .logger()
-        .info(
-          `[${this.context}] Failed deposit by ${user.email}. Amount: $${dto.amount}\n`,
+        .error(
+          `[${this.context}] An error occured while confirming user deposit for tx: ${dto.txIdentifier}. Error: ${error.message}\n`,
         );
 
       throw error;

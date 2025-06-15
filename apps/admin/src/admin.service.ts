@@ -22,7 +22,7 @@ export class AdminService {
   async signup(dto: AdminAuthDTO): Promise<string> {
     try {
       const admins = await this.prisma.admin.findMany();
-      if (admins.length >= 1) {
+      if (admins.length === 1) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Only one Super Admin profile can be created',

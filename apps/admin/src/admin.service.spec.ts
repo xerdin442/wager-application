@@ -1,0 +1,275 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { AdminService } from './admin.service';
+import { createMock, DeepMocked } from '@golevelup/ts-jest';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AdminAuthDTO, CreateAdminDTO } from './dto';
+import { RpcException } from '@nestjs/microservices';
+import { UtilsService } from '@app/utils';
+import { DbService } from '@app/db';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import * as argon from 'argon2';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+
+// Mock the randomUUID for consistent testing
+jest.mock('crypto', () => ({
+  randomUUID: jest.fn(() => 'mock-uuid-part1-part2-part3-part4'),
+}));
+
+describe('Admin Service', () => {
+  let adminService: AdminService;
+  let utils: DeepMocked<UtilsService>;
+  let config: DeepMocked<ConfigService>;
+  let jwt: DeepMocked<JwtService>;
+  let prisma: DeepMocked<DbService>;
+
+  const authDto: AdminAuthDTO = {
+    email: 'super-admin@gmail.com',
+    passcode: 'Passcode',
+  };
+
+  const createAdminDto: CreateAdminDTO = {
+    category: 'FOOTBALL',
+    email: 'admin2@gmail.com',
+    name: 'Admin',
+  };
+
+  // Pre-hashed passcode for consistent login tests
+  let hashedPassword = '';
+
+  beforeAll(async () => {
+    hashedPassword = await argon.hash(authDto.passcode);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AdminService],
+    })
+      .useMocker(createMock)
+      .compile();
+
+    adminService = module.get<AdminService>(AdminService);
+    utils = module.get(UtilsService);
+    config = module.get(ConfigService);
+    jwt = module.get(JwtService);
+    prisma = module.get(DbService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Signup', () => {
+    beforeEach(() => {
+      jwt.signAsync.mockResolvedValue('signed-jwt-string');
+      (prisma.admin.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.admin.create as jest.Mock).mockImplementation((data: any) => ({
+        id: 1,
+        email: data.data.email,
+        passcode: data.data.passcode,
+        name: data.data.name,
+        category: data.data.category,
+        disputes: data.data.disputes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+    });
+
+    it('should signup and create Super Admin profile', async () => {
+      const response = adminService.signup(authDto);
+
+      await expect(response).resolves.toBeTruthy();
+      await expect(response).resolves.toBe('signed-jwt-string');
+    });
+
+    it('should throw if Super Admin profile already exists', async () => {
+      (prisma.admin.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          email: 'existing@example.com',
+          passcode: 'hashedPasscode',
+          name: 'Admin',
+          category: 'OTHERS',
+          disputes: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      const response = adminService.signup(authDto);
+
+      await expect(response).rejects.toBeInstanceOf(RpcException);
+      await expect(response).rejects.toThrow(
+        'Only one Super Admin profile can be created',
+      );
+    });
+  });
+
+  describe('Add Admin', () => {
+    beforeEach(() => {
+      utils.sendEmail.mockResolvedValue(undefined);
+
+      config.getOrThrow.mockImplementation((key: string) => {
+        if (key === 'APP_NAME') return 'Wager Application';
+        return undefined;
+      });
+
+      (prisma.admin.create as jest.Mock).mockImplementation((data: any) => ({
+        id: 2,
+        email: data.data.email,
+        passcode: data.data.passcode,
+        name: data.data.name,
+        category: data.data.category,
+        disputes: data.data.disputes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+    });
+
+    it('should add new admin', async () => {
+      const response = adminService.addAddmin(createAdminDto);
+      await expect(response).resolves.toBeUndefined();
+    });
+
+    it('should throw if an admin exists with email', async () => {
+      (prisma.admin.create as jest.Mock).mockRejectedValue(
+        new PrismaClientKnownRequestError(
+          'Unique constraint failed on the fields: (`email`)',
+          {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { target: ['email'] },
+          },
+        ),
+      );
+
+      const response = adminService.addAddmin(createAdminDto);
+
+      await expect(response).rejects.toBeInstanceOf(RpcException);
+      await expect(response).rejects.toThrow(
+        'This email already exists. Please try again!',
+      );
+    });
+  });
+
+  describe('Login', () => {
+    beforeEach(() => {
+      config.getOrThrow.mockImplementation((key: string) => {
+        if (key === 'APP_NAME') return 'Wager Application';
+        return undefined;
+      });
+      jwt.signAsync.mockResolvedValue('signed-jwt-string');
+
+      (prisma.admin.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        email: authDto.email,
+        passcode: hashedPassword,
+        name: 'Admin',
+        category: 'OTHERS',
+        disputes: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    it('should throw if no admin exist with email', async () => {
+      (prisma.admin.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const response = adminService.login({
+        ...authDto,
+        email: 'invalidEmail@gmail.com',
+      });
+
+      await expect(response).rejects.toBeInstanceOf(RpcException);
+      await expect(response).rejects.toThrow(
+        'No admin found with that email address',
+      );
+    });
+
+    it('should throw if passcode is invalid', async () => {
+      jest.spyOn(argon, 'verify').mockResolvedValue(false);
+
+      const response = adminService.login({
+        ...authDto,
+        passcode: 'invalidPasscode',
+      });
+
+      await expect(response).rejects.toBeInstanceOf(RpcException);
+      await expect(response).rejects.toThrow('Access denied. Invalid passcode');
+    });
+
+    it('should login', async () => {
+      jest.spyOn(argon, 'verify').mockResolvedValue(true);
+
+      const response = adminService.login(authDto);
+
+      await expect(response).resolves.toBeTruthy();
+      await expect(response).resolves.toBe('signed-jwt-string');
+    });
+  });
+
+  describe('Get All Admins', () => {
+    beforeEach(() => {
+      (prisma.admin.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 2,
+          email: 'admin2@gmail.com',
+          passcode: 'hashedPasscode2',
+          name: 'Admin Two',
+          category: 'FOOTBALL',
+          disputes: 5,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+    });
+
+    it('should return all admins', async () => {
+      const response = await adminService.getAllAdmins();
+
+      expect(response).toBeTruthy();
+      expect(Array.isArray(response)).toBe(true);
+      expect(response.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Get Dispute Chats', () => {
+    beforeEach(() => {
+      (prisma.chat.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          adminId: 2,
+          messages: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+    });
+
+    it('should return all dispute chats', async () => {
+      const adminId = 2;
+      const response = await adminService.getDisputeChats(adminId);
+
+      expect(response).toBeTruthy();
+      expect(Array.isArray(response)).toBe(true);
+    });
+  });
+
+  describe('Remove Admin', () => {
+    beforeEach(() => {
+      (prisma.admin.delete as jest.Mock).mockResolvedValue({
+        id: 2,
+        email: createAdminDto.email,
+        passcode: 'someHashedPasscode',
+        name: 'Admin',
+        category: 'FOOTBALL',
+        disputes: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    it('should remove existing admin', async () => {
+      const response = adminService.removeAddmin(createAdminDto.email);
+      await expect(response).resolves.toBeUndefined();
+    });
+  });
+});

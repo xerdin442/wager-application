@@ -3,7 +3,6 @@ x-test-setup: &test-setup
     - ./:/usr/src/app:rw
   environment:
     - NODE_ENV=test
-    - DATABASE_NAME=test-DB
     - DATABASE_URL=postgresql://postgres:postgres@database:5432/test-DB?schema=public
 
 services:
@@ -32,8 +31,8 @@ services:
     networks:
       - app-network
     environment:
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
-      - POSTGRES_DB=${DATABASE_NAME}
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test-DB
 
   admin-service:
     <<: *test-setup

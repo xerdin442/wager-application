@@ -201,7 +201,7 @@ export class WalletService {
         include: { user: true },
       });
 
-      return { user: updatedTx.user as User, updatedTx };
+      return { user: updatedTx.user, updatedTx };
     } catch (error) {
       throw error;
     }

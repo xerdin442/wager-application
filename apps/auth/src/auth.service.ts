@@ -49,13 +49,15 @@ export class AuthService {
         let filePath: string = '';
         if (file) filePath = await this.utils.upload(file, 'profile-images');
 
-        return this.prisma.user.create({
+        const user = await this.prisma.user.create({
           data: {
             ...details,
             password: await argon.hash(details.password),
             profileImage: filePath || defaultImage,
           },
         });
+
+        return user;
       }
 
       // Create new user through Google authentication
@@ -65,8 +67,7 @@ export class AuthService {
         this.config.getOrThrow<string>('SOCIAL_AUTH_PASSWORD'),
       );
 
-      console.log('Trying to create user...');
-      return this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           ...details,
           password,
@@ -75,11 +76,13 @@ export class AuthService {
           profileImage: details.profileImage || defaultImage,
         },
       });
+
+      return user;
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const meta = error.meta as Record<string, any>;
-          console.log('Rpc Excpetion executed...');
+
           throw new RpcException({
             status: HttpStatus.BAD_REQUEST,
             message: `This ${meta.target[0]} already exists. Please try again!`,
@@ -87,7 +90,6 @@ export class AuthService {
         }
       }
 
-      console.log('Prisma error executed...');
       throw error;
     }
   }
@@ -280,6 +282,7 @@ export class AuthService {
     try {
       // Retrieve existing session data
       const session = await this.sessionService.get(data.email as string);
+
       // Check if OTP is invalid or expired
       if (session.email) {
         if (session.otp !== dto.otp) {

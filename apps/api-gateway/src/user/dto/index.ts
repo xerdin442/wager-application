@@ -14,6 +14,10 @@ export class UpdateProfileDTO {
   @IsOptional()
   email?: string;
 
+  @IsEmail()
+  @IsOptional()
+  username?: string;
+
   @IsOptional()
   @IsString()
   firstName?: string;

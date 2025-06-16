@@ -30,7 +30,7 @@ export class UserService {
         },
       });
 
-      user.password = ''; // Sanitize user output
+      user.password = 'X-X-X'; // Sanitize user output
 
       return user;
     } catch (error) {
@@ -43,12 +43,12 @@ export class UserService {
       if (user.balance < 5 && user.balance > 1) {
         throw new RpcException({
           status: HttpStatus.FORBIDDEN,
-          message: `Your wallet balance is $${user.balance}. Create or join a wager to max out your balance before deleting your profile`,
+          message: `Your wallet balance is $${user.balance}. Create or join a wager to max out your balance before deleting your account`,
         });
       } else if (user.balance > 5) {
         throw new RpcException({
           status: HttpStatus.FORBIDDEN,
-          message: 'Withdraw your wallet balance before deleting your profile',
+          message: 'Withdraw your wallet balance before deleting your account',
         });
       } else {
         // Delete user profile

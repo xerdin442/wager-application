@@ -65,6 +65,7 @@ export class AuthService {
         this.config.getOrThrow<string>('SOCIAL_AUTH_PASSWORD'),
       );
 
+      console.log('Trying to create user...');
       return this.prisma.user.create({
         data: {
           ...details,
@@ -78,6 +79,7 @@ export class AuthService {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const meta = error.meta as Record<string, any>;
+          console.log('Rpc Excpetion executed...');
           throw new RpcException({
             status: HttpStatus.BAD_REQUEST,
             message: `This ${meta.target[0]} already exists. Please try again!`,
@@ -85,6 +87,7 @@ export class AuthService {
         }
       }
 
+      console.log('Prisma error executed...');
       throw error;
     }
   }
@@ -216,7 +219,7 @@ export class AuthService {
   async requestPasswordReset(
     dto: PasswordResetDTO,
     data: SessionData,
-  ): Promise<string> {
+  ): Promise<void> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
@@ -233,7 +236,7 @@ export class AuthService {
         // Send the OTP via email
         await this.authQueue.add('otp', { email: user.email, otp: data.otp });
 
-        return data.otp;
+        return;
       } else {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
@@ -245,7 +248,7 @@ export class AuthService {
     }
   }
 
-  async resendOtp(data: SessionData): Promise<string> {
+  async resendOtp(data: SessionData): Promise<void> {
     try {
       // Retrieve existing session data
       const session = await this.sessionService.get(data.email as string);
@@ -261,11 +264,11 @@ export class AuthService {
           otp: data.otp,
         });
 
-        return data.otp;
+        return;
       } else {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
-          message: 'Email not found',
+          message: 'Email not found in session',
         });
       }
     } catch (error) {
@@ -305,41 +308,33 @@ export class AuthService {
       // Retrieve existing session data
       const session = await this.sessionService.get(data.email as string);
       // Find user with email stored in session
-      const user = await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUniqueOrThrow({
         where: { email: session.email },
       });
 
-      if (user) {
-        // Check if the previous password is same as the new password
-        const samePassword = await argon.verify(user.password, dto.newPassword);
-        if (samePassword) {
-          throw new RpcException({
-            status: HttpStatus.BAD_REQUEST,
-            message:
-              'New password cannot be the same value as previous password',
-          });
-        }
-
-        // Hash new password and update the user's password
-        const hash = await argon.hash(dto.newPassword);
-        await this.prisma.user.update({
-          where: { email: session.email },
-          data: { password: hash },
-        });
-
-        // Clear session data after completing password reset
-        delete data.email;
-        delete data.otp;
-        delete data.otpExpiration;
-        await this.sessionService.set(user.email, data);
-
-        return;
-      } else {
+      // Check if the previous password is same as the new password
+      const samePassword = await argon.verify(user.password, dto.newPassword);
+      if (samePassword) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
-          message: 'Email not found',
+          message: 'New password cannot be the same value as previous password',
         });
       }
+
+      // Hash new password and update the user's password
+      const hash = await argon.hash(dto.newPassword);
+      await this.prisma.user.update({
+        where: { email: session.email },
+        data: { password: hash },
+      });
+
+      // Clear session data after completing password reset
+      delete data.email;
+      delete data.otp;
+      delete data.otpExpiration;
+      await this.sessionService.set(user.email, data);
+
+      return;
     } catch (error) {
       throw error;
     }

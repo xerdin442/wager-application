@@ -24,13 +24,13 @@ describe('Admin Service', () => {
   let prisma: DeepMocked<DbService>;
 
   const authDto: AdminAuthDTO = {
-    email: 'super-admin@gmail.com',
+    email: 'super-admin@example.com',
     passcode: 'Passcode',
   };
 
   const createAdminDto: CreateAdminDTO = {
     category: 'FOOTBALL',
-    email: 'admin2@gmail.com',
+    email: 'admin2@example.com',
     name: 'Admin',
   };
 
@@ -156,7 +156,7 @@ describe('Admin Service', () => {
       });
     });
 
-    it('should throw if no admin exist with email', async () => {
+    it('should throw if no admin exists with email', async () => {
       (prisma.admin.findUnique as jest.Mock).mockResolvedValue(null);
 
       const response = adminService.login({

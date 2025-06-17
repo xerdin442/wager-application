@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { WalletGateway } from './wallet.gateway';
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
@@ -27,12 +27,12 @@ import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
 import axios from 'axios';
+import { ETH_WEB3_PROVIDER_TOKEN } from './providers';
 
 @Injectable()
 export class WalletService {
   private readonly context: string = WalletService.name;
 
-  private readonly web3: Web3;
   private readonly connection: Connection;
   private readonly BASE_USDC_TOKEN_ADDRESS: string;
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
@@ -47,11 +47,9 @@ export class WalletService {
     private readonly metrics: MetricsService,
     private readonly gateway: WalletGateway,
     private readonly helper: HelperService,
+    @Inject(ETH_WEB3_PROVIDER_TOKEN) private readonly web3: Web3,
   ) {
     // Connect to RPC endpoints
-    this.web3 = new Web3(
-      new Web3.providers.HttpProvider(this.helper.selectRpcUrl('BASE')),
-    );
     this.connection = new Connection(
       this.helper.selectRpcUrl('SOLANA'),
       'confirmed',
@@ -82,22 +80,19 @@ export class WalletService {
     }
   }
 
-  async resolveDomainName(chain: Chain, domain: string): Promise<string> {
+  async resolveDomainName(
+    chain: Chain,
+    domain: string,
+  ): Promise<string | null> {
     try {
       if (chain === 'BASE') {
-        const address = await this.web3.eth.ens.getAddress(domain);
+        const bytes = await this.web3.eth.ens.getAddress(domain);
+        const address = bytes.toString();
 
-        if (
-          !address ||
-          address === '0x0000000000000000000000000000000000000000'
-        ) {
-          throw new RpcException({
-            status: HttpStatus.BAD_REQUEST,
-            message: 'Invalid or unregistered ENS domain',
-          });
-        }
+        if (address === '0x0000000000000000000000000000000000000000')
+          return null;
 
-        return address.toString();
+        return address;
       }
 
       const { pubkey } = getDomainKeySync(domain);
@@ -106,16 +101,15 @@ export class WalletService {
         pubkey,
       );
 
-      if (!registry.owner) {
-        throw new RpcException({
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid or unregistered SNS domain',
-        });
-      }
-
       return registry.owner.toBase58();
     } catch (error) {
-      throw error;
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occurred while resolving domain name: ${domain}. Error: ${error.message}\n`,
+        );
+
+      return null;
     }
   }
 

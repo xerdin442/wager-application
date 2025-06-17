@@ -10,13 +10,17 @@ import { hdkey } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
 import { Chain } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from '../src/utils/constants';
-import { Keypair } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
+import Web3, { Bytes } from 'web3';
+import { ETH_WEB3_PROVIDER_TOKEN } from '../src/providers';
+import { NameRegistryState } from '@bonfida/spl-name-service';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
   // let gateway: DeepMocked<WalletGateway>;
   let config: DeepMocked<ConfigService>;
   let helper: DeepMocked<HelperService>;
+  let web3: DeepMocked<Web3>;
   // let utils: DeepMocked<UtilsService>;
   // let prisma: DeepMocked<DbService>;
   // let metrics: DeepMocked<MetricsService>;
@@ -24,6 +28,7 @@ describe('Wallet Service', () => {
   beforeAll(async () => {
     config = createMock<ConfigService>();
     helper = createMock<HelperService>();
+    web3 = createMock<Web3>();
 
     // Mock all required environment variables
     config.getOrThrow.mockImplementation((key: string) => {
@@ -57,7 +62,13 @@ describe('Wallet Service', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WalletService],
+      providers: [
+        WalletService,
+        {
+          provide: ETH_WEB3_PROVIDER_TOKEN,
+          useValue: web3,
+        },
+      ],
     })
       .useMocker((token) => {
         if (token === ConfigService) return config;
@@ -105,6 +116,66 @@ describe('Wallet Service', () => {
 
       const response = walletService.getPlatformWalletPrivateKey('SOLANA');
       expect(response).toEqual(keypair);
+    });
+  });
+
+  describe('Resolve Domain', () => {
+    it('should return null if ENS domain is invalid or unregistered', async () => {
+      (web3.eth.ens.getAddress as jest.Mock).mockRejectedValue(
+        new Error('Invalid or unregistered ENS domain'),
+      );
+
+      const response = walletService.resolveDomainName('BASE', 'invalid.eth');
+      await expect(response).resolves.toBeNull();
+    });
+
+    it('should return null if resolved ethereum address is a zero address', async () => {
+      const bytes = {
+        toString: jest
+          .fn()
+          .mockReturnValue('0x0000000000000000000000000000000000000000'),
+      } as unknown as Bytes;
+
+      (web3.eth.ens.getAddress as jest.Mock).mockResolvedValue(bytes);
+
+      const response = walletService.resolveDomainName('BASE', 'zero.eth');
+      await expect(response).resolves.toBeNull();
+    });
+
+    it('should resolve a valid or registered ENS domain', async () => {
+      const bytes = {
+        toString: jest
+          .fn()
+          .mockReturnValue('0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57'),
+      } as unknown as Bytes;
+
+      (web3.eth.ens.getAddress as jest.Mock).mockResolvedValue(bytes);
+
+      const response = walletService.resolveDomainName('BASE', 'xerdin.eth');
+      await expect(response).resolves.toEqual(bytes.toString());
+    });
+
+    it('should throw if the SNS domain is invalid or unregistered', async () => {
+      jest
+        .spyOn(NameRegistryState, 'retrieve')
+        .mockRejectedValue(new Error('Invalid or unregistered SNS domain'));
+
+      const response = walletService.resolveDomainName('SOLANA', 'invalid.sol');
+      await expect(response).resolves.toBeNull();
+    });
+
+    it('should resolve a valid or registered SNS domain', async () => {
+      const registry = {
+        owner: new PublicKey('11111111111111111111111111111111'),
+      } as unknown as NameRegistryState;
+
+      jest.spyOn(NameRegistryState, 'retrieve').mockResolvedValue({
+        registry,
+        nftOwner: null,
+      });
+
+      const response = walletService.resolveDomainName('SOLANA', 'xerdin.sol');
+      await expect(response).resolves.toEqual(registry.owner.toBase58());
     });
   });
 });

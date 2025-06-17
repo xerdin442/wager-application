@@ -90,10 +90,22 @@ export class WalletController {
 
       // Resolve recipient's domain name if provided
       if (address.endsWith('.eth') || address.endsWith('.sol')) {
-        dto.address = await this.walletService.resolveDomainName(
+        const resolvedAddress = await this.walletService.resolveDomainName(
           chain,
           address,
         );
+
+        if (!resolvedAddress) {
+          let nameService: string = '';
+          chain === 'BASE' ? (nameService = 'ENS') : (nameService = 'SNS');
+
+          throw new RpcException({
+            status: HttpStatus.BAD_REQUEST,
+            message: `Invalid or unregistered ${nameService} domain`,
+          });
+        }
+
+        dto.address = resolvedAddress;
       }
 
       // Verify recipient address

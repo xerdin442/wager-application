@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WalletGateway } from './wallet.gateway';
 import { BullModule } from '@nestjs/bull';
 import { WalletProcessor } from './wallet.processor';
+import { EthWeb3Provider } from './providers';
 
 @Module({
   imports: [
@@ -52,6 +53,6 @@ import { WalletProcessor } from './wallet.processor';
     MetricsModule,
   ],
   controllers: [WalletController],
-  providers: [WalletService, WalletGateway, WalletProcessor],
+  providers: [WalletService, WalletGateway, WalletProcessor, EthWeb3Provider],
 })
 export class WalletModule {}

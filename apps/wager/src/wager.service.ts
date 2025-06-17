@@ -6,14 +6,12 @@ import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
 import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { RpcException } from '@nestjs/microservices';
-import { UtilsService } from '@app/utils';
 import { calculatePlatformFee } from './utils';
 
 @Injectable()
 export class WagerService {
   constructor(
     private readonly prisma: DbService,
-    private readonly utils: UtilsService,
     @InjectQueue('wager-queue') private readonly wagersQueue: Queue,
   ) {}
 
@@ -89,14 +87,14 @@ export class WagerService {
         });
       }
 
-      // Check if stake is less than the mininmum
+      // Check if updated stake is less than the mininmum
       if ((dto.stake as number) < 1) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Minimum stake is $1',
         });
       }
-      // Check if user has sufficient funds to stake in the wager
+      // Check if user balance is less than the updated stake
       if ((dto.stake as number) > user.balance) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
@@ -212,7 +210,7 @@ export class WagerService {
           message: 'This wager has already been settled!',
         });
       }
-      if (wager.playerOne !== userId || wager.playerTwo !== userId) {
+      if (wager.playerOne !== userId && wager.playerTwo !== userId) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message:
@@ -222,7 +220,7 @@ export class WagerService {
 
       let opponentId: number;
       wager.playerOne === userId
-        ? (opponentId = wager.playerTwo)
+        ? (opponentId = wager.playerTwo as number)
         : (opponentId = wager.playerOne);
 
       // Store the claimant as the winner temporarily until the opponent takes action within 24 hours

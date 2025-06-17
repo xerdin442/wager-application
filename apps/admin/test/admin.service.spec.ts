@@ -1,7 +1,7 @@
-import { AdminService } from './admin.service';
+import { AdminService } from '../src/admin.service';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AdminAuthDTO, CreateAdminDTO } from './dto';
+import { AdminAuthDTO, CreateAdminDTO } from '../src/dto';
 import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
 import { DbService } from '@app/db';

@@ -1,9 +1,9 @@
 import { DbService } from '@app/db';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
-import { UserService } from './user.service';
+import { UserService } from '../src/user.service';
 import { TestingModule, Test } from '@nestjs/testing';
 import { Transaction, User, Wager } from '@prisma/client';
-import { UpdateProfileDTO } from './dto';
+import { UpdateProfileDTO } from '../src/dto';
 import { RpcException } from '@nestjs/microservices';
 
 describe('User Service', () => {

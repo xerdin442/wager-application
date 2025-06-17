@@ -1,11 +1,11 @@
 import { DbService } from '@app/db';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
-import { WagerService } from './wager.service';
+import { WagerService } from '../src/wager.service';
 import { getQueueToken } from '@nestjs/bull';
 import { TestingModule, Test } from '@nestjs/testing';
 import { Queue } from 'bull';
 import { Message, User, Wager } from '@prisma/client';
-import { CreateWagerDTO } from './dto';
+import { CreateWagerDTO } from '../src/dto';
 import { RpcException } from '@nestjs/microservices';
 
 describe('Wager Service', () => {

@@ -59,7 +59,7 @@ export class WalletGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(@ConnectedSocket() client: Socket) {
+  handleDisconnect(@ConnectedSocket() client: Socket): void {
     try {
       const email = client.data?.email as string;
       if (email) {
@@ -78,7 +78,7 @@ export class WalletGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  sendTransactionStatus(email: string, transaction: Transaction) {
+  sendTransactionStatus(email: string, transaction: Transaction): void {
     try {
       const client = Array.from(this.server.sockets.sockets.values()).find(
         (socket) => socket.data.email === email,

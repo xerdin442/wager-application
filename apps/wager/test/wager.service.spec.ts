@@ -75,6 +75,11 @@ describe('Wager Service', () => {
     wagerQueue = module.get(getQueueToken('wager-queue'));
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+  });
+
   describe('Create Wager', () => {
     beforeEach(() => {
       (prisma.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(playerOne);

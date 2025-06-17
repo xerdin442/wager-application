@@ -7,7 +7,7 @@ import Web3, {
   Transaction as EthTransaction,
   TransactionError as EthTransactionErrror,
 } from 'web3';
-import { selectRpcUrl, selectUSDCTokenAddress } from './utils/helper';
+import { HelperService } from './utils/helper';
 import {
   Connection,
   Keypair,
@@ -24,7 +24,7 @@ import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
 import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
 import { isAddress } from 'web3-validator';
 import { DepositDTO, WithdrawalDTO } from './dto';
-import { contractAbi } from './utils/abi';
+import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
 import axios from 'axios';
 
@@ -32,19 +32,10 @@ import axios from 'axios';
 export class WalletService {
   private readonly context: string = WalletService.name;
 
-  // Connect to RPC endpoints
-  private readonly web3 = new Web3(
-    new Web3.providers.HttpProvider(selectRpcUrl('BASE')),
-  );
-  private readonly connection = new Connection(
-    selectRpcUrl('SOLANA'),
-    'confirmed',
-  );
-
-  private readonly BASE_USDC_TOKEN_ADDRESS: string =
-    selectUSDCTokenAddress('BASE');
-  private readonly SOLANA_USDC_MINT_ADDRESS: string =
-    selectUSDCTokenAddress('SOLANA');
+  private readonly web3: Web3;
+  private readonly connection: Connection;
+  private readonly BASE_USDC_TOKEN_ADDRESS: string;
+  private readonly SOLANA_USDC_MINT_ADDRESS: string;
 
   // Minimum amount in USD for native assets and stablecoins
   private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 1000;
@@ -55,27 +46,39 @@ export class WalletService {
     private readonly utils: UtilsService,
     private readonly metrics: MetricsService,
     private readonly gateway: WalletGateway,
-  ) {}
+    private readonly helper: HelperService,
+  ) {
+    // Connect to RPC endpoints
+    this.web3 = new Web3(
+      new Web3.providers.HttpProvider(this.helper.selectRpcUrl('BASE')),
+    );
+    this.connection = new Connection(
+      this.helper.selectRpcUrl('SOLANA'),
+      'confirmed',
+    );
+
+    // Fetch the official USDC token addresses
+    this.BASE_USDC_TOKEN_ADDRESS = this.helper.selectUSDCTokenAddress('BASE');
+    this.SOLANA_USDC_MINT_ADDRESS =
+      this.helper.selectUSDCTokenAddress('SOLANA');
+  }
 
   getPlatformWalletPrivateKey(chain: Chain): string | Keypair {
     let wallet: EthereumHDKey;
     let privateKey: Uint8Array;
 
+    const keyPhrase: string = this.config.getOrThrow<string>(
+      'PLATFORM_WALLET_KEYPHRASE',
+    );
+
     switch (chain) {
       case 'BASE':
-        wallet = hdkey.EthereumHDKey.fromMnemonic(
-          this.config.getOrThrow<string>('PLATFORM_WALLET_KEYPHRASE'),
-        );
+        wallet = hdkey.EthereumHDKey.fromMnemonic(keyPhrase);
         return wallet.getWallet().getPrivateKeyString();
 
       case 'SOLANA':
-        privateKey = Uint8Array.from(
-          this.config.getOrThrow<string>('PLATFORM_WALLET_KEYPHRASE'),
-        );
+        privateKey = Uint8Array.from(keyPhrase);
         return Keypair.fromSecretKey(privateKey);
-
-      default:
-        throw new Error('Invalid chain parameter');
     }
   }
 
@@ -344,7 +347,7 @@ export class WalletService {
     try {
       // Get transaction details
       const response = await axios.post(
-        selectRpcUrl('SOLANA'),
+        this.helper.selectRpcUrl('SOLANA'),
         {
           jsonrpc: '2.0',
           id: 1,

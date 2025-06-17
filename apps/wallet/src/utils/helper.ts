@@ -1,39 +1,51 @@
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@prisma/client';
+import { ChainRPC, USDCTokenAddress } from './constants';
 
-const config = new ConfigService();
-const NODE_ENV = config.getOrThrow<string>('NODE_ENV');
-const ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
-const HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
+@Injectable()
+export class HelperService {
+  private readonly NODE_ENV: string;
+  private readonly ALCHEMY_API_KEY: string;
+  private readonly HELIUS_API_KEY: string;
 
-export const selectRpcUrl = (chain: Chain): string => {
-  let url: string = 'https://';
-
-  if (NODE_ENV === 'production') {
-    chain === 'BASE'
-      ? (url += `base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`)
-      : (url += `mainnet.helius-rpc.com?api-key=${HELIUS_API_KEY}`);
+  constructor(private readonly config: ConfigService) {
+    this.NODE_ENV = config.getOrThrow<string>('NODE_ENV');
+    this.ALCHEMY_API_KEY = config.getOrThrow<string>('ALCHEMY_API_KEY');
+    this.HELIUS_API_KEY = config.getOrThrow<string>('HELIUS_API_KEY');
   }
 
-  chain === 'BASE'
-    ? (url += `base-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`)
-    : (url += `devnet.helius-rpc.com?api-key=${HELIUS_API_KEY}`);
+  selectRpcUrl(chain: Chain): string {
+    let url: string;
+    const isDev = this.NODE_ENV === 'development';
 
-  return url;
-};
+    if (!isDev) {
+      chain === 'BASE'
+        ? (url = `${ChainRPC.BASE_MAINNET}/${this.ALCHEMY_API_KEY}`)
+        : (url = `${ChainRPC.SOLANA_MAINNET}=${this.HELIUS_API_KEY}`);
+    } else {
+      chain === 'BASE'
+        ? (url = `${ChainRPC.BASE_SEPOLIA}/${this.ALCHEMY_API_KEY}`)
+        : (url = `${ChainRPC.SOLANA_DEVNET}=${this.HELIUS_API_KEY}`);
+    }
 
-export const selectUSDCTokenAddress = (chain: Chain): string => {
-  let address: string = '';
-
-  if (NODE_ENV === 'production') {
-    chain === 'BASE'
-      ? (address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
-      : (address = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    return url;
   }
 
-  chain === 'BASE'
-    ? (address = '0x036CbD53842c5426634e7929541eC2318f3dCF7e')
-    : (address = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+  selectUSDCTokenAddress(chain: Chain): string {
+    let address: string;
+    const isDev = this.NODE_ENV === 'development';
 
-  return address;
-};
+    if (!isDev) {
+      chain === 'BASE'
+        ? (address = USDCTokenAddress.BASE_MAINNET)
+        : (address = USDCTokenAddress.SOLANA_MAINNET);
+    } else {
+      chain === 'BASE'
+        ? (address = USDCTokenAddress.BASE_SEPOLIA)
+        : (address = USDCTokenAddress.SOLANA_DEVNET);
+    }
+
+    return address;
+  }
+}

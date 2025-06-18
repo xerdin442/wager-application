@@ -20,7 +20,6 @@ import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
 import { hdkey } from '@ethereumjs/wallet';
 import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
-import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
@@ -102,18 +101,6 @@ export class WalletService {
         );
 
       return null;
-    }
-  }
-
-  async getTokenAccountAddress(owner: PublicKey): Promise<PublicKey> {
-    try {
-      return getAssociatedTokenAddress(
-        new PublicKey(this.SOLANA_USDC_MINT_ADDRESS),
-        owner,
-        true,
-      );
-    } catch (error) {
-      throw error;
     }
   }
 
@@ -557,21 +544,12 @@ export class WalletService {
       const sender = this.getPlatformWalletPrivateKey('SOLANA') as Keypair;
       const recipient = new PublicKey(dto.address);
 
-      // Get the token account addresses of platform wallet and recipient address
-      const senderTokenAddress = await this.getTokenAccountAddress(
-        sender.publicKey,
-      );
-      const recipientTokenAddress =
-        await this.getTokenAccountAddress(recipient);
-
-      // Initiate transfer of USDC tokens from platform wallet
-      signature = await transfer(
+      // Initiate withdrawal from platform wallet
+      signature = await this.helper.transferTokensOnSolana(
         this.connection,
         sender,
-        senderTokenAddress,
-        recipientTokenAddress,
-        sender.publicKey,
-        dto.amount * 1e6,
+        recipient,
+        dto.amount,
       );
 
       // Update user balance and store transaction details
@@ -758,7 +736,7 @@ export class WalletService {
         const platformPrivateKey = this.getPlatformWalletPrivateKey(
           chain,
         ) as Keypair;
-        const platformTokenAddress = await this.getTokenAccountAddress(
+        const platformTokenAddress = await this.helper.getTokenAccountAddress(
           platformPrivateKey.publicKey,
         );
 

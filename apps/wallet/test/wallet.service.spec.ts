@@ -1,14 +1,14 @@
 // import { UtilsService } from '@app/utils';
 // import { WalletGateway } from '../src/wallet.gateway';
 import { WalletService } from '../src/wallet.service';
-// import { DbService } from '@app/db';
+import { DbService } from '@app/db';
 // import { MetricsService } from '@app/metrics';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
 import { ConfigService } from '@nestjs/config';
 import { TestingModule, Test } from '@nestjs/testing';
 import { hdkey } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
-import { Chain } from '@prisma/client';
+import { Chain, Transaction, User } from '@prisma/client';
 import { USDCTokenAddress } from '../src/utils/constants';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import Web3, { Bytes } from 'web3';
@@ -17,6 +17,7 @@ import {
   SOL_WEB3_PROVIDER_TOKEN,
 } from '../src/providers';
 import { NameRegistryState } from '@bonfida/spl-name-service';
+import { DepositDTO, WithdrawalDTO } from '../src/dto';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
@@ -26,8 +27,55 @@ describe('Wallet Service', () => {
   let web3: DeepMocked<Web3>;
   let connection: DeepMocked<Connection>;
   // let utils: DeepMocked<UtilsService>;
-  // let prisma: DeepMocked<DbService>;
+  let prisma: DeepMocked<DbService>;
   // let metrics: DeepMocked<MetricsService>;
+
+  const user: User = {
+    id: 1,
+    email: 'user@example.com',
+    firstName: 'Cristiano',
+    lastName: 'Ronaldo',
+    password: 'Password',
+    username: 'goat_cr7',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    profileImage: 'default-image-url',
+    twoFASecret: null,
+    twoFAEnabled: false,
+    balance: 0,
+  };
+
+  const associatedTokenAddress: PublicKey = new PublicKey(
+    USDCTokenAddress.SOLANA_DEVNET,
+  );
+
+  const keypair = {
+    secretKey: new Uint8Array([1, 2, 3]),
+  } as unknown as Keypair;
+
+  const depositDto: DepositDTO = {
+    amount: 150,
+    chain: 'BASE',
+    depositor: 'user-wallet-address',
+    txIdentifier: 'signature-or-hash',
+  };
+
+  const withdrawalDto: WithdrawalDTO = {
+    ...depositDto,
+    address: 'user-wallet-address',
+  };
+
+  const transaction: Transaction = {
+    id: 1,
+    amount: 150,
+    chain: 'BASE',
+    retries: 0,
+    status: 'PENDING',
+    txIdentifier: null,
+    type: 'WITHDRAWAL',
+    userId: user.id,
+    createdAt: new Date(),
+  };
 
   beforeAll(async () => {
     config = createMock<ConfigService>();
@@ -48,7 +96,7 @@ describe('Wallet Service', () => {
       return undefined;
     });
 
-    // Mock the helper function calls in the service constructor
+    // Mock the helper service methods
     helper.selectUSDCTokenAddress.mockImplementation((chain: Chain) => {
       if (chain === 'BASE') {
         return USDCTokenAddress.BASE_SEPOLIA;
@@ -56,6 +104,8 @@ describe('Wallet Service', () => {
         return USDCTokenAddress.SOLANA_DEVNET;
       }
     });
+    helper.getTokenAccountAddress.mockResolvedValue(associatedTokenAddress);
+    helper.transferTokensOnSolana.mockResolvedValue('confirmed-tx-signature');
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -82,7 +132,7 @@ describe('Wallet Service', () => {
     // gateway = module.get(WalletGateway);
     // utils = module.get(UtilsService);
     config = module.get(ConfigService);
-    // prisma = module.get(DbService);
+    prisma = module.get(DbService);
     // metrics = module.get(MetricsService);
   });
 
@@ -106,10 +156,6 @@ describe('Wallet Service', () => {
     });
 
     it('should return the keypair of the platform solana wallet', () => {
-      const keypair = {
-        secretKey: new Uint8Array([1, 2, 3]),
-      } as unknown as Keypair;
-
       jest.spyOn(Keypair, 'fromSecretKey').mockReturnValue(keypair);
 
       const response = walletService.getPlatformWalletPrivateKey('SOLANA');
@@ -174,6 +220,31 @@ describe('Wallet Service', () => {
 
       const response = walletService.resolveDomainName('SOLANA', 'xerdin.sol');
       await expect(response).resolves.toEqual(registry.owner.toBase58());
+    });
+  });
+
+  describe('Initiate Transaction', () => {
+    it('should initiate a deposit transasction', async () => {
+      const tx: Transaction = {
+        ...transaction,
+        type: 'DEPOSIT',
+        txIdentifier: depositDto.txIdentifier,
+      };
+
+      (prisma.transaction.create as jest.Mock).mockResolvedValue(tx);
+
+      const response = walletService.initiateTransaction(user.id, depositDto);
+      await expect(response).resolves.toEqual(tx);
+    });
+
+    it('should initiate a withdrawal transasction', async () => {
+      (prisma.transaction.create as jest.Mock).mockResolvedValue(transaction);
+
+      const response = walletService.initiateTransaction(
+        user.id,
+        withdrawalDto,
+      );
+      await expect(response).resolves.toEqual(transaction);
     });
   });
 });

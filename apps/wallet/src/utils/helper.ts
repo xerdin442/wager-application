@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Chain } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from './constants';
 import { isAddress } from 'web3-validator';
-import { PublicKey } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
 
 @Injectable()
 export class HelperService {
@@ -59,5 +60,47 @@ export class HelperService {
       : (isValidated = PublicKey.isOnCurve(new PublicKey(address)));
 
     return isValidated;
+  }
+
+  async getTokenAccountAddress(owner: PublicKey): Promise<PublicKey> {
+    try {
+      return getAssociatedTokenAddress(
+        new PublicKey(this.selectUSDCTokenAddress('SOLANA')),
+        owner,
+        true,
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async transferTokensOnSolana(
+    connection: Connection,
+    sender: Keypair,
+    recipient: PublicKey,
+    amount: number,
+  ): Promise<string> {
+    try {
+      // Get the token account addresses of platform wallet and recipient address
+      const senderTokenAddress = await this.getTokenAccountAddress(
+        sender.publicKey,
+      );
+      const recipientTokenAddress =
+        await this.getTokenAccountAddress(recipient);
+
+      // Initiate transfer of USDC tokens from platform wallet
+      const signature = await transfer(
+        connection,
+        sender,
+        senderTokenAddress,
+        recipientTokenAddress,
+        sender.publicKey,
+        amount * 1e6,
+      );
+
+      return signature;
+    } catch (error) {
+      throw error;
+    }
   }
 }

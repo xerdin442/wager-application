@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { WalletGateway } from './wallet.gateway';
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
@@ -16,24 +16,21 @@ import {
   TokenBalance,
   SendTransactionError as SolanaTransactionError,
 } from '@solana/web3.js';
-import { RpcException } from '@nestjs/microservices';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
 import { hdkey } from '@ethereumjs/wallet';
 import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
 import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
-import { isAddress } from 'web3-validator';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
 import axios from 'axios';
-import { ETH_WEB3_PROVIDER_TOKEN } from './providers';
+import { ETH_WEB3_PROVIDER_TOKEN, SOL_WEB3_PROVIDER_TOKEN } from './providers';
 
 @Injectable()
 export class WalletService {
   private readonly context: string = WalletService.name;
 
-  private readonly connection: Connection;
   private readonly BASE_USDC_TOKEN_ADDRESS: string;
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
 
@@ -48,13 +45,8 @@ export class WalletService {
     private readonly gateway: WalletGateway,
     private readonly helper: HelperService,
     @Inject(ETH_WEB3_PROVIDER_TOKEN) private readonly web3: Web3,
+    @Inject(SOL_WEB3_PROVIDER_TOKEN) private readonly connection: Connection,
   ) {
-    // Connect to RPC endpoints
-    this.connection = new Connection(
-      this.helper.selectRpcUrl('SOLANA'),
-      'confirmed',
-    );
-
     // Fetch the official USDC token addresses
     this.BASE_USDC_TOKEN_ADDRESS = this.helper.selectUSDCTokenAddress('BASE');
     this.SOLANA_USDC_MINT_ADDRESS =
@@ -110,20 +102,6 @@ export class WalletService {
         );
 
       return null;
-    }
-  }
-
-  verifyWalletAddress(chain: Chain, address: string): void {
-    let verified: boolean;
-    chain === 'BASE'
-      ? (verified = isAddress(address))
-      : (verified = PublicKey.isOnCurve(new PublicKey(address)));
-
-    if (!verified) {
-      throw new RpcException({
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid recipient address',
-      });
     }
   }
 

@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from './constants';
+import { isAddress } from 'web3-validator';
+import { PublicKey } from '@solana/web3.js';
 
 @Injectable()
 export class HelperService {
@@ -47,5 +49,15 @@ export class HelperService {
     }
 
     return address;
+  }
+
+  validateAddress(address: string, chain: Chain): boolean {
+    let isValidated: boolean;
+
+    chain === 'BASE'
+      ? (isValidated = isAddress(address))
+      : (isValidated = PublicKey.isOnCurve(new PublicKey(address)));
+
+    return isValidated;
   }
 }

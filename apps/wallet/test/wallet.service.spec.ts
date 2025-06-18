@@ -9,10 +9,13 @@ import { TestingModule, Test } from '@nestjs/testing';
 import { hdkey } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
 import { Chain } from '@prisma/client';
-import { ChainRPC, USDCTokenAddress } from '../src/utils/constants';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { USDCTokenAddress } from '../src/utils/constants';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import Web3, { Bytes } from 'web3';
-import { ETH_WEB3_PROVIDER_TOKEN } from '../src/providers';
+import {
+  ETH_WEB3_PROVIDER_TOKEN,
+  SOL_WEB3_PROVIDER_TOKEN,
+} from '../src/providers';
 import { NameRegistryState } from '@bonfida/spl-name-service';
 
 describe('Wallet Service', () => {
@@ -21,6 +24,7 @@ describe('Wallet Service', () => {
   let config: DeepMocked<ConfigService>;
   let helper: DeepMocked<HelperService>;
   let web3: DeepMocked<Web3>;
+  let connection: DeepMocked<Connection>;
   // let utils: DeepMocked<UtilsService>;
   // let prisma: DeepMocked<DbService>;
   // let metrics: DeepMocked<MetricsService>;
@@ -29,14 +33,13 @@ describe('Wallet Service', () => {
     config = createMock<ConfigService>();
     helper = createMock<HelperService>();
     web3 = createMock<Web3>();
+    connection = createMock<Connection>();
 
     // Mock all required environment variables
     config.getOrThrow.mockImplementation((key: string) => {
       if (key === 'PLATFORM_WALLET_KEYPHRASE')
         return 'platform-wallet-keyphrase';
       if (key === 'NODE_ENV') return 'test';
-      if (key === 'ALCHEMY_API_KEY') return 'alchemy-api-key';
-      if (key === 'HELIUS_API_KEY') return 'helius-api-key';
       if (key === 'COINGECKO_API_KEY') return 'coingecko-api-key';
       if (key === 'SUPER_ADMIN_EMAIL') return 'super-admin-email';
       if (key === 'PLATFORM_SOLANA_WALLET') return 'platform-solana-wallet';
@@ -46,13 +49,6 @@ describe('Wallet Service', () => {
     });
 
     // Mock the helper function calls in the service constructor
-    helper.selectRpcUrl.mockImplementation((chain: Chain) => {
-      if (chain === 'BASE') {
-        return ChainRPC.BASE_SEPOLIA;
-      } else {
-        return ChainRPC.SOLANA_DEVNET;
-      }
-    });
     helper.selectUSDCTokenAddress.mockImplementation((chain: Chain) => {
       if (chain === 'BASE') {
         return USDCTokenAddress.BASE_SEPOLIA;
@@ -67,6 +63,10 @@ describe('Wallet Service', () => {
         {
           provide: ETH_WEB3_PROVIDER_TOKEN,
           useValue: web3,
+        },
+        {
+          provide: SOL_WEB3_PROVIDER_TOKEN,
+          useValue: connection,
         },
       ],
     })
@@ -108,11 +108,9 @@ describe('Wallet Service', () => {
     it('should return the keypair of the platform solana wallet', () => {
       const keypair = {
         secretKey: new Uint8Array([1, 2, 3]),
-      };
+      } as unknown as Keypair;
 
-      jest
-        .spyOn(Keypair, 'fromSecretKey')
-        .mockReturnValue(keypair as unknown as Keypair);
+      jest.spyOn(Keypair, 'fromSecretKey').mockReturnValue(keypair);
 
       const response = walletService.getPlatformWalletPrivateKey('SOLANA');
       expect(response).toEqual(keypair);
@@ -155,7 +153,7 @@ describe('Wallet Service', () => {
       await expect(response).resolves.toEqual(bytes.toString());
     });
 
-    it('should throw if the SNS domain is invalid or unregistered', async () => {
+    it('should return null if the SNS domain is invalid or unregistered', async () => {
       jest
         .spyOn(NameRegistryState, 'retrieve')
         .mockRejectedValue(new Error('Invalid or unregistered SNS domain'));

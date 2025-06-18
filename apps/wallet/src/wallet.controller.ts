@@ -8,6 +8,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { RedisClientType } from 'redis';
+import { HelperService } from './utils/helper';
 
 @Controller()
 export class WalletController {
@@ -16,6 +17,7 @@ export class WalletController {
   constructor(
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
+    private readonly helper: HelperService,
     private readonly walletService: WalletService,
     @InjectQueue('wallet-queue') private readonly walletQueue: Queue,
   ) {}
@@ -108,8 +110,14 @@ export class WalletController {
         dto.address = resolvedAddress;
       }
 
-      // Verify recipient address
-      this.walletService.verifyWalletAddress(chain, address);
+      // Validate recipient address
+      const isValidated: boolean = this.helper.validateAddress(address, chain);
+      if (!isValidated) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Invalid recipient address',
+        });
+      }
 
       // Check if withdrawal amount exceeds user balance
       if (user.balance < amount) {

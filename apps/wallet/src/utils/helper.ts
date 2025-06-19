@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Chain } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from './constants';
-import { isAddress } from 'web3-validator';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
 
@@ -50,16 +49,6 @@ export class HelperService {
     }
 
     return address;
-  }
-
-  validateAddress(address: string, chain: Chain): boolean {
-    let isValidated: boolean;
-
-    chain === 'BASE'
-      ? (isValidated = isAddress(address))
-      : (isValidated = PublicKey.isOnCurve(new PublicKey(address)));
-
-    return isValidated;
   }
 
   async getTokenAccountAddress(owner: PublicKey): Promise<PublicKey> {

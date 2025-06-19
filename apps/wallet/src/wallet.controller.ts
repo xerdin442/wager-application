@@ -8,7 +8,8 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { RedisClientType } from 'redis';
-import { HelperService } from './utils/helper';
+import { PublicKey } from '@solana/web3.js';
+import { isAddress, isHexStrict } from 'web3-validator';
 
 @Controller()
 export class WalletController {
@@ -17,7 +18,6 @@ export class WalletController {
   constructor(
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
-    private readonly helper: HelperService,
     private readonly walletService: WalletService,
     @InjectQueue('wallet-queue') private readonly walletQueue: Queue,
   ) {}
@@ -29,6 +29,31 @@ export class WalletController {
   }): Promise<Transaction | undefined> {
     try {
       const { dto, user } = data;
+      const { depositor, txIdentifier, chain } = dto;
+
+      // Validate transaction hash
+      const validTxHash =
+        isHexStrict(txIdentifier) && txIdentifier.length === 66;
+
+      if (!validTxHash) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Invalid transaction hash',
+        });
+      }
+
+      // Validate depositor address
+      let isValidAddress: boolean;
+      chain === 'BASE'
+        ? (isValidAddress = isAddress(depositor))
+        : (isValidAddress = PublicKey.isOnCurve(new PublicKey(depositor)));
+
+      if (!isValidAddress) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Invalid depositor address',
+        });
+      }
 
       // Initiate a pending transaction and process confirmation of deposit
       const transaction = await this.walletService.initiateTransaction(
@@ -111,8 +136,12 @@ export class WalletController {
       }
 
       // Validate recipient address
-      const isValidated: boolean = this.helper.validateAddress(address, chain);
-      if (!isValidated) {
+      let isValidAddress: boolean;
+      chain === 'BASE'
+        ? (isValidAddress = isAddress(dto.address))
+        : (isValidAddress = PublicKey.isOnCurve(new PublicKey(dto.address)));
+
+      if (!isValidAddress) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Invalid recipient address',

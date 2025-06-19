@@ -330,6 +330,10 @@ describe('Wallet Service', () => {
       '1': BigInt(`${depositDto.amount * 1e6}`),
     };
 
+    beforeEach(() => {
+      (web3.eth.getTransactionReceipt as jest.Mock).mockResolvedValue(receipt);
+    });
+
     it('should return a pending status if the hash is invalid or uncofirmed, and the transaction has not reached max retries', async () => {});
 
     it('should return a failed status if the hash is invalid or uncofirmed, and the confirmation check has been retried twice', async () => {});

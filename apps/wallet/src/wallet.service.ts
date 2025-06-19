@@ -34,7 +34,7 @@ export class WalletService {
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
 
   // Minimum amount in USD for native assets and stablecoins
-  private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 1000;
+  private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 3500;
 
   constructor(
     private readonly prisma: DbService,
@@ -239,7 +239,7 @@ export class WalletService {
         const tokenCheck = tx.to && tx.to === this.BASE_USDC_TOKEN_ADDRESS;
 
         if (tokenCheck) {
-          // Convert transfer amount to smallest unit of USDC
+          // Convert transfer amount from the smallest unit of USDC
           const txAmount = this.web3.utils.fromWei(
             decodedData[1] as bigint,
             'mwei',

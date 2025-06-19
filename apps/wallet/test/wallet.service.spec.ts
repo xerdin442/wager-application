@@ -1,8 +1,9 @@
-// import { UtilsService } from '@app/utils';
-// import { WalletGateway } from '../src/wallet.gateway';
+/* eslint-disable @typescript-eslint/unbound-method */
+import { UtilsService } from '@app/utils';
+import { WalletGateway } from '../src/wallet.gateway';
 import { WalletService } from '../src/wallet.service';
 import { DbService } from '@app/db';
-// import { MetricsService } from '@app/metrics';
+import { MetricsService } from '@app/metrics';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
 import { ConfigService } from '@nestjs/config';
 import { TestingModule, Test } from '@nestjs/testing';
@@ -11,24 +12,30 @@ import { HelperService } from '../src/utils/helper';
 import { Chain, Transaction, User } from '@prisma/client';
 import { USDCTokenAddress } from '../src/utils/constants';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import Web3, { Bytes } from 'web3';
+import Web3, {
+  Bytes,
+  Web3Account,
+  Transaction as EthTransaction,
+  TransactionReceipt,
+} from 'web3';
 import {
   ETH_WEB3_PROVIDER_TOKEN,
   SOL_WEB3_PROVIDER_TOKEN,
 } from '../src/providers';
 import { NameRegistryState } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from '../src/dto';
+import axios from 'axios';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
-  // let gateway: DeepMocked<WalletGateway>;
+  let gateway: DeepMocked<WalletGateway>;
   let config: DeepMocked<ConfigService>;
   let helper: DeepMocked<HelperService>;
   let web3: DeepMocked<Web3>;
   let connection: DeepMocked<Connection>;
-  // let utils: DeepMocked<UtilsService>;
+  let utils: DeepMocked<UtilsService>;
   let prisma: DeepMocked<DbService>;
-  // let metrics: DeepMocked<MetricsService>;
+  let metrics: DeepMocked<MetricsService>;
 
   const user: User = {
     id: 1,
@@ -45,24 +52,33 @@ describe('Wallet Service', () => {
     balance: 0,
   };
 
-  const associatedTokenAddress: PublicKey = new PublicKey(
-    USDCTokenAddress.SOLANA_DEVNET,
-  );
-
   const keypair = {
     secretKey: new Uint8Array([1, 2, 3]),
+    publicKey: new PublicKey('11111111111111111111111111111111'),
   } as unknown as Keypair;
+
+  const account = {
+    address: '0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57',
+  } as unknown as Web3Account;
 
   const depositDto: DepositDTO = {
     amount: 150,
     chain: 'BASE',
-    depositor: 'user-wallet-address',
+    depositor: 'depositor-wallet-address',
     txIdentifier: 'signature-or-hash',
   };
 
   const withdrawalDto: WithdrawalDTO = {
     ...depositDto,
     address: 'user-wallet-address',
+  };
+
+  const abiFunctionSignature = '0x24ee009e';
+
+  const ethTx: EthTransaction = {
+    data: `${abiFunctionSignature}-input-data`,
+    to: USDCTokenAddress.BASE_SEPOLIA,
+    from: depositDto.depositor,
   };
 
   const transaction: Transaction = {
@@ -104,7 +120,9 @@ describe('Wallet Service', () => {
         return USDCTokenAddress.SOLANA_DEVNET;
       }
     });
-    helper.getTokenAccountAddress.mockResolvedValue(associatedTokenAddress);
+    helper.getTokenAccountAddress.mockResolvedValue(
+      new PublicKey(USDCTokenAddress.SOLANA_DEVNET),
+    );
     helper.transferTokensOnSolana.mockResolvedValue('confirmed-tx-signature');
 
     const module: TestingModule = await Test.createTestingModule({
@@ -129,11 +147,11 @@ describe('Wallet Service', () => {
       .compile();
 
     walletService = module.get<WalletService>(WalletService);
-    // gateway = module.get(WalletGateway);
-    // utils = module.get(UtilsService);
+    gateway = module.get(WalletGateway);
+    utils = module.get(UtilsService);
     config = module.get(ConfigService);
     prisma = module.get(DbService);
-    // metrics = module.get(MetricsService);
+    metrics = module.get(MetricsService);
   });
 
   afterEach(() => {
@@ -210,7 +228,7 @@ describe('Wallet Service', () => {
 
     it('should resolve a valid or registered SNS domain', async () => {
       const registry = {
-        owner: new PublicKey('11111111111111111111111111111111'),
+        owner: keypair.publicKey,
       } as unknown as NameRegistryState;
 
       jest.spyOn(NameRegistryState, 'retrieve').mockResolvedValue({
@@ -245,6 +263,221 @@ describe('Wallet Service', () => {
         withdrawalDto,
       );
       await expect(response).resolves.toEqual(transaction);
+    });
+  });
+
+  describe('Update DB after Transaction', () => {
+    beforeEach(() => {
+      (prisma.user.update as jest.Mock).mockResolvedValue(user);
+    });
+
+    it('should update db after a successful transaction', async () => {
+      const tx: Transaction = { ...transaction, status: 'SUCCESS' };
+      const updatedTx = { ...tx, user };
+
+      (prisma.transaction.update as jest.Mock).mockResolvedValue(updatedTx);
+
+      const response = walletService.updateDbAfterTransaction(
+        tx,
+        depositDto.txIdentifier,
+        'SUCCESS',
+      );
+
+      await expect(response).resolves.toEqual({
+        user: updatedTx.user,
+        updatedTx,
+      });
+    });
+
+    it('should update db after a failed transaction', async () => {
+      const tx: Transaction = { ...transaction, status: 'FAILED' };
+      const updatedTx = { ...tx, user };
+
+      (prisma.transaction.update as jest.Mock).mockResolvedValue(updatedTx);
+
+      const response = walletService.updateDbAfterTransaction(
+        tx,
+        depositDto.txIdentifier,
+        'FAILED',
+      );
+
+      await expect(response).resolves.toEqual({
+        user: updatedTx.user,
+        updatedTx,
+      });
+    });
+  });
+
+  describe('Deposit on Base', () => {
+    const receipt: TransactionReceipt = {
+      transactionHash: '0xdf5c2056ce34ceff42ad251a9f920a1c620c00b4ea0988731d3f',
+      transactionIndex: 0,
+      blockNumber: 2,
+      blockHash: '0xeb13429552dafa92e3409f42eb43944f7611963c63ce40e7243941a',
+      from: '0x6e599da0bff7a6598ac1224e4985430bf16458a4',
+      to: '0x6f1df96865d09d21e8f3f9a7fba3b17a11c7c53c',
+      cumulativeGasUsed: 21000,
+      gasUsed: 21000,
+      logs: [],
+      logsBloom: '0x000000000000000000000000000000000000000000000000000000',
+      status: 1,
+      effectiveGasPrice: 2000000000,
+      type: 0n,
+    };
+
+    const decodedData = {
+      '0': 'platform-ethereum-wallet',
+      '1': BigInt(`${depositDto.amount * 1e6}`),
+    };
+
+    it('should return a pending status if the hash is invalid or uncofirmed, and the transaction has not reached max retries', async () => {});
+
+    it('should return a failed status if the hash is invalid or uncofirmed, and the confirmation check has been retried twice', async () => {});
+
+    it('should return a failed status if the transaction data does not contain the correct abi function signature', async () => {});
+
+    it('should return a failed status if the transferred token is not USDC', async () => {});
+
+    it('should return a failed status if the deposited amount is not equal to the amount in the transaction details', async () => {});
+
+    it('should return a failed status if the recipient address does not match the recipient in the transaction details', async () => {});
+
+    it('should return a failed status if the depositor address does not match the sender in the transaction details', async () => {});
+
+    it('should return a success status if the transaction passes all checks', async () => {});
+  });
+
+  // describe('Deposit on Solana', () => {});
+
+  // describe('Withdrawal on Base', () => {});
+
+  // describe('Withdrawal on Solana', () => {});
+
+  describe('Fiat to Crypto Conversion', () => {
+    it('should convert fiat amount to ethereum equivalent', async () => {
+      jest.spyOn(axios, 'get').mockResolvedValue({
+        data: {
+          ethereum: { usd: 3600 },
+        },
+      });
+
+      const response = walletService.convertAmountToCrypto(1000, 'BASE');
+      await expect(response).resolves.toEqual(1000 / 3600);
+    });
+
+    it('should convert fiat amount to solana equivalent', async () => {
+      jest.spyOn(axios, 'get').mockResolvedValue({
+        data: {
+          solana: { usd: 180 },
+        },
+      });
+
+      const response = walletService.convertAmountToCrypto(45, 'SOLANA');
+      await expect(response).resolves.toEqual(45 / 180);
+    });
+  });
+
+  describe('Ethereum Wallet Balance', () => {
+    beforeEach(() => {
+      jest.spyOn(walletService, 'convertAmountToCrypto').mockResolvedValue(2);
+
+      jest
+        .spyOn(walletService, 'getPlatformWalletPrivateKey')
+        .mockReturnValue('ethereum-private-key');
+
+      (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
+        account,
+      );
+    });
+
+    it('should ignore alert email if ETH balance is above allowed minimum', async () => {
+      // Mock the wallet balance as 3 ETH (in wei)
+      (web3.eth.getBalance as jest.Mock).mockResolvedValue(BigInt(3 * 1e18));
+      (web3.utils.fromWei as jest.Mock).mockReturnValue('3.00');
+
+      const response = walletService.checkNativeAssetBalance('BASE');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(0);
+    });
+
+    it('should send alert email if ETH balance is below allowed minimum', async () => {
+      // Mock the wallet balance as 1.8 ETH (in wei)
+      (web3.eth.getBalance as jest.Mock).mockResolvedValue(BigInt(1.8 * 1e18));
+      (web3.utils.fromWei as jest.Mock).mockReturnValue('1.80');
+
+      const response = walletService.checkNativeAssetBalance('BASE');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(1);
+    });
+
+    // it('should ignore alert email if stablecoin balance is above allowed minimum', async () => {});
+
+    // it('should send alert email if stablecoin balance is below allowed minimum', async () => {});
+  });
+
+  describe('Solana Wallet Balance', () => {
+    beforeEach(() => {
+      jest.spyOn(walletService, 'convertAmountToCrypto').mockResolvedValue(2);
+
+      jest
+        .spyOn(walletService, 'getPlatformWalletPrivateKey')
+        .mockReturnValue(keypair);
+    });
+
+    it('should ignore alert email if SOL balance is above allowed minimum', async () => {
+      // Mock platform wallet balance as 3 SOL (in lamports)
+      connection.getBalance.mockResolvedValue(3 * 1e9);
+
+      const response = walletService.checkNativeAssetBalance('SOLANA');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(0);
+    });
+
+    it('should send alert email if SOL balance is below allowed minimum', async () => {
+      // Mock platform wallet balance as 1.8 SOL (in lamports)
+      connection.getBalance.mockResolvedValue(1.8 * 1e9);
+
+      const response = walletService.checkNativeAssetBalance('SOLANA');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ignore alert email if stablecoin balance is above allowed minimum', async () => {
+      connection.getTokenAccountBalance.mockResolvedValue({
+        context: { slot: 1 },
+        value: {
+          amount: '5000000000',
+          decimals: 6,
+          uiAmount: 5000,
+          uiAmountString: '5000',
+        },
+      });
+
+      const response = walletService.checkStablecoinBalance('SOLANA');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(0);
+    });
+
+    it('should send alert email if stablecoin balance is below allowed minimum', async () => {
+      connection.getTokenAccountBalance.mockResolvedValue({
+        context: { slot: 1 },
+        value: {
+          amount: '3000000000',
+          decimals: 6,
+          uiAmount: 3000,
+          uiAmountString: '3000',
+        },
+      });
+
+      const response = walletService.checkStablecoinBalance('SOLANA');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(1);
     });
   });
 });

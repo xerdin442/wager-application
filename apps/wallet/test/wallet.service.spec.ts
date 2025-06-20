@@ -17,6 +17,8 @@ import Web3, {
   Web3Account,
   Transaction as EthTransaction,
   TransactionReceipt,
+  Contract,
+  ContractAbi,
 } from 'web3';
 import {
   ETH_WEB3_PROVIDER_TOKEN,
@@ -36,6 +38,7 @@ describe('Wallet Service', () => {
   let utils: DeepMocked<UtilsService>;
   let prisma: DeepMocked<DbService>;
   let metrics: DeepMocked<MetricsService>;
+  let contract: DeepMocked<Contract<ContractAbi>>;
 
   const user: User = {
     id: 1,
@@ -73,17 +76,9 @@ describe('Wallet Service', () => {
     address: 'user-wallet-address',
   };
 
-  const abiFunctionSignature = '0x24ee009e';
-
-  const ethTx: EthTransaction = {
-    data: `${abiFunctionSignature}-input-data`,
-    to: USDCTokenAddress.BASE_SEPOLIA,
-    from: depositDto.depositor,
-  };
-
   const transaction: Transaction = {
     id: 1,
-    amount: 150,
+    amount: depositDto.amount,
     chain: 'BASE',
     retries: 0,
     status: 'PENDING',
@@ -97,6 +92,7 @@ describe('Wallet Service', () => {
     config = createMock<ConfigService>();
     helper = createMock<HelperService>();
     web3 = createMock<Web3>();
+    contract = createMock<Contract<ContractAbi>>();
     connection = createMock<Connection>();
 
     // Mock all required environment variables
@@ -323,6 +319,15 @@ describe('Wallet Service', () => {
       status: 1,
       effectiveGasPrice: 2000000000,
       type: 0n,
+      root: '0x0000000000000000000000000000000000000000000000000000000000',
+    };
+
+    const abiFunctionSignature = '0x24ee009e';
+
+    const ethTransaction: EthTransaction = {
+      data: `${abiFunctionSignature}-input-data`,
+      to: USDCTokenAddress.BASE_SEPOLIA,
+      from: depositDto.depositor,
     };
 
     const decodedData = {
@@ -332,23 +337,115 @@ describe('Wallet Service', () => {
 
     beforeEach(() => {
       (web3.eth.getTransactionReceipt as jest.Mock).mockResolvedValue(receipt);
+      (web3.eth.getTransaction as jest.Mock).mockResolvedValue(ethTransaction);
+      (web3.eth.abi.encodeFunctionSignature as jest.Mock).mockReturnValue(
+        abiFunctionSignature,
+      );
+      (web3.eth.abi.decodeParameters as jest.Mock).mockReturnValue(decodedData);
+      (web3.utils.fromWei as jest.Mock).mockReturnValue(`${depositDto.amount}`);
+
+      jest
+        .spyOn(walletService, 'updateDbAfterTransaction')
+        .mockResolvedValueOnce({ user, updatedTx: transaction });
+
+      gateway.sendTransactionStatus.mockReturnValue(undefined);
+      metrics.incrementCounter.mockReturnValue(undefined);
     });
 
-    it('should return a pending status if the hash is invalid or uncofirmed, and the transaction has not reached max retries', async () => {});
+    it('should return pending status if the hash is invalid or uncofirmed, and the transaction has not reached max retries', async () => {
+      (web3.eth.getTransactionReceipt as jest.Mock).mockResolvedValue(null);
+      (prisma.transaction.update as jest.Mock).mockResolvedValue(transaction);
 
-    it('should return a failed status if the hash is invalid or uncofirmed, and the confirmation check has been retried twice', async () => {});
+      const response = walletService.processDepositOnBase(depositDto, {
+        ...transaction,
+        retries: 1,
+      });
+      await expect(response).resolves.toEqual('PENDING');
+    });
 
-    it('should return a failed status if the transaction data does not contain the correct abi function signature', async () => {});
+    it('should return failed status if the hash is invalid or uncofirmed, and the confirmation check has been retried twice', async () => {
+      (web3.eth.getTransactionReceipt as jest.Mock).mockResolvedValue(null);
 
-    it('should return a failed status if the transferred token is not USDC', async () => {});
+      const response = walletService.processDepositOnBase(depositDto, {
+        ...transaction,
+        retries: 2,
+      });
+      await expect(response).resolves.toEqual('FAILED');
+    });
 
-    it('should return a failed status if the deposited amount is not equal to the amount in the transaction details', async () => {});
+    it('should return failed status if the transaction data does not contain the correct abi function signature', async () => {
+      (web3.eth.abi.encodeFunctionSignature as jest.Mock).mockReturnValue(
+        'incorrect-abi-signature',
+      );
 
-    it('should return a failed status if the recipient address does not match the recipient in the transaction details', async () => {});
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+      await expect(response).resolves.toEqual('FAILED');
+    });
 
-    it('should return a failed status if the depositor address does not match the sender in the transaction details', async () => {});
+    it('should return failed status if the transferred token is not USDC', async () => {
+      (web3.eth.getTransaction as jest.Mock).mockResolvedValue({
+        ...ethTransaction,
+        to: 'incorrect-token-address',
+      });
 
-    it('should return a success status if the transaction passes all checks', async () => {});
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the deposited amount is not equal to the amount in the transaction details', async () => {
+      (web3.eth.abi.decodeParameters as jest.Mock).mockReturnValue({
+        ...decodedData,
+        '1': BigInt(1000 * 1e6),
+      });
+      (web3.utils.fromWei as jest.Mock).mockReturnValue('1000');
+
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the recipient address does not match the recipient in the transaction details', async () => {
+      (web3.eth.abi.decodeParameters as jest.Mock).mockReturnValue({
+        ...decodedData,
+        '0': 'incorrect-recipient-address',
+      });
+
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the depositor address does not match the sender in the transaction details', async () => {
+      (web3.eth.getTransaction as jest.Mock).mockResolvedValue({
+        ...ethTransaction,
+        from: 'incorrect-sender-address',
+      });
+
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return success status if the transaction passes all checks', async () => {
+      const response = walletService.processDepositOnBase(
+        depositDto,
+        transaction,
+      );
+
+      await expect(response).resolves.toEqual('SUCCESS');
+    });
   });
 
   // describe('Deposit on Solana', () => {});
@@ -392,6 +489,8 @@ describe('Wallet Service', () => {
       (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
         account,
       );
+
+      (web3.eth.Contract as unknown as jest.Mock).mockReturnValue(contract);
     });
 
     it('should ignore alert email if ETH balance is above allowed minimum', async () => {
@@ -416,9 +515,33 @@ describe('Wallet Service', () => {
       expect(utils.sendEmail).toHaveBeenCalledTimes(1);
     });
 
-    // it('should ignore alert email if stablecoin balance is above allowed minimum', async () => {});
+    it('should ignore alert email if stablecoin balance is above allowed minimum', async () => {
+      (contract.methods as unknown as jest.Mock).mockReturnValue({
+        balanceOf: jest.fn().mockReturnValue({
+          call: jest.fn().mockResolvedValue(`${5000 * 1e6}`),
+        }),
+      });
+      (web3.utils.fromWei as jest.Mock).mockReturnValue('5000');
 
-    // it('should send alert email if stablecoin balance is below allowed minimum', async () => {});
+      const response = walletService.checkStablecoinBalance('BASE');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(0);
+    });
+
+    it('should send alert email if stablecoin balance is below allowed minimum', async () => {
+      (contract.methods as unknown as jest.Mock).mockReturnValue({
+        balanceOf: jest.fn().mockReturnValue({
+          call: jest.fn().mockResolvedValue(`${3000 * 1e6}`),
+        }),
+      });
+      (web3.utils.fromWei as jest.Mock).mockReturnValue('3000');
+
+      const response = walletService.checkStablecoinBalance('BASE');
+
+      await expect(response).resolves.toBeUndefined();
+      expect(utils.sendEmail).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Solana Wallet Balance', () => {

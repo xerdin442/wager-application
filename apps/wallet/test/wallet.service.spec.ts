@@ -10,8 +10,8 @@ import { TestingModule, Test } from '@nestjs/testing';
 import { hdkey } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
 import { Chain, Transaction, User } from '@prisma/client';
-import { USDCTokenAddress } from '../src/utils/constants';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { ChainRPC, USDCTokenAddress } from '../src/utils/constants';
+import { Connection, Keypair, PublicKey, TokenBalance } from '@solana/web3.js';
 import Web3, {
   Bytes,
   Web3Account,
@@ -26,7 +26,7 @@ import {
 } from '../src/providers';
 import { NameRegistryState } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from '../src/dto';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
@@ -82,7 +82,7 @@ describe('Wallet Service', () => {
     chain: 'BASE',
     retries: 0,
     status: 'PENDING',
-    txIdentifier: null,
+    txIdentifier: '0xdf5c2056ce34ceff42ad251a9f920a1c620c00b4ea0988731d3f',
     type: 'WITHDRAWAL',
     userId: user.id,
     createdAt: new Date(),
@@ -412,7 +412,7 @@ describe('Wallet Service', () => {
       await expect(response).resolves.toEqual('FAILED');
     });
 
-    it('should return failed status if the recipient address does not match the recipient in the transaction details', async () => {
+    it('should return failed status if the platform wallet address does not match the recipient in the transaction details', async () => {
       (web3.eth.abi.decodeParameters as jest.Mock).mockReturnValue({
         ...decodedData,
         '0': 'incorrect-recipient-address',
@@ -448,9 +448,388 @@ describe('Wallet Service', () => {
     });
   });
 
-  // describe('Deposit on Solana', () => {});
+  describe('Deposit on Solana', () => {
+    const tx: Transaction = {
+      ...transaction,
+      chain: 'SOLANA',
+      txIdentifier: '2nBhEBYYvfaAe16UMNqRHDYvZEJHvoPzUidNgNX59UxtbCXy2rqYcuyuv',
+    };
 
-  // describe('Withdrawal on Base', () => {});
+    const dto: DepositDTO = { ...depositDto, chain: 'SOLANA' };
+
+    const PLATFORM_SOLANA_WALLET_ADDRESS = 'platform-solana-wallet';
+    const TOKEN_PROGRAM_ID_BASE58 =
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+    const preTokenBalances: TokenBalance[] = [
+      {
+        accountIndex: 0,
+        mint: USDCTokenAddress.SOLANA_DEVNET,
+        owner: dto.depositor,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(500 * 1e6),
+          decimals: 6,
+          uiAmount: 500,
+          uiAmountString: '500',
+        },
+      },
+      {
+        accountIndex: 1,
+        mint: USDCTokenAddress.SOLANA_DEVNET,
+        owner: PLATFORM_SOLANA_WALLET_ADDRESS,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(4500 * 1e6),
+          decimals: 6,
+          uiAmount: 4500,
+          uiAmountString: '4500',
+        },
+      },
+      {
+        accountIndex: 2,
+        mint: 'mock-token-mint',
+        owner: dto.depositor,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(75 * 1e8),
+          decimals: 8,
+          uiAmount: 75,
+          uiAmountString: '75',
+        },
+      },
+    ];
+
+    const postTokenBalances: TokenBalance[] = [
+      {
+        accountIndex: 0,
+        mint: USDCTokenAddress.SOLANA_DEVNET,
+        owner: dto.depositor,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(350 * 1e6),
+          decimals: 6,
+          uiAmount: 350,
+          uiAmountString: '350',
+        },
+      },
+      {
+        accountIndex: 1,
+        mint: USDCTokenAddress.SOLANA_DEVNET,
+        owner: PLATFORM_SOLANA_WALLET_ADDRESS,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(4650 * 1e6),
+          decimals: 6,
+          uiAmount: 4650,
+          uiAmountString: '4650',
+        },
+      },
+      {
+        accountIndex: 2,
+        mint: 'mock-token-mint',
+        owner: dto.depositor,
+        programId: TOKEN_PROGRAM_ID_BASE58,
+        uiTokenAmount: {
+          amount: String(75 * 1e8),
+          decimals: 8,
+          uiAmount: 75,
+          uiAmountString: '75',
+        },
+      },
+    ];
+
+    const rpcTransactionResponse = {
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+      },
+      config: {
+        url: ChainRPC.SOLANA_DEVNET,
+        method: 'post',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: '1',
+        result: {
+          blockTime: 1750383905,
+          meta: {
+            computeUnitsConsumed: 292686,
+            err: null,
+            fee: 492699,
+            innerInstructions: [],
+            loadedAddresses: {},
+            logMessages: [],
+            postBalances: [],
+            postTokenBalances,
+            preBalances: [],
+            preTokenBalances,
+            returnData: {
+              data: ['XRQrAAAAAAA=', 'base64'],
+              programId: 'HuTkmnrv4zPnArMqpbMbFhfwzTR7xfWQZHH1aQKzDKFZ',
+            },
+          },
+          slot: 347936053,
+          transaction: {
+            signatures: [tx.txIdentifier],
+            version: 0,
+          },
+        },
+      },
+    } as unknown as AxiosResponse;
+
+    beforeEach(() => {
+      jest.spyOn(axios, 'post').mockResolvedValue(rpcTransactionResponse);
+
+      jest
+        .spyOn(walletService, 'updateDbAfterTransaction')
+        .mockResolvedValueOnce({ user, updatedTx: tx });
+
+      gateway.sendTransactionStatus.mockReturnValue(undefined);
+      metrics.incrementCounter.mockReturnValue(undefined);
+    });
+
+    it('should return pending status if the hash is invalid or uncofirmed, and the transaction has not reached max retries', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: { result: null },
+      });
+      (prisma.transaction.update as jest.Mock).mockResolvedValue(tx);
+
+      const response = walletService.processDepositOnSolana(dto, {
+        ...tx,
+        retries: 1,
+      });
+      await expect(response).resolves.toEqual('PENDING');
+    });
+
+    it('should return failed status if the hash is invalid or uncofirmed, and the confirmation check has been retried twice', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: { result: null },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, {
+        ...tx,
+        retries: 2,
+      });
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the token balances do not contain USDC balances', async () => {
+      const updatedPreTokenBalances: TokenBalance[] = preTokenBalances.filter(
+        (balance) =>
+          balance.mint !== (USDCTokenAddress.SOLANA_DEVNET as string),
+      );
+
+      const updatedPostTokenBalances: TokenBalance[] = postTokenBalances.filter(
+        (balance) =>
+          balance.mint !== (USDCTokenAddress.SOLANA_DEVNET as string),
+      );
+
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: {
+          result: {
+            meta: {
+              preTokenBalances: updatedPreTokenBalances,
+              postTokenBalances: updatedPostTokenBalances,
+            },
+          },
+        },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the transferred token is not USDC', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: {
+          result: {
+            meta: {
+              preTokenBalances,
+              postTokenBalances: preTokenBalances,
+            },
+          },
+        },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the deposited amount is not equal to the amount in the transaction details', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: {
+          result: {
+            meta: {
+              preTokenBalances,
+              postTokenBalances: [
+                {
+                  accountIndex: 0,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: dto.depositor,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(300 * 1e6),
+                    decimals: 6,
+                    uiAmount: 300,
+                    uiAmountString: '300',
+                  },
+                },
+                {
+                  accountIndex: 1,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: PLATFORM_SOLANA_WALLET_ADDRESS,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(4700 * 1e6),
+                    decimals: 6,
+                    uiAmount: 4700,
+                    uiAmountString: '4700',
+                  },
+                },
+                {
+                  accountIndex: 2,
+                  mint: 'mock-token-mint',
+                  owner: dto.depositor,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(75 * 1e8),
+                    decimals: 8,
+                    uiAmount: 75,
+                    uiAmountString: '75',
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the platform wallet address does not match the recipient in the transaction details', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: {
+          result: {
+            meta: {
+              preTokenBalances,
+              postTokenBalances: [
+                {
+                  accountIndex: 0,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: dto.depositor,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(300 * 1e6),
+                    decimals: 6,
+                    uiAmount: 300,
+                    uiAmountString: '300',
+                  },
+                },
+                {
+                  accountIndex: 1,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: 'incorrect-recipient-address',
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(4700 * 1e6),
+                    decimals: 6,
+                    uiAmount: 4700,
+                    uiAmountString: '4700',
+                  },
+                },
+                {
+                  accountIndex: 2,
+                  mint: 'mock-token-mint',
+                  owner: dto.depositor,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(75 * 1e8),
+                    decimals: 8,
+                    uiAmount: 75,
+                    uiAmountString: '75',
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return failed status if the depositor address does not match the sender in the transaction details', async () => {
+      jest.spyOn(axios, 'post').mockResolvedValue({
+        ...rpcTransactionResponse,
+        data: {
+          result: {
+            meta: {
+              preTokenBalances,
+              postTokenBalances: [
+                {
+                  accountIndex: 0,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: 'incorrect-depsitor-address',
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(300 * 1e6),
+                    decimals: 6,
+                    uiAmount: 300,
+                    uiAmountString: '300',
+                  },
+                },
+                {
+                  accountIndex: 1,
+                  mint: USDCTokenAddress.SOLANA_DEVNET,
+                  owner: PLATFORM_SOLANA_WALLET_ADDRESS,
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(4700 * 1e6),
+                    decimals: 6,
+                    uiAmount: 4700,
+                    uiAmountString: '4700',
+                  },
+                },
+                {
+                  accountIndex: 2,
+                  mint: 'mock-token-mint',
+                  owner: 'incorrect-depsitor-address',
+                  programId: TOKEN_PROGRAM_ID_BASE58,
+                  uiTokenAmount: {
+                    amount: String(75 * 1e8),
+                    decimals: 8,
+                    uiAmount: 75,
+                    uiAmountString: '75',
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('FAILED');
+    });
+
+    it('should return success status if the transaction passes all checks', async () => {
+      const response = walletService.processDepositOnSolana(dto, tx);
+      await expect(response).resolves.toEqual('SUCCESS');
+    });
+  });
+
+  describe('Withdrawal on Base', () => {});
 
   // describe('Withdrawal on Solana', () => {});
 

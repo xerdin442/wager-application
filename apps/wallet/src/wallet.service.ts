@@ -367,6 +367,7 @@ export class WalletService {
       for (const postBalance of postTokenBalances) {
         if (postBalance.mint === this.SOLANA_USDC_MINT_ADDRESS) {
           const owner = postBalance.owner as string;
+
           const preBalance = preTokenBalances.find(
             (balance) =>
               balance.mint === this.SOLANA_USDC_MINT_ADDRESS &&

@@ -10,6 +10,7 @@ import { WalletGateway } from './wallet.gateway';
 import { BullModule } from '@nestjs/bull';
 import { WalletProcessor } from './wallet.processor';
 import { EthWeb3Provider, SolanaWeb3Provider } from './providers';
+import { HelperService } from './utils/helper';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { EthWeb3Provider, SolanaWeb3Provider } from './providers';
         () => {
           try {
             const keyPhrase = fs.readFileSync(
-              'run/secrets/platform_wallet_keyphrase',
+              '/run/secrets/platform_wallet_keyphrase',
             );
             return { PLATFORM_WALLET_KEYPHRASE: keyPhrase.toString().trim() };
           } catch (error) {
@@ -59,6 +60,7 @@ import { EthWeb3Provider, SolanaWeb3Provider } from './providers';
     WalletProcessor,
     EthWeb3Provider,
     SolanaWeb3Provider,
+    HelperService,
   ],
 })
 export class WalletModule {}

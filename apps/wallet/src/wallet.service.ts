@@ -528,6 +528,14 @@ export class WalletService {
         const date: string = updatedTx.createdAt.toISOString();
         const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
         await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
+
+        this.utils
+          .logger()
+          .error(
+            `[${this.context}] An error occurred while completing withdrawal from platform ethereum wallet. Error: ${error.message}\n`,
+          );
+
+        return;
       }
 
       throw error;
@@ -596,6 +604,14 @@ export class WalletService {
         const date: string = updatedTx.createdAt.toISOString();
         const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
         await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
+
+        this.utils
+          .logger()
+          .error(
+            `[${this.context}] An error occurred while completing withdrawal from platform solana wallet. Error: ${error.message}\n`,
+          );
+
+        return;
       }
 
       throw error;

@@ -11,7 +11,13 @@ import { hdkey } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
 import { Chain, Transaction, User } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from '../src/utils/constants';
-import { Connection, Keypair, PublicKey, TokenBalance } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  TokenBalance,
+  SendTransactionError as SolanaTransactionError,
+} from '@solana/web3.js';
 import Web3, {
   Bytes,
   Web3Account,
@@ -19,6 +25,8 @@ import Web3, {
   TransactionReceipt,
   Contract,
   ContractAbi,
+  SignTransactionResult,
+  TransactionError as EthTransactionErrror,
 } from 'web3';
 import {
   ETH_WEB3_PROVIDER_TOKEN,
@@ -829,9 +837,129 @@ describe('Wallet Service', () => {
     });
   });
 
-  describe('Withdrawal on Base', () => {});
+  describe('Withdrawal on Base', () => {
+    beforeEach(() => {
+      jest
+        .spyOn(walletService, 'getPlatformWalletPrivateKey')
+        .mockReturnValue('ethereum-private-key');
 
-  // describe('Withdrawal on Solana', () => {});
+      (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
+        account,
+      );
+      (web3.eth.Contract as unknown as jest.Mock).mockReturnValue(contract);
+      (web3.utils.toBigInt as jest.Mock).mockReturnValue(
+        BigInt(withdrawalDto.amount),
+      );
+
+      (contract.methods as unknown as jest.Mock).mockReturnValue({
+        transfer: jest.fn().mockReturnValue({
+          encodeABI: jest.fn().mockReturnValue('encoded-input-data'),
+        }),
+      });
+
+      (web3.eth.getGasPrice as jest.Mock).mockResolvedValue(BigInt(21000));
+      (web3.eth.getTransactionCount as jest.Mock).mockResolvedValue(BigInt(2));
+
+      (web3.eth.accounts.signTransaction as jest.Mock).mockResolvedValue({
+        rawTransaction: '0x123456',
+      } as unknown as SignTransactionResult);
+
+      jest
+        .spyOn(walletService, 'updateDbAfterTransaction')
+        .mockResolvedValueOnce({ user, updatedTx: transaction });
+
+      gateway.sendTransactionStatus.mockReturnValue(undefined);
+      metrics.incrementCounter.mockReturnValue(undefined);
+      utils.sendEmail.mockResolvedValue(undefined);
+    });
+
+    it('should sucesssfully process withdrawal from platform ethereum wallet', async () => {
+      (web3.eth.sendSignedTransaction as jest.Mock).mockResolvedValue({
+        transactionHash: jest.fn().mockResolvedValue({
+          toString: jest.fn().mockResolvedValue('0x123456'),
+        }),
+      });
+
+      const response = walletService.processWithdrawalOnBase(
+        withdrawalDto,
+        transaction,
+      );
+      await expect(response).resolves.toBeUndefined();
+      expect(metrics.incrementCounter).toHaveBeenCalledWith(
+        'successful_withdrawals',
+        ['base'],
+      );
+    });
+
+    it('should throw if an onchain error occurs during withdrawal from platform ethereum wallet', async () => {
+      (web3.eth.sendSignedTransaction as jest.Mock).mockRejectedValue(
+        new EthTransactionErrror('mock-error-message'),
+      );
+
+      const response = walletService.processWithdrawalOnBase(
+        withdrawalDto,
+        transaction,
+      );
+      await expect(response).resolves.toBeUndefined();
+      expect(metrics.incrementCounter).toHaveBeenCalledWith(
+        'failed_withdrawals',
+        ['base'],
+      );
+    });
+  });
+
+  describe('Withdrawal on Solana', () => {
+    const dto: WithdrawalDTO = {
+      ...withdrawalDto,
+      chain: 'SOLANA',
+      address: '11111111111111111111111111111111',
+    };
+
+    const tx: Transaction = { ...transaction, chain: 'SOLANA' };
+
+    beforeEach(() => {
+      jest
+        .spyOn(walletService, 'getPlatformWalletPrivateKey')
+        .mockReturnValue(keypair);
+
+      jest
+        .spyOn(walletService, 'updateDbAfterTransaction')
+        .mockResolvedValueOnce({ user, updatedTx: tx });
+
+      gateway.sendTransactionStatus.mockReturnValue(undefined);
+      metrics.incrementCounter.mockReturnValue(undefined);
+      utils.sendEmail.mockResolvedValue(undefined);
+    });
+
+    it('should sucesssfully process withdrawal from platform solana wallet', async () => {
+      const response = walletService.processWithdrawalOnSolana(dto, tx);
+
+      await expect(response).resolves.toBeUndefined();
+      expect(metrics.incrementCounter).toHaveBeenCalledWith(
+        'successful_withdrawals',
+        ['solana'],
+      );
+    });
+
+    it('should throw if an onchain error occurs during withdrawal from platform solana wallet', async () => {
+      helper.transferTokensOnSolana.mockRejectedValue(
+        new SolanaTransactionError({
+          action: 'send',
+          signature:
+            '2nBhEBYYvfaAe16UMNqRHDYvZEJHvoPzUidNgNX59UxtbCXy2rqYcuyuv',
+          transactionMessage: 'Transaction failed',
+        }),
+      );
+
+      const response = walletService.processWithdrawalOnSolana(dto, tx);
+
+      await expect(response).resolves.toBeUndefined();
+      expect(metrics.incrementCounter).toHaveBeenCalledWith(
+        'failed_withdrawals',
+        ['solana'],
+      );
+    });
+  });
 
   describe('Fiat to Crypto Conversion', () => {
     it('should convert fiat amount to ethereum equivalent', async () => {

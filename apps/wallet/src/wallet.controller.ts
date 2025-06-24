@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisClientType } from 'redis';
 import { PublicKey } from '@solana/web3.js';
 import { isAddress, isHexStrict } from 'web3-validator';
+import bs58 from 'bs58';
 
 @Controller()
 export class WalletController {
@@ -26,28 +27,35 @@ export class WalletController {
   async processDeposit(data: {
     dto: DepositDTO;
     user: User;
-  }): Promise<Transaction | undefined> {
+  }): Promise<Transaction> {
     try {
       const { dto, user } = data;
       const { depositor, txIdentifier, chain } = dto;
 
-      // Validate transaction hash
-      const validTxHash =
-        isHexStrict(txIdentifier) && txIdentifier.length === 66;
+      let validTxIdentifier: boolean;
+      let isValidAddress: boolean;
 
-      if (!validTxHash) {
+      if (chain === 'BASE') {
+        validTxIdentifier =
+          isHexStrict(txIdentifier) && txIdentifier.length === 66;
+
+        isValidAddress = isAddress(depositor);
+      } else {
+        const decodedBytes = bs58.decode(txIdentifier);
+        validTxIdentifier = decodedBytes.length === 64;
+
+        isValidAddress = PublicKey.isOnCurve(new PublicKey(depositor));
+      }
+
+      // Validate transaction identifier
+      if (!validTxIdentifier) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid transaction hash',
+          message: 'Invalid transaction identifier',
         });
       }
 
       // Validate depositor address
-      let isValidAddress: boolean;
-      chain === 'BASE'
-        ? (isValidAddress = isAddress(depositor))
-        : (isValidAddress = PublicKey.isOnCurve(new PublicKey(depositor)));
-
       if (!isValidAddress) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,

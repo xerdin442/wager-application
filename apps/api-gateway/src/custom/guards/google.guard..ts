@@ -1,4 +1,8 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
@@ -25,11 +29,13 @@ export class GoogleAuthGuard extends AuthGuard('google') {
         sameSite: 'lax',
         maxAge: 20 * 60 * 1000,
       });
+
+      // Trigger the Google strategy and populate the req.user object if validation is successful
+      const activate = await super.canActivate(context);
+
+      return activate as boolean;
+    } else {
+      throw new BadRequestException('Missing redirect URL');
     }
-
-    // Trigger the Google strategy and populate the req.user object if validation is successful
-    const activate = await super.canActivate(context);
-
-    return activate as boolean;
   }
 }

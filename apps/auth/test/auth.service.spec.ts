@@ -285,97 +285,101 @@ describe('Auth Service', () => {
       sessionService.get.mockResolvedValue(session);
     });
 
-    // --- Request Password Reset ---
-    it('should throw if no user is found with email in reset request', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    describe('Request Reset', () => {
+      it('should throw if no user is found with email in reset request', async () => {
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const response = authService.requestPasswordReset(
-        { email: 'wrongemail@example.com' },
-        session,
-      );
+        const response = authService.requestPasswordReset(
+          { email: 'wrongemail@example.com' },
+          session,
+        );
 
-      await expect(response).rejects.toBeInstanceOf(RpcException);
-      await expect(response).rejects.toThrow(
-        'No user found with that email address',
-      );
-    });
-
-    it('should request password reset and send otp', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
-
-      const response = authService.requestPasswordReset({ ...user }, session);
-      await expect(response).resolves.toBeUndefined();
-    });
-
-    // --- Resend OTP ---
-    it('should throw if no user is found in session while resending reset otp', async () => {
-      sessionService.get.mockResolvedValue({});
-
-      const response = authService.resendOtp({ email: undefined });
-      await expect(response).rejects.toBeInstanceOf(RpcException);
-      await expect(response).rejects.toThrow('Email not found in session');
-    });
-
-    it('should resend password reset otp', async () => {
-      const response = authService.resendOtp(session);
-      await expect(response).resolves.toBeUndefined();
-    });
-
-    // --- Verify OTP ---
-    it('should throw if reset otp is invalid', async () => {
-      const response = authService.verifyOtp({ otp: 'WrongOTP' }, session);
-
-      await expect(response).rejects.toBeInstanceOf(RpcException);
-      await expect(response).rejects.toThrow('Invalid OTP');
-    });
-
-    it('should throw if reset otp has expired', async () => {
-      sessionService.get.mockResolvedValue({
-        ...session,
-        otpExpiration: currentTime - 1000,
+        await expect(response).rejects.toBeInstanceOf(RpcException);
+        await expect(response).rejects.toThrow(
+          'No user found with that email address',
+        );
       });
 
-      const response = authService.verifyOtp(
-        { otp: session.otp as string },
-        session,
-      );
+      it('should request password reset and send otp', async () => {
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
 
-      await expect(response).rejects.toBeInstanceOf(RpcException);
-      await expect(response).rejects.toThrow('This OTP has expired');
+        const response = authService.requestPasswordReset({ ...user }, session);
+        await expect(response).resolves.toBeUndefined();
+      });
     });
 
-    it('should successfully verify a vaild and unexpired reset otp', async () => {
-      const response = authService.verifyOtp(
-        { otp: session.otp as string },
-        session,
-      );
-      await expect(response).resolves.toBeUndefined();
+    describe('Resend OTP', () => {
+      it('should throw if no user is found in session while resending reset otp', async () => {
+        sessionService.get.mockResolvedValue({});
+
+        const response = authService.resendOtp({ email: undefined });
+        await expect(response).rejects.toBeInstanceOf(RpcException);
+        await expect(response).rejects.toThrow('Email not found in session');
+      });
+
+      it('should resend password reset otp', async () => {
+        const response = authService.resendOtp(session);
+        await expect(response).resolves.toBeUndefined();
+      });
     });
 
-    // --- Change Password ---
-    it('should throw if old password is same as new password during password change', async () => {
-      (prisma.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(user);
-      jest.spyOn(argon, 'verify').mockResolvedValue(true);
+    describe('Verify OTP', () => {
+      it('should throw if reset otp is invalid', async () => {
+        const response = authService.verifyOtp({ otp: 'WrongOTP' }, session);
 
-      const dto: NewPasswordDTO = { newPassword: user.password };
-      const response = authService.changePassword(dto, session);
+        await expect(response).rejects.toBeInstanceOf(RpcException);
+        await expect(response).rejects.toThrow('Invalid OTP');
+      });
 
-      await expect(response).rejects.toBeInstanceOf(RpcException);
-      await expect(response).rejects.toThrow(
-        'New password cannot be the same value as previous password',
-      );
+      it('should throw if reset otp has expired', async () => {
+        sessionService.get.mockResolvedValue({
+          ...session,
+          otpExpiration: currentTime - 1000,
+        });
+
+        const response = authService.verifyOtp(
+          { otp: session.otp as string },
+          session,
+        );
+
+        await expect(response).rejects.toBeInstanceOf(RpcException);
+        await expect(response).rejects.toThrow('This OTP has expired');
+      });
+
+      it('should successfully verify a vaild and unexpired reset otp', async () => {
+        const response = authService.verifyOtp(
+          { otp: session.otp as string },
+          session,
+        );
+        await expect(response).resolves.toBeUndefined();
+      });
     });
 
-    it('should change password and complete reset', async () => {
-      (prisma.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(user);
-      (prisma.user.update as jest.Mock).mockResolvedValue(user);
-      jest.spyOn(argon, 'verify').mockResolvedValue(false);
+    describe('Change Password', () => {
+      it('should throw if old password is same as new password during password change', async () => {
+        (prisma.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(user);
+        jest.spyOn(argon, 'verify').mockResolvedValue(true);
 
-      const dto: NewPasswordDTO = { newPassword: 'newSecurePassword' };
-      const response = authService.changePassword(dto, session);
+        const dto: NewPasswordDTO = { newPassword: user.password };
+        const response = authService.changePassword(dto, session);
 
-      await expect(response).resolves.toBeUndefined();
-      expect(session).toEqual({});
+        await expect(response).rejects.toBeInstanceOf(RpcException);
+        await expect(response).rejects.toThrow(
+          'New password cannot be the same value as previous password',
+        );
+      });
+
+      it('should change password and complete reset', async () => {
+        (prisma.user.findUniqueOrThrow as jest.Mock).mockResolvedValue(user);
+        (prisma.user.update as jest.Mock).mockResolvedValue(user);
+        jest.spyOn(argon, 'verify').mockResolvedValue(false);
+
+        const dto: NewPasswordDTO = { newPassword: 'newSecurePassword' };
+        const response = authService.changePassword(dto, session);
+
+        await expect(response).resolves.toBeUndefined();
+        expect(session).toEqual({});
+      });
     });
   });
 });

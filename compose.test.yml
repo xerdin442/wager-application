@@ -3,33 +3,14 @@ x-test-setup: &test-setup
     - ./:/usr/src/app:rw
   environment:
     - NODE_ENV=test
-    - DATABASE_URL=postgresql://postgres:postgres@database:5432/test-DB?schema=public
+    - DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test-DB?schema=public
 
 services:
-  api-gateway:
-    <<: *test-setup
-    build:
-      context: .
-      dockerfile: ./apps/api-gateway/Dockerfile
-    restart: always
-    ports:
-      - "3000:3000"
-      - "5555:5555"
-    networks:
-      - app-network      
-    depends_on:
-      - database
-      - nats-server
-    command: >
-      sh -c "npm run deploy && npm run start:dev"      
-
-  database:
+  test-db:
     image: postgres:latest
     restart: always
     ports:
       - "5432:5432"
-    networks:
-      - app-network
     environment:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=test-DB
@@ -45,7 +26,7 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - database
+      - test-db
       - nats-server
     command: >
       sh -c "npm run start:dev admin"      
@@ -63,7 +44,7 @@ services:
       - ./.env
       - ./apps/auth/.env
     depends_on:
-      - database
+      - test-db
       - auth-redis
       - nats-server
     command: >
@@ -96,7 +77,7 @@ services:
       - ./.env
       - ./apps/wallet/.env
     depends_on:
-      - database
+      - test-db
       - nats-server
     secrets:
       - platform_wallet_keyphrase
@@ -130,7 +111,7 @@ services:
       - app-network
       - wager-network
     depends_on:
-      - database
+      - test-db
       - wager-redis
       - nats-server
     command: >
@@ -159,7 +140,7 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - database
+      - test-db
       - nats-server
     command: >
       sh -c "npm run start:dev user"

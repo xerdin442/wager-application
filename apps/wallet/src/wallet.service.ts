@@ -18,13 +18,14 @@ import {
 } from '@solana/web3.js';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
 import { hdkey } from '@ethereumjs/wallet';
-import { EthereumHDKey } from '@ethereumjs/wallet/dist/cjs/hdkey';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
 import axios from 'axios';
+import * as bip39 from 'bip39';
 import { ETH_WEB3_PROVIDER_TOKEN, SOL_WEB3_PROVIDER_TOKEN } from './providers';
+import { derivePath } from 'ed25519-hd-key';
 
 @Injectable()
 export class WalletService {
@@ -32,6 +33,9 @@ export class WalletService {
 
   private readonly BASE_USDC_TOKEN_ADDRESS: string;
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
+
+  private readonly SOLANA_DERIVATION_PATH = "m/44'/501'/0'/0'";
+  private readonly ETHEREUM_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 
   // Minimum amount in USD for native assets and stablecoins
   private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 3500;
@@ -53,21 +57,23 @@ export class WalletService {
   }
 
   getPlatformWalletPrivateKey(chain: Chain): string | Keypair {
-    let wallet: EthereumHDKey;
-    let privateKey: Uint8Array;
-
     const keyPhrase: string = this.config.getOrThrow<string>(
       'PLATFORM_WALLET_KEYPHRASE',
     );
+    const seed = bip39.mnemonicToSeedSync(keyPhrase);
 
-    switch (chain) {
-      case 'BASE':
-        wallet = hdkey.EthereumHDKey.fromMnemonic(keyPhrase);
-        return wallet.getWallet().getPrivateKeyString();
+    if (chain === 'BASE') {
+      const hdWallet = hdkey.EthereumHDKey.fromMasterSeed(seed);
+      const derivedKey = hdWallet.derivePath(this.ETHEREUM_DERIVATION_PATH);
 
-      case 'SOLANA':
-        privateKey = Uint8Array.from(keyPhrase);
-        return Keypair.fromSecretKey(privateKey);
+      return derivedKey.getWallet().getPrivateKeyString();
+    } else {
+      const { key: privateKey32Bytes } = derivePath(
+        this.SOLANA_DERIVATION_PATH,
+        seed.toString('hex'),
+      );
+
+      return Keypair.fromSeed(privateKey32Bytes);
     }
   }
 
@@ -257,7 +263,7 @@ export class WalletService {
           .getOrThrow<string>('PLATFORM_ETHEREUM_WALLET')
           .toLowerCase();
       // Confirm that the sender address is the depositor's address
-      const senderCheck = tx.from === depositor;
+      const senderCheck = tx.from.toLowerCase() === depositor.toLowerCase();
 
       if (amountCheck && walletCheck && senderCheck) {
         // Update user balance and transaction details

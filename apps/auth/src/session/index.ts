@@ -72,20 +72,4 @@ export class SessionService implements OnModuleInit {
       throw error;
     }
   }
-
-  async clear(): Promise<void> {
-    try {
-      await this.redis.flushAll();
-      this.utils
-        .logger()
-        .info(`[${this.context}] Session store cleared for tests.\n`);
-    } catch (error) {
-      this.utils
-        .logger()
-        .error(
-          `[${this.context}] An error occurred while clearing session store. Error: ${error.message}.\n`,
-        );
-      throw error;
-    }
-  }
 }

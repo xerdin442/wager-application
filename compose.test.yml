@@ -15,18 +15,33 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=test-DB
 
+  test-redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=password
+    command: >
+      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
+
+  nats-server:
+    image: nats:latest
+    restart: always
+    ports:
+      - "4222:4222"
+
   admin-service:
     <<: *test-setup
     build:
       context: .
       dockerfile: ./apps/admin/Dockerfile
     restart: always
-    networks:
-      - app-network
     env_file:
-      - ./.env
+      - ./.env.test
     depends_on:
       - test-db
+      - test-redis
       - nats-server
     command: >
       sh -c "npm run start:dev admin"      
@@ -37,30 +52,14 @@ services:
       context: .
       dockerfile: ./apps/auth/Dockerfile
     restart: always
-    networks:
-      - app-network
-      - auth-network
     env_file:
-      - ./.env
-      - ./apps/auth/.env
+      - ./.env.test
     depends_on:
       - test-db
-      - auth-redis
+      - test-redis
       - nats-server
     command: >
       sh -c "npm run start:dev auth"
-
-  auth-redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6379:6379"
-    env_file:
-      - ./apps/auth/.env
-    networks:
-      - auth-network
-    command: >
-      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wallet-service:
     <<: *test-setup
@@ -70,31 +69,16 @@ services:
     restart: always
     ports:
       - "8080:8080"
-    networks:
-      - app-network
-      - wallet-network
     env_file:
-      - ./.env
-      - ./apps/wallet/.env
+      - ./.env.test
     depends_on:
       - test-db
+      - test-redis
       - nats-server
     secrets:
       - platform_wallet_keyphrase
     command: >
       sh -c "npm run start:dev wallet"
-
-  wallet-redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6380:6379"
-    env_file:
-      - ./apps/wallet/.env
-    networks:
-      - wallet-network
-    command: >
-      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   wager-service:
     <<: *test-setup
@@ -105,29 +89,13 @@ services:
     ports:
       - "8082:8080"
     env_file:
-      - ./.env
-      - ./apps/wager/.env
-    networks:
-      - app-network
-      - wager-network
+      - ./.env.test
     depends_on:
       - test-db
-      - wager-redis
+      - test-redis
       - nats-server
     command: >
       sh -c "npm run start:dev wager"
-
-  wager-redis:
-    image: redis:latest
-    restart: always
-    ports:
-      - "6382:6379"
-    env_file:
-      - ./apps/wager/.env
-    networks:
-      - wager-network
-    command: >
-      /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
 
   user-service:
     <<: *test-setup
@@ -135,29 +103,14 @@ services:
       context: .
       dockerfile: ./apps/user/Dockerfile
     restart: always
-    networks:
-      - app-network
     env_file:
-      - ./.env
+      - ./.env.test
     depends_on:
       - test-db
+      - test-redis
       - nats-server
     command: >
       sh -c "npm run start:dev user"
-
-  nats-server:
-    image: nats:latest
-    restart: always
-    ports:
-      - "4222:4222"
-    networks:
-      - app-network
-
-networks:
-  app-network:
-  auth-network:
-  wager-network:
-  wallet-network:
 
 secrets:
   platform_wallet_keyphrase:

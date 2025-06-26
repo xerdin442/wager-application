@@ -44,7 +44,7 @@ export class AuthService {
       const defaultImage = this.config.getOrThrow<string>('DEFAULT_IMAGE');
 
       // Create new user through custom authentication
-      if (details instanceof SignupDTO) {
+      if ('password' in details) {
         // Upload file to AWS if available
         let filePath: string = '';
         if (file) filePath = await this.utils.upload(file, 'profile-images');

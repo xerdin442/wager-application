@@ -23,7 +23,7 @@ export class AuthController {
     private readonly utils: UtilsService,
   ) {}
 
-  @MessagePattern('signup')
+  @MessagePattern('auth-signup')
   async signup(data: {
     details: SignupDTO | GoogleAuthPayload;
     file?: Express.Multer.File;
@@ -50,7 +50,7 @@ export class AuthController {
     }
   }
 
-  @MessagePattern('login')
+  @MessagePattern('auth-login')
   async login(data: {
     dto: LoginDTO;
   }): Promise<{ token: string; twoFactorAuth: boolean }> {

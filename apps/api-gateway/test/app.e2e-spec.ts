@@ -1,7 +1,6 @@
 import { DbService } from '@app/db';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { TestingModule, Test } from '@nestjs/testing';
-import { SessionService } from 'apps/auth/src/session';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import * as request from 'supertest';
@@ -16,6 +15,7 @@ import {
 } from '../src/auth/dto';
 // import { CreateAdminDTO } from '../src/admin/dto';
 import { UpdateProfileDTO } from '../src/user/dto';
+import { natsOptions } from '@app/utils';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 30000;
@@ -43,7 +43,6 @@ describe('E2E Tests', () => {
 
   let app: INestApplication<App>;
   let prisma: DbService;
-  let session: SessionService;
   let userOneToken: string;
   // let userTwoToken: string;
   // let wagerId: number;
@@ -59,6 +58,7 @@ describe('E2E Tests', () => {
     }).compile();
 
     app = module.createNestApplication();
+
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -69,14 +69,14 @@ describe('E2E Tests', () => {
     prisma = app.get(DbService);
     await prisma.cleanDb();
 
-    session = app.get(SessionService);
-    await session.onModuleInit();
-    await session.clear();
-
+    app.connectMicroservice(natsOptions);
+    await app.startAllMicroservices();
     await app.init();
   });
 
-  afterAll(() => app.close());
+  afterAll(async () => {
+    await app.close();
+  });
 
   describe('Signup', () => {
     it('should throw if email format is invalid', async () => {
@@ -124,6 +124,7 @@ describe('E2E Tests', () => {
           .post('/auth/signup')
           .send(userOne);
 
+        console.log(response);
         expect(response.status).toEqual(201);
         expect(response.body).toHaveProperty('user');
         expect(response.body).toHaveProperty('token');
@@ -186,7 +187,7 @@ describe('E2E Tests', () => {
     it('should redirect to Google login page', async () => {
       return request(app.getHttpServer())
         .get('/auth/google?redirectUrl=/dashboard')
-        .expect(200);
+        .expect(302);
     });
 
     it('should throw if redirect URL is missing', async () => {

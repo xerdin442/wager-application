@@ -77,14 +77,16 @@ export class AuthController {
     @UploadedFile() file?: Express.Multer.File,
   ): Observable<any> {
     return this.natsClient
-      .send('signup', { deatils: dto, file })
+      .send('auth-signup', { details: dto, file })
       .pipe(catchError(handleError));
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
   login(@Body() dto: LoginDTO): Observable<any> {
-    return this.natsClient.send('login', { dto }).pipe(catchError(handleError));
+    return this.natsClient
+      .send('auth-login', { dto })
+      .pipe(catchError(handleError));
   }
 
   @UseGuards(GoogleAuthGuard)

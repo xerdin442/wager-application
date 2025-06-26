@@ -27,14 +27,16 @@ export class AdminController {
   @Post('signup')
   signup(@Body() dto: AdminAuthDTO): Observable<any> {
     return this.natsClient
-      .send('signup', { dto })
+      .send('admin-signup', { dto })
       .pipe(catchError(handleError));
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: AdminAuthDTO): Observable<any> {
-    return this.natsClient.send('login', { dto }).pipe(catchError(handleError));
+    return this.natsClient
+      .send('admin-login', { dto })
+      .pipe(catchError(handleError));
   }
 
   @Get()

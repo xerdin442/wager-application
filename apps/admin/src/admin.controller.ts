@@ -14,7 +14,7 @@ export class AdminController {
     private readonly utils: UtilsService,
   ) {}
 
-  @MessagePattern('signup')
+  @MessagePattern('admin-signup')
   async signup(data: {
     dto: AdminAuthDTO;
   }): Promise<{ message: string; token: string }> {
@@ -40,7 +40,7 @@ export class AdminController {
     }
   }
 
-  @MessagePattern('login')
+  @MessagePattern('admin-login')
   async login(data: { dto: AdminAuthDTO }): Promise<{ token: string }> {
     try {
       const { dto } = data;

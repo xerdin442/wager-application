@@ -17,7 +17,7 @@ import {
   SendTransactionError as SolanaTransactionError,
 } from '@solana/web3.js';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
-import { hdkey } from '@ethereumjs/wallet';
+import { hdkey, Wallet } from '@ethereumjs/wallet';
 import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
@@ -56,7 +56,7 @@ export class WalletService {
       this.helper.selectUSDCTokenAddress('SOLANA');
   }
 
-  getPlatformWalletPrivateKey(chain: Chain): string | Keypair {
+  getPlatformWallet(chain: Chain): Wallet | Keypair {
     const keyPhrase: string = this.config.getOrThrow<string>(
       'PLATFORM_WALLET_KEYPHRASE',
     );
@@ -66,7 +66,7 @@ export class WalletService {
       const hdWallet = hdkey.EthereumHDKey.fromMasterSeed(seed);
       const derivedKey = hdWallet.derivePath(this.ETHEREUM_DERIVATION_PATH);
 
-      return derivedKey.getWallet().getPrivateKeyString();
+      return derivedKey.getWallet();
     } else {
       const { key: privateKey32Bytes } = derivePath(
         this.SOLANA_DERIVATION_PATH,
@@ -256,12 +256,13 @@ export class WalletService {
 
       // Confirm the transferred amount
       const amountCheck = amount === parseFloat(amountTransferred.toFixed(2));
+
       // Confirm that the recipient address is the platform wallet address
+      const platformWallet = this.getPlatformWallet('BASE') as Wallet;
       const walletCheck =
         recipientAddress.toLowerCase() ===
-        this.config
-          .getOrThrow<string>('PLATFORM_ETHEREUM_WALLET')
-          .toLowerCase();
+        platformWallet.getAddressString().toLowerCase();
+
       // Confirm that the sender address is the depositor's address
       const senderCheck = tx.from.toLowerCase() === depositor.toLowerCase();
 
@@ -395,10 +396,12 @@ export class WalletService {
 
       // Confirm the transferred amount
       const amountCheck = amount === parseFloat(amountTransferred.toFixed(2));
+
       // Confirm that the recipient address is the platform wallet address
+      const platformWallet = this.getPlatformWallet(chain) as Keypair;
       const walletCheck =
-        recipientAddress ===
-        this.config.getOrThrow<string>('PLATFORM_SOLANA_WALLET');
+        recipientAddress === platformWallet.publicKey.toBase58();
+
       // Confirm that the sender address is the depositor's address
       const senderCheck = senderAddress === depositor;
 
@@ -447,11 +450,10 @@ export class WalletService {
     const metricLabels: string[] = [dto.chain.toLowerCase()];
 
     try {
-      const platformPrivateKey = this.getPlatformWalletPrivateKey(
-        'BASE',
-      ) as string;
-      const account =
-        this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+      const platformWallet = this.getPlatformWallet('BASE') as Wallet;
+      const privateKey = platformWallet.getPrivateKeyString();
+
+      const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
       const contract = new this.web3.eth.Contract(
         contractAbi,
         this.BASE_USDC_TOKEN_ADDRESS,
@@ -484,7 +486,7 @@ export class WalletService {
       // Sign and broadcast the transaction to the network
       const signedTx = await this.web3.eth.accounts.signTransaction(
         tx,
-        platformPrivateKey,
+        privateKey,
       );
       const receipt = await this.web3.eth.sendSignedTransaction(
         signedTx.rawTransaction,
@@ -556,7 +558,7 @@ export class WalletService {
     const metricLabels: string[] = [dto.chain.toLowerCase()];
 
     try {
-      const sender = this.getPlatformWalletPrivateKey('SOLANA') as Keypair;
+      const sender = this.getPlatformWallet('SOLANA') as Keypair;
       const recipient = new PublicKey(dto.address);
 
       // Initiate withdrawal from platform wallet
@@ -666,11 +668,10 @@ export class WalletService {
       );
 
       if (chain === 'BASE') {
-        const platformPrivateKey = this.getPlatformWalletPrivateKey(
-          chain,
-        ) as string;
-        const account =
-          this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+        const platformWallet = this.getPlatformWallet('BASE') as Wallet;
+        const privateKey = platformWallet.getPrivateKeyString();
+
+        const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
 
         // Get ETH balance
         const currentBalanceInWei = await this.web3.eth.getBalance(
@@ -687,13 +688,11 @@ export class WalletService {
       }
 
       if (chain === 'SOLANA') {
-        const platformPrivateKey = this.getPlatformWalletPrivateKey(
-          chain,
-        ) as Keypair;
+        const platformWallet = this.getPlatformWallet(chain) as Keypair;
 
         // Get SOL balance
         const currentBalanceInLamports = await this.connection.getBalance(
-          platformPrivateKey.publicKey,
+          platformWallet.publicKey,
         );
         currentBalance = currentBalanceInLamports / LAMPORTS_PER_SOL;
 
@@ -733,11 +732,10 @@ export class WalletService {
       let currentBalance: number = 0;
 
       if (chain === 'BASE') {
-        const platformPrivateKey = this.getPlatformWalletPrivateKey(
-          chain,
-        ) as string;
-        const account =
-          this.web3.eth.accounts.privateKeyToAccount(platformPrivateKey);
+        const platformWallet = this.getPlatformWallet('BASE') as Wallet;
+        const privateKey = platformWallet.getPrivateKeyString();
+
+        const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
         const contract = new this.web3.eth.Contract(
           contractAbi,
           this.BASE_USDC_TOKEN_ADDRESS,
@@ -756,11 +754,9 @@ export class WalletService {
       }
 
       if (chain === 'SOLANA') {
-        const platformPrivateKey = this.getPlatformWalletPrivateKey(
-          chain,
-        ) as Keypair;
+        const platformWallet = this.getPlatformWallet(chain) as Keypair;
         const platformTokenAddress = await this.helper.getTokenAccountAddress(
-          platformPrivateKey.publicKey,
+          platformWallet.publicKey,
         );
 
         // Get stablecoin balance

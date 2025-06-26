@@ -2,8 +2,8 @@ x-test-setup: &test-setup
   volumes:
     - ./:/usr/src/app:rw
   environment:
-    - NODE_ENV=test
-    - DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test-DB?schema=public
+    - DATABASE_URL=postgresql://postgres:postgres@test-db:5432/test-DB?schema=public
+    - NATS_URL=nats://nats-server:4222
 
 services:
   test-db:
@@ -59,7 +59,7 @@ services:
       - test-redis
       - nats-server
     command: >
-      sh -c "npm run start:dev auth"
+      sh -c "npm run deploy && npm run start:dev auth"
 
   wallet-service:
     <<: *test-setup

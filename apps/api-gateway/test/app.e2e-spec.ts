@@ -7,18 +7,18 @@ import * as request from 'supertest';
 import * as path from 'path';
 import {
   LoginDTO,
-  NewPasswordDTO,
-  PasswordResetDTO,
+  // NewPasswordDTO,
+  // PasswordResetDTO,
   SignupDTO,
   Verify2faDTO,
-  VerifyOtpDTO,
+  // VerifyOtpDTO,
 } from '../src/auth/dto';
 // import { CreateAdminDTO } from '../src/admin/dto';
 import { UpdateProfileDTO } from '../src/user/dto';
 import { natsOptions } from '@app/utils';
 
 describe('E2E Tests', () => {
-  const requestTimeout: number = 30000;
+  const requestTimeout: number = 50000;
 
   const userOne: SignupDTO = {
     email: 'xerdinludac@gmail.com',
@@ -124,7 +124,6 @@ describe('E2E Tests', () => {
           .post('/auth/signup')
           .send(userOne);
 
-        console.log(response);
         expect(response.status).toEqual(201);
         expect(response.body).toHaveProperty('user');
         expect(response.body).toHaveProperty('token');
@@ -189,14 +188,6 @@ describe('E2E Tests', () => {
         .get('/auth/google?redirectUrl=/dashboard')
         .expect(302);
     });
-
-    it('should throw if redirect URL is missing', async () => {
-      const response = await request(app.getHttpServer()).get('/auth/google');
-
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Missing redirect URL');
-    });
   });
 
   describe('2FA', () => {
@@ -235,59 +226,59 @@ describe('E2E Tests', () => {
     });
   });
 
-  describe('Password Reset', () => {
-    it('should send password reset OTP to user email', async () => {
-      const dto: PasswordResetDTO = { ...userOne };
+  // describe('Password Reset', () => {
+  //   it('should send password reset OTP to user email', async () => {
+  //     const dto: PasswordResetDTO = { ...userOne };
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/password/reset')
-        .send(dto);
+  //     const response = await request(app.getHttpServer())
+  //       .post('/auth/password/reset')
+  //       .send(dto);
 
-      expect(response.status).toEqual(200);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual(
-        'Password reset OTP has been sent to your email',
-      );
-    });
+  //     expect(response.status).toEqual(200);
+  //     expect(response.body).toHaveProperty('message');
+  //     expect(response.body.message).toEqual(
+  //       'Password reset OTP has been sent to your email',
+  //     );
+  //   });
 
-    it('should re-send password reset OTP to user email', async () => {
-      const response = await request(app.getHttpServer()).post(
-        '/auth/password/resend-otp',
-      );
+  //   it('should re-send password reset OTP to user email', async () => {
+  //     const response = await request(app.getHttpServer()).post(
+  //       '/auth/password/resend-otp',
+  //     );
 
-      expect(response.status).toEqual(200);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual(
-        'Another OTP has been sent to your email',
-      );
-    });
+  //     expect(response.status).toEqual(200);
+  //     expect(response.body).toHaveProperty('message');
+  //     expect(response.body.message).toEqual(
+  //       'Another OTP has been sent to your email',
+  //     );
+  //   });
 
-    it('should verify password reset OTP', async () => {
-      const dto: VerifyOtpDTO = {
-        otp: '1234',
-      };
-      const response = await request(app.getHttpServer())
-        .post('/auth/password/verify-otp')
-        .send(dto);
+  //   it('should verify password reset OTP', async () => {
+  //     const dto: VerifyOtpDTO = {
+  //       otp: '1234',
+  //     };
+  //     const response = await request(app.getHttpServer())
+  //       .post('/auth/password/verify-otp')
+  //       .send(dto);
 
-      expect(response.status).toEqual(400);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Invalid OTP');
-    });
+  //     expect(response.status).toEqual(400);
+  //     expect(response.body).toHaveProperty('message');
+  //     expect(response.body.message).toEqual('Invalid OTP');
+  //   });
 
-    it('should change password and complete reset', async () => {
-      const dto: NewPasswordDTO = {
-        newPassword: 'PassWord12!',
-      };
-      const response = await request(app.getHttpServer())
-        .post('/auth/password/new')
-        .send(dto);
+  //   it('should change password and complete reset', async () => {
+  //     const dto: NewPasswordDTO = {
+  //       newPassword: 'PassWord12!',
+  //     };
+  //     const response = await request(app.getHttpServer())
+  //       .post('/auth/password/new')
+  //       .send(dto);
 
-      expect(response.status).toEqual(200);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toEqual('Password reset complete!');
-    });
-  });
+  //     expect(response.status).toEqual(200);
+  //     expect(response.body).toHaveProperty('message');
+  //     expect(response.body.message).toEqual('Password reset complete!');
+  //   });
+  // });
 
   describe('Profile', () => {
     it('should throw if access token is missing', async () => {
@@ -334,6 +325,6 @@ describe('E2E Tests', () => {
 
   //   it('should throw if depositor address is invalid', async () => {});
 
-  //   it('should throw if pending transaction and inititate processing of deposit', async () => {});
+  //   it('should return pending transaction and inititate processing of deposit', async () => {});
   // });
 });

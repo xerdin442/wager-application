@@ -20,9 +20,13 @@ export class DbService extends PrismaClient {
         this.message.deleteMany(),
         this.chat.deleteMany(),
         this.wager.deleteMany(),
+        this.transaction.deleteMany(),
         this.admin.deleteMany(),
         this.user.deleteMany(),
       ]);
+
+      const users = await this.user.findMany();
+      console.log('All Users: ', users);
 
       this.utils
         .logger()

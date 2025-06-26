@@ -35,6 +35,8 @@ import {
 import { NameRegistryState } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from '../src/dto';
 import axios, { AxiosResponse } from 'axios';
+import * as bip39 from 'bip39';
+import * as ed25519 from 'ed25519-hd-key';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
@@ -164,12 +166,20 @@ describe('Wallet Service', () => {
   });
 
   describe('Platform Wallet Private Key', () => {
+    beforeEach(() => {
+      jest
+        .spyOn(bip39, 'mnemonicToSeedSync')
+        .mockReturnValue(Buffer.from('seed-phrase'));
+    });
+
     it('should return the private key of the platform ethereum wallet', () => {
-      jest.spyOn(hdkey.EthereumHDKey, 'fromMnemonic').mockReturnValue({
-        getWallet: jest.fn().mockReturnValue({
-          getPrivateKeyString: jest
-            .fn()
-            .mockReturnValue('ethereum-private-key'),
+      jest.spyOn(hdkey.EthereumHDKey, 'fromMasterSeed').mockReturnValue({
+        derivePath: jest.fn().mockReturnValue({
+          getWallet: jest.fn().mockReturnValue({
+            getPrivateKeyString: jest
+              .fn()
+              .mockReturnValue('ethereum-private-key'),
+          }),
         }),
       } as unknown as hdkey.EthereumHDKey);
 
@@ -178,7 +188,11 @@ describe('Wallet Service', () => {
     });
 
     it('should return the keypair of the platform solana wallet', () => {
-      jest.spyOn(Keypair, 'fromSecretKey').mockReturnValue(keypair);
+      jest.spyOn(ed25519, 'derivePath').mockReturnValue({
+        key: Buffer.from('key-from-seed'),
+        chainCode: Buffer.from('chain-code'),
+      });
+      jest.spyOn(Keypair, 'fromSeed').mockReturnValue(keypair);
 
       const response = walletService.getPlatformWalletPrivateKey('SOLANA');
       expect(response).toEqual(keypair);

@@ -23,12 +23,12 @@ import { UserModule } from './user/user.module';
           {
             name: 'Minutes',
             ttl: 60_000,
-            limit: config.getOrThrow<number>('RATE_LIMITING_PER_MINUTE'),
+            limit: config.getOrThrow<number>('RATE_LIMIT_PER_MINUTE'),
           },
           {
             name: 'Seconds',
             ttl: 1000,
-            limit: config.getOrThrow<number>('RATE_LIMITING_PER_SECOND'),
+            limit: config.getOrThrow<number>('RATE_LIMIT_PER_SECOND'),
           },
         ],
       }),

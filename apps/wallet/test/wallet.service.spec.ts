@@ -7,7 +7,7 @@ import { MetricsService } from '@app/metrics';
 import { createMock, DeepMocked } from '@golevelup/ts-jest';
 import { ConfigService } from '@nestjs/config';
 import { TestingModule, Test } from '@nestjs/testing';
-import { hdkey } from '@ethereumjs/wallet';
+import { hdkey, Wallet } from '@ethereumjs/wallet';
 import { HelperService } from '../src/utils/helper';
 import { Chain, Transaction, User } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from '../src/utils/constants';
@@ -70,6 +70,11 @@ describe('Wallet Service', () => {
     publicKey: new PublicKey('11111111111111111111111111111111'),
   } as unknown as Keypair;
 
+  const wallet = {
+    getAddressString: () => '0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57',
+    getPrivateKeyString: () => '0x0000000000000000000000000000000000000000000',
+  } as unknown as Wallet;
+
   const account = {
     address: '0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57',
   } as unknown as Web3Account;
@@ -112,8 +117,6 @@ describe('Wallet Service', () => {
       if (key === 'NODE_ENV') return 'test';
       if (key === 'COINGECKO_API_KEY') return 'coingecko-api-key';
       if (key === 'SUPER_ADMIN_EMAIL') return 'super-admin-email';
-      if (key === 'PLATFORM_SOLANA_WALLET') return 'platform-solana-wallet';
-      if (key === 'PLATFORM_ETHEREUM_WALLET') return 'platform-ethereum-wallet';
 
       return undefined;
     });
@@ -175,16 +178,12 @@ describe('Wallet Service', () => {
     it('should return the private key of the platform ethereum wallet', () => {
       jest.spyOn(hdkey.EthereumHDKey, 'fromMasterSeed').mockReturnValue({
         derivePath: jest.fn().mockReturnValue({
-          getWallet: jest.fn().mockReturnValue({
-            getPrivateKeyString: jest
-              .fn()
-              .mockReturnValue('ethereum-private-key'),
-          }),
+          getWallet: jest.fn().mockReturnValue(wallet),
         }),
       } as unknown as hdkey.EthereumHDKey);
 
-      const response = walletService.getPlatformWalletPrivateKey('BASE');
-      expect(response).toEqual('ethereum-private-key');
+      const response = walletService.getPlatformWallet('BASE');
+      expect(response).toEqual(wallet);
     });
 
     it('should return the keypair of the platform solana wallet', () => {
@@ -194,7 +193,7 @@ describe('Wallet Service', () => {
       });
       jest.spyOn(Keypair, 'fromSeed').mockReturnValue(keypair);
 
-      const response = walletService.getPlatformWalletPrivateKey('SOLANA');
+      const response = walletService.getPlatformWallet('SOLANA');
       expect(response).toEqual(keypair);
     });
   });
@@ -353,7 +352,7 @@ describe('Wallet Service', () => {
     };
 
     const decodedData = {
-      '0': 'platform-ethereum-wallet',
+      '0': wallet.getAddressString(),
       '1': BigInt(`${depositDto.amount * 1e6}`),
     };
 
@@ -366,6 +365,7 @@ describe('Wallet Service', () => {
       (web3.eth.abi.decodeParameters as jest.Mock).mockReturnValue(decodedData);
       (web3.utils.fromWei as jest.Mock).mockReturnValue(`${depositDto.amount}`);
 
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(wallet);
       jest
         .spyOn(walletService, 'updateDbAfterTransaction')
         .mockResolvedValueOnce({ user, updatedTx: transaction });
@@ -479,8 +479,8 @@ describe('Wallet Service', () => {
 
     const dto: DepositDTO = { ...depositDto, chain: 'SOLANA' };
 
-    const PLATFORM_SOLANA_WALLET_ADDRESS = 'platform-solana-wallet';
-    const TOKEN_PROGRAM_ID_BASE58 =
+    const PLATFORM_SOLANA_WALLET_ADDRESS: string = keypair.publicKey.toBase58();
+    const TOKEN_PROGRAM_ID_BASE58: string =
       'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
     const preTokenBalances: TokenBalance[] = [
@@ -603,7 +603,7 @@ describe('Wallet Service', () => {
 
     beforeEach(() => {
       jest.spyOn(axios, 'post').mockResolvedValue(rpcTransactionResponse);
-
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(keypair);
       jest
         .spyOn(walletService, 'updateDbAfterTransaction')
         .mockResolvedValueOnce({ user, updatedTx: tx });
@@ -853,9 +853,7 @@ describe('Wallet Service', () => {
 
   describe('Withdrawal on Base', () => {
     beforeEach(() => {
-      jest
-        .spyOn(walletService, 'getPlatformWalletPrivateKey')
-        .mockReturnValue('ethereum-private-key');
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(wallet);
 
       (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
         account,
@@ -932,10 +930,7 @@ describe('Wallet Service', () => {
     const tx: Transaction = { ...transaction, chain: 'SOLANA' };
 
     beforeEach(() => {
-      jest
-        .spyOn(walletService, 'getPlatformWalletPrivateKey')
-        .mockReturnValue(keypair);
-
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(keypair);
       jest
         .spyOn(walletService, 'updateDbAfterTransaction')
         .mockResolvedValueOnce({ user, updatedTx: tx });
@@ -1002,10 +997,7 @@ describe('Wallet Service', () => {
   describe('Ethereum Wallet Balance', () => {
     beforeEach(() => {
       jest.spyOn(walletService, 'convertAmountToCrypto').mockResolvedValue(2);
-
-      jest
-        .spyOn(walletService, 'getPlatformWalletPrivateKey')
-        .mockReturnValue('ethereum-private-key');
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(wallet);
 
       (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
         account,
@@ -1068,10 +1060,7 @@ describe('Wallet Service', () => {
   describe('Solana Wallet Balance', () => {
     beforeEach(() => {
       jest.spyOn(walletService, 'convertAmountToCrypto').mockResolvedValue(2);
-
-      jest
-        .spyOn(walletService, 'getPlatformWalletPrivateKey')
-        .mockReturnValue(keypair);
+      jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(keypair);
     });
 
     it('should ignore alert email if SOL balance is above allowed minimum', async () => {

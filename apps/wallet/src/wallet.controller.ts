@@ -27,7 +27,7 @@ export class WalletController {
   async processDeposit(data: {
     dto: DepositDTO;
     user: User;
-  }): Promise<Transaction> {
+  }): Promise<{ transaction: Transaction }> {
     try {
       const { dto, user } = data;
       const { depositor, txIdentifier, chain } = dto;
@@ -74,7 +74,7 @@ export class WalletController {
         transactionId: transaction.id,
       });
 
-      return transaction;
+      return { transaction };
     } catch (error) {
       this.utils
         .logger()
@@ -91,7 +91,7 @@ export class WalletController {
     user: User;
     dto: WithdrawalDTO;
     idempotencyKey?: string;
-  }): Promise<Transaction | { message: string } | undefined> {
+  }): Promise<{ transaction?: Transaction; message?: string }> {
     // Initialize Redis connection
     const redis: RedisClientType = await this.utils.connectToRedis(
       this.config.getOrThrow<string>('REDIS_URL'),
@@ -190,7 +190,7 @@ export class WalletController {
         JSON.stringify({ status: 'processing' }),
       );
 
-      return transaction;
+      return { transaction };
     } catch (error) {
       this.utils
         .logger()

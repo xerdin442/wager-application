@@ -48,7 +48,7 @@ export class AdminService {
     }
   }
 
-  async login(dto: AdminAuthDTO): Promise<string> {
+  async login(dto: AdminAuthDTO): Promise<{ admin: Admin; token: string }> {
     try {
       const admin = await this.prisma.admin.findUnique({
         where: { email: dto.email },
@@ -72,7 +72,7 @@ export class AdminService {
 
       const payload = { sub: admin.id, email: admin.email }; // Create JWT payload
 
-      return this.jwt.signAsync(payload);
+      return { admin, token: await this.jwt.signAsync(payload) };
     } catch (error) {
       throw error;
     }

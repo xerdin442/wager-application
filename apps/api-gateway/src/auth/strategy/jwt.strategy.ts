@@ -23,7 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: Record<string, any>): Promise<User | undefined> {
     try {
       // Prompt user to login if token has expired
-      if (payload.exp > payload.iat) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (payload.exp < currentTime) {
         throw new UnauthorizedException('Session expired. Please log in.');
       }
 

@@ -7,15 +7,22 @@ import * as request from 'supertest';
 import * as path from 'path';
 import {
   LoginDTO,
-  // NewPasswordDTO,
-  // PasswordResetDTO,
+  NewPasswordDTO,
+  PasswordResetDTO,
   SignupDTO,
   Verify2faDTO,
-  // VerifyOtpDTO,
+  VerifyOtpDTO,
 } from '../src/auth/dto';
-// import { CreateAdminDTO } from '../src/admin/dto';
+import { AdminAuthDTO, CreateAdminDTO } from '../src/admin/dto';
 import { UpdateProfileDTO } from '../src/user/dto';
 import { natsOptions } from '@app/utils';
+import { DepositDTO } from '../src/wallet/dto';
+import {
+  CreateWagerDTO,
+  UpdateWagerDTO,
+  WagerInviteDTO,
+} from '../src/wager/dto';
+import * as argon from 'argon2';
 
 describe('E2E Tests', () => {
   const requestTimeout: number = 50000;
@@ -35,20 +42,20 @@ describe('E2E Tests', () => {
     username: 'jada_wills',
   };
 
-  // const admin: CreateAdminDTO = {
-  //   email: 'ozunabiraz3@hotmail.com',
-  //   category: 'FOOTBALL',
-  //   name: 'Ozuna Biraz',
-  // };
+  const admin: CreateAdminDTO = {
+    email: 'ozunabiraz3@hotmail.com',
+    category: 'FOOTBALL',
+    name: 'Ozuna Biraz',
+  };
 
   let app: INestApplication<App>;
   let prisma: DbService;
   let userOneToken: string;
-  // let userTwoToken: string;
-  // let wagerId: number;
-  // let wagerInviteCode: string;
-  // let superAdminToken: string;
-  // let adminToken: string;
+  let userTwoToken: string;
+  let wagerId: number;
+  let wagerInviteCode: string;
+  let superAdminToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     jest.useRealTimers();
@@ -143,8 +150,8 @@ describe('E2E Tests', () => {
         expect(response.body).toHaveProperty('user');
         expect(response.body).toHaveProperty('token');
 
-        // Store JWT to to access authorized endpoints
-        // userTwoToken = response.body.token as string;
+        // Store JWT to access authorized endpoints
+        userTwoToken = response.body.token as string;
       },
       requestTimeout,
     );
@@ -177,7 +184,7 @@ describe('E2E Tests', () => {
       expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('twoFactorAuth');
 
-      // Store JWT to to access authorized endpoints
+      // Store JWT to access authorized endpoints
       userOneToken = response.body.token as string;
     });
   });
@@ -226,59 +233,59 @@ describe('E2E Tests', () => {
     });
   });
 
-  // describe('Password Reset', () => {
-  //   it('should send password reset OTP to user email', async () => {
-  //     const dto: PasswordResetDTO = { ...userOne };
+  describe('Password Reset', () => {
+    it('should send password reset OTP to user email', async () => {
+      const dto: PasswordResetDTO = { ...userOne };
 
-  //     const response = await request(app.getHttpServer())
-  //       .post('/auth/password/reset')
-  //       .send(dto);
+      const response = await request(app.getHttpServer())
+        .post('/auth/password/reset')
+        .send(dto);
 
-  //     expect(response.status).toEqual(200);
-  //     expect(response.body).toHaveProperty('message');
-  //     expect(response.body.message).toEqual(
-  //       'Password reset OTP has been sent to your email',
-  //     );
-  //   });
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Password reset OTP has been sent to your email',
+      );
+    });
 
-  //   it('should re-send password reset OTP to user email', async () => {
-  //     const response = await request(app.getHttpServer()).post(
-  //       '/auth/password/resend-otp',
-  //     );
+    it('should re-send password reset OTP to user email', async () => {
+      const response = await request(app.getHttpServer()).post(
+        '/auth/password/resend-otp',
+      );
 
-  //     expect(response.status).toEqual(200);
-  //     expect(response.body).toHaveProperty('message');
-  //     expect(response.body.message).toEqual(
-  //       'Another OTP has been sent to your email',
-  //     );
-  //   });
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Another OTP has been sent to your email',
+      );
+    });
 
-  //   it('should verify password reset OTP', async () => {
-  //     const dto: VerifyOtpDTO = {
-  //       otp: '1234',
-  //     };
-  //     const response = await request(app.getHttpServer())
-  //       .post('/auth/password/verify-otp')
-  //       .send(dto);
+    it('should verify password reset OTP', async () => {
+      const dto: VerifyOtpDTO = {
+        otp: '1234',
+      };
+      const response = await request(app.getHttpServer())
+        .post('/auth/password/verify-otp')
+        .send(dto);
 
-  //     expect(response.status).toEqual(400);
-  //     expect(response.body).toHaveProperty('message');
-  //     expect(response.body.message).toEqual('Invalid OTP');
-  //   });
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Invalid OTP');
+    });
 
-  //   it('should change password and complete reset', async () => {
-  //     const dto: NewPasswordDTO = {
-  //       newPassword: 'PassWord12!',
-  //     };
-  //     const response = await request(app.getHttpServer())
-  //       .post('/auth/password/new')
-  //       .send(dto);
+    it('should change password and complete reset', async () => {
+      const dto: NewPasswordDTO = {
+        newPassword: 'PassWord12!',
+      };
+      const response = await request(app.getHttpServer())
+        .post('/auth/password/new')
+        .send(dto);
 
-  //     expect(response.status).toEqual(200);
-  //     expect(response.body).toHaveProperty('message');
-  //     expect(response.body.message).toEqual('Password reset complete!');
-  //   });
-  // });
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Password reset complete!');
+    });
+  });
 
   describe('Profile', () => {
     it('should throw if access token is missing', async () => {
@@ -316,15 +323,324 @@ describe('E2E Tests', () => {
       },
       requestTimeout,
     );
+
+    it('should return all wagers for a user', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/user/wagers')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('wagers');
+      expect(Array.isArray(response.body.wagers)).toBe(true);
+    });
+
+    it('should return all transactions for a user', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/user/transactions')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('transactions');
+      expect(Array.isArray(response.body.transactions)).toBe(true);
+    });
   });
 
-  // describe('Depsoit', () => {
-  //   it('should throw if chain is invalid', async () => {});
+  describe('Admins', () => {
+    it('should create super admin profile', async () => {
+      const dto: AdminAuthDTO = {
+        email: 'mudianthonio27@gmail.com',
+        passcode: 'SuperAdminPasscode',
+      };
 
-  //   it('should throw if transaction identifier is invalid', async () => {});
+      const response = await request(app.getHttpServer())
+        .post('/admin/signup')
+        .send(dto);
 
-  //   it('should throw if depositor address is invalid', async () => {});
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('token');
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Super Admin created successfully');
 
-  //   it('should return pending transaction and inititate processing of deposit', async () => {});
-  // });
+      superAdminToken = response.body.token as string;
+    });
+
+    it('should add new admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/admin/add')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send(admin);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('New admin added successfully');
+    });
+
+    it('should remove existing admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/admin/remove?email=${admin.email}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Admin profile deleted successfully',
+      );
+    });
+
+    it('should login admin', async () => {
+      const newAdmin = await prisma.admin.create({
+        data: {
+          ...admin,
+          disputes: 0,
+          passcode: await argon.hash('AdminPasscode'),
+        },
+      });
+      const dto: AdminAuthDTO = { ...newAdmin };
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/login')
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('admin');
+      expect(response.body).toHaveProperty('token');
+
+      adminToken = response.body.token as string;
+    });
+
+    it('should retrieve all admins', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/admin`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('admins');
+      expect(Array.isArray(response.body.admins)).toBe(true);
+    });
+
+    it('should retrieve all dispute resolution chats for an admin', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/admin/disputes`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('chats');
+      expect(Array.isArray(response.body.chats)).toBe(true);
+    });
+
+    it('should throw if a protected endpoint is not accessed by the super admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/admin/add')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(admin);
+
+      expect(response.status).toEqual(401);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Only the Super Admin is authorized to perform this operation',
+      );
+    });
+  });
+
+  describe('Deposit', () => {
+    const dto: DepositDTO = {
+      amount: 10,
+      chain: 'BASE',
+      depositor: '',
+      txIdentifier: '',
+    };
+
+    it('should throw if chain is invalid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/deposit')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send({ ...dto, chain: 'INVALID' });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message[0]).toEqual(
+        'Invalid chain parameter. Expected "BASE" or "SOLANA"',
+      );
+    });
+
+    describe('BASE', () => {
+      it('should throw if transaction identifier is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .send({ ...dto, txIdentifier: 'invalid-tx-identifier' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid transaction identifier');
+      });
+
+      it('should throw if depositor address is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .send({ ...dto, depositor: 'invalid-depositor-address' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid depositor address');
+      });
+
+      it('should return pending transaction and inititate processing of deposit', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .send(dto);
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('transaction');
+        expect(response.body.transaction.amount).toEqual(dto.amount);
+        expect(response.body.transaction.chain).toEqual(dto.chain);
+        expect(response.body.transaction.status).toEqual('PENDING');
+        expect(response.body.transaction.type).toEqual('DEPOSIT');
+      });
+    });
+
+    describe('SOLANA', () => {
+      const solanaDto: DepositDTO = { ...dto, chain: 'SOLANA' };
+
+      it('should throw if transaction identifier is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .send({ ...solanaDto, txIdentifier: 'invalid-tx-identifier' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid transaction identifier');
+      });
+
+      it('should throw if depositor address is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .send({ ...solanaDto, depositor: 'invalid-depositor-address' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid depositor address');
+      });
+
+      it('should return pending transaction and inititate processing of deposit', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/deposit')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .send(solanaDto);
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('transaction');
+        expect(response.body.transaction.amount).toEqual(solanaDto.amount);
+        expect(response.body.transaction.chain).toEqual(solanaDto.chain);
+        expect(response.body.transaction.status).toEqual('PENDING');
+        expect(response.body.transaction.type).toEqual('DEPOSIT');
+      });
+    });
+  });
+
+  describe('Create Wager', () => {
+    const dto: CreateWagerDTO = {
+      category: 'FOOTBALL',
+      conditions: 'Real Madrid wins the Champions League',
+      stake: 20,
+      title: 'UCL Winner',
+    };
+
+    it('should throw if wager category is invalid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wagers/create')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send({
+          ...dto,
+          category: 'INVALID CATEGORY',
+        });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message[0]).toEqual('Invalid wager category value');
+    });
+
+    it('should create a new wager', async () => {
+      // Update user balances
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { email: userOne.email },
+          data: { balance: { increment: 100 } },
+        }),
+        prisma.user.update({
+          where: { email: userTwo.email },
+          data: { balance: { increment: 100 } },
+        }),
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .post('/wagers/create')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('wager');
+
+      wagerId = response.body.wager.id as number;
+      wagerInviteCode = response.body.wager.inviteCode as string;
+    });
+
+    it('should return wager details', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/wagers/${wagerId}`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('wager');
+      expect(response.body.wager.id).toEqual(wagerId);
+    });
+  });
+
+  describe('Update Wager', () => {
+    const dto: UpdateWagerDTO = {
+      conditions: 'Real Madrid wins the UCL at the end of the season',
+    };
+
+    it('should update wager details', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/wagers/${wagerId}`)
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Wager updated successfully');
+    });
+  });
+
+  describe('Wager Invite', () => {
+    const dto: WagerInviteDTO = { inviteCode: wagerInviteCode };
+
+    it('should return wager details from invite code', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/invite`)
+        .set('Authorization', `Bearer ${userTwoToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('wager');
+      expect(response.body.wager.inviteCode).toEqual(wagerInviteCode);
+    });
+  });
+
+  describe('Join Wager', () => {
+    it('should join wager', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/join`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Successfully joined wager');
+    });
+  });
 });

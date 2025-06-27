@@ -25,9 +25,6 @@ export class DbService extends PrismaClient {
         this.user.deleteMany(),
       ]);
 
-      const users = await this.user.findMany();
-      console.log('All Users: ', users);
-
       this.utils
         .logger()
         .info(`[${this.context}] Database cleaned up for tests.\n`);

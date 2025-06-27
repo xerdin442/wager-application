@@ -41,10 +41,12 @@ export class AdminController {
   }
 
   @MessagePattern('admin-login')
-  async login(data: { dto: AdminAuthDTO }): Promise<{ token: string }> {
+  async login(data: {
+    dto: AdminAuthDTO;
+  }): Promise<{ admin: Admin; token: string }> {
     try {
       const { dto } = data;
-      const token = await this.adminService.login(dto);
+      const response = await this.adminService.login(dto);
 
       this.utils
         .logger()
@@ -52,7 +54,7 @@ export class AdminController {
           `[${this.context}] Admin profile login successful. Email: ${dto.email}.\n`,
         );
 
-      return { token };
+      return response;
     } catch (error) {
       this.utils
         .logger()

@@ -19,7 +19,7 @@ export class SuperAdminGuard implements CanActivate {
 
     if (adminId !== 1) {
       throw new ForbiddenException(
-        'Only a Super Admin is authorized to perform this operation',
+        'Only the Super Admin is authorized to perform this operation',
       );
     }
 

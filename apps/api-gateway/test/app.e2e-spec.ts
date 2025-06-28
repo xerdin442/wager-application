@@ -346,7 +346,7 @@ describe('E2E Tests', () => {
     });
   });
 
-  xdescribe('Admins', () => {
+  describe('Admins', () => {
     it('should create super admin profile', async () => {
       const dto: AdminAuthDTO = {
         email: 'mudianthonio27@gmail.com',
@@ -705,7 +705,7 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    xit('should retrieve all dispute chat messages as an admin', async () => {
+    it('should retrieve all dispute chat messages as an admin', async () => {
       const response = await request(app.getHttpServer())
         .get(`/wagers/${wagerId}/dispute/chat`)
         .set('Authorization', `Bearer ${adminToken}`);
@@ -715,7 +715,7 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    xit('should assign winner after dispute resolution', async () => {
+    it('should assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
         .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
         .set('Authorization', `Bearer ${adminToken}`);
@@ -725,7 +725,7 @@ describe('E2E Tests', () => {
       expect(response.body.message).toEqual('Dispute resolution successful');
     });
 
-    xit('should throw if a non-admin attempts to assign winner after dispute resolution', async () => {
+    it('should throw if a non-admin attempts to assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
         .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
         .set('Authorization', `Bearer ${userTwoToken}`);
@@ -767,7 +767,7 @@ describe('E2E Tests', () => {
   describe('Withdrawal', () => {
     const dto: WithdrawalDTO = {
       address: '0x6c6fD71806E6E5B16afB119628966E0AF24a3E6F',
-      amount: 10,
+      amount: 30,
       chain: 'BASE',
     };
 
@@ -798,6 +798,20 @@ describe('E2E Tests', () => {
       );
     });
 
+    it('should throw if domain name is unsupported', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ ...dto, address: 'xerdin442.eth' });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Only Basenames and SNS domains are supported at this time',
+      );
+    });
+
     it('should throw if user has insufficient balance', async () => {
       const response = await request(app.getHttpServer())
         .post('/wallet/withdraw')
@@ -815,7 +829,7 @@ describe('E2E Tests', () => {
     it('should throw if withdrawal amount is below allowed minimum', async () => {
       const response = await request(app.getHttpServer())
         .post('/wallet/withdraw')
-        .set('Authorization', `Bearer ${userTwoToken}`)
+        .set('Authorization', `Bearer ${userOneToken}`)
         .set('Idempotency-Key', randomUUID())
         .send({ ...dto, amount: 4 });
 
@@ -824,9 +838,111 @@ describe('E2E Tests', () => {
       expect(response.body.message).toEqual('Minimum withdrawal amount is $5');
     });
 
-    // describe('BASE', () => {});
+    describe('BASE', () => {
+      it('should throw if Basename is invalid or unregistered', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .set('Idempotency-Key', randomUUID())
+          .send({ ...dto, address: 'xerdin442.base.eth' });
 
-    // describe('SOLANA', () => {});
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual(
+          'Invalid or unregistered Basename',
+        );
+      });
+
+      it('should throw if withdrawal address is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .set('Idempotency-Key', randomUUID())
+          .send({ ...dto, address: 'invalid-recipient-address' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid recipient address');
+      });
+
+      it('should return pending transaction and inititate processing of withdrawal', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .set('Idempotency-Key', randomUUID())
+          .send(dto);
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('transaction');
+        expect(response.body.transaction.amount).toEqual(dto.amount);
+        expect(response.body.transaction.chain).toEqual(dto.chain);
+        expect(response.body.transaction.status).toEqual('PENDING');
+        expect(response.body.transaction.type).toEqual('WITHDRAWAL');
+      });
+    });
+
+    describe('SOLANA', () => {
+      const solanaDto: WithdrawalDTO = {
+        amount: 30,
+        chain: 'SOLANA',
+        address: 'FNHYDHQubHyq9Y5qt9jKWFx9qvnQgUzDxzRnJoRRzwnL',
+      };
+
+      it('should throw if SNS domain is invalid or unregistered', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userOneToken}`)
+          .set('Idempotency-Key', randomUUID())
+          .send({ ...dto, address: 'xerdin442.sol' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual(
+          'Invalid or unregistered SNS domain',
+        );
+      });
+
+      it('should throw if withdrawal address is invalid', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .set('Idempotency-Key', randomUUID())
+          .send({ ...solanaDto, address: 'invalid-recipient-address' });
+
+        expect(response.status).toEqual(400);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual('Invalid recipient address');
+      });
+
+      it('should return pending transaction and inititate processing of withdrawal', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+          .send(solanaDto);
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('transaction');
+        expect(response.body.transaction.amount).toEqual(solanaDto.amount);
+        expect(response.body.transaction.chain).toEqual(solanaDto.chain);
+        expect(response.body.transaction.status).toEqual('PENDING');
+        expect(response.body.transaction.type).toEqual('WITHDRAWAL');
+      });
+
+      it('should return processing status if similar withdrawal was attempted within the last 15 mins', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/wallet/withdraw')
+          .set('Authorization', `Bearer ${userTwoToken}`)
+          .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+          .send(solanaDto);
+
+        expect(response.status).toEqual(200);
+        expect(response.body).toHaveProperty('message');
+        expect(response.body.message).toEqual(
+          'Your withdrawal is still being processed',
+        );
+      });
+    });
   });
 
   describe('End tests', () => {

@@ -163,8 +163,9 @@ describe('Admin Service', () => {
     it('should login', async () => {
       jest.spyOn(argon, 'verify').mockResolvedValue(true);
 
-      const response = adminService.login(authDto);
-      await expect(response).resolves.toBe('signed-jwt-string');
+      const response = await adminService.login(authDto);
+      expect(response.token).toEqual('signed-jwt-string');
+      expect(response.admin).toEqual(admin);
     });
   });
 

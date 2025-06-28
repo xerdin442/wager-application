@@ -119,10 +119,11 @@ export class WalletService {
 
       return registry.owner.toBase58();
     } catch (error) {
-      if (error instanceof SNSError) {
-        if (error.type === ErrorType.AccountDoesNotExist) {
-          return null;
-        }
+      if (
+        error instanceof SNSError &&
+        error.type === ErrorType.AccountDoesNotExist
+      ) {
+        return null;
       }
 
       this.utils

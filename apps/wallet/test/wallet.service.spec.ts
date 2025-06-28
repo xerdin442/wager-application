@@ -19,7 +19,6 @@ import {
   SendTransactionError as SolanaTransactionError,
 } from '@solana/web3.js';
 import Web3, {
-  Bytes,
   Web3Account,
   Transaction as EthTransaction,
   TransactionReceipt,
@@ -32,11 +31,17 @@ import {
   ETH_WEB3_PROVIDER_TOKEN,
   SOL_WEB3_PROVIDER_TOKEN,
 } from '../src/providers';
-import { NameRegistryState } from '@bonfida/spl-name-service';
+import {
+  ErrorType,
+  NameRegistryState,
+  SNSError,
+} from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from '../src/dto';
 import axios, { AxiosResponse } from 'axios';
 import * as bip39 from 'bip39';
 import * as ed25519 from 'ed25519-hd-key';
+import * as Thirdweb from 'thirdweb';
+import * as ThirdwebExtension from 'thirdweb/extensions/ens';
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
@@ -117,6 +122,7 @@ describe('Wallet Service', () => {
       if (key === 'NODE_ENV') return 'test';
       if (key === 'COINGECKO_API_KEY') return 'coingecko-api-key';
       if (key === 'SUPER_ADMIN_EMAIL') return 'super-admin-email';
+      if (key === 'THIRDWEB_API_KEY') return 'thirdweb-api-key';
 
       return undefined;
     });
@@ -168,14 +174,14 @@ describe('Wallet Service', () => {
     jest.restoreAllMocks();
   });
 
-  describe('Platform Wallet Private Key', () => {
+  describe('Platform Wallet', () => {
     beforeEach(() => {
       jest
         .spyOn(bip39, 'mnemonicToSeedSync')
         .mockReturnValue(Buffer.from('seed-phrase'));
     });
 
-    it('should return the private key of the platform ethereum wallet', () => {
+    it('should return the wallet instance of the platform ethereum wallet', () => {
       jest.spyOn(hdkey.EthereumHDKey, 'fromMasterSeed').mockReturnValue({
         derivePath: jest.fn().mockReturnValue({
           getWallet: jest.fn().mockReturnValue(wallet),
@@ -199,45 +205,43 @@ describe('Wallet Service', () => {
   });
 
   describe('Resolve Domain', () => {
-    it('should return null if ENS domain is invalid or unregistered', async () => {
-      (web3.eth.ens.getAddress as jest.Mock).mockRejectedValue(
-        new Error('Invalid or unregistered ENS domain'),
+    beforeEach(() => {
+      jest.spyOn(Thirdweb, 'createThirdwebClient').mockReturnValue({
+        clientId: 'client-id',
+        secretKey: 'thirdweb-api-key',
+      });
+    });
+
+    it('should return null if Basename is invalid or unregistered', async () => {
+      jest
+        .spyOn(ThirdwebExtension, 'resolveAddress')
+        .mockResolvedValue('0x0000000000000000000000000000000000000000');
+
+      const response = walletService.resolveDomainName(
+        'BASE',
+        'invalid.base.eth',
       );
-
-      const response = walletService.resolveDomainName('BASE', 'invalid.eth');
       await expect(response).resolves.toBeNull();
     });
 
-    it('should return null if resolved ethereum address is a zero address', async () => {
-      const bytes = {
-        toString: jest
-          .fn()
-          .mockReturnValue('0x0000000000000000000000000000000000000000'),
-      } as unknown as Bytes;
+    it('should resolve a valid or registered Basename', async () => {
+      jest
+        .spyOn(ThirdwebExtension, 'resolveAddress')
+        .mockResolvedValue('0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57');
 
-      (web3.eth.ens.getAddress as jest.Mock).mockResolvedValue(bytes);
-
-      const response = walletService.resolveDomainName('BASE', 'zero.eth');
-      await expect(response).resolves.toBeNull();
-    });
-
-    it('should resolve a valid or registered ENS domain', async () => {
-      const bytes = {
-        toString: jest
-          .fn()
-          .mockReturnValue('0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57'),
-      } as unknown as Bytes;
-
-      (web3.eth.ens.getAddress as jest.Mock).mockResolvedValue(bytes);
-
-      const response = walletService.resolveDomainName('BASE', 'xerdin.eth');
-      await expect(response).resolves.toEqual(bytes.toString());
+      const response = walletService.resolveDomainName(
+        'BASE',
+        'xerdin442.base.eth',
+      );
+      await expect(response).resolves.toEqual(
+        '0x742d35Cc6634C0539F35Df2dFc2A53f4c7fEeD57',
+      );
     });
 
     it('should return null if the SNS domain is invalid or unregistered', async () => {
       jest
         .spyOn(NameRegistryState, 'retrieve')
-        .mockRejectedValue(new Error('Invalid or unregistered SNS domain'));
+        .mockRejectedValue(new SNSError(ErrorType.AccountDoesNotExist));
 
       const response = walletService.resolveDomainName('SOLANA', 'invalid.sol');
       await expect(response).resolves.toBeNull();

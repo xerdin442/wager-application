@@ -516,7 +516,7 @@ describe('E2E Tests', () => {
         const response = await request(app.getHttpServer())
           .post('/wallet/deposit')
           .set('Authorization', `Bearer ${userTwoToken}`)
-          .send({ ...solanaDto, txIdentifier: 'invalid-tx-identifier' });
+          .send({ ...solanaDto, txIdentifier: 'TZEfx8RRXmTv1DM68EWzDGQd4kE' });
 
         expect(response.status).toEqual(400);
         expect(response.body).toHaveProperty('message');
@@ -698,7 +698,7 @@ describe('E2E Tests', () => {
   describe('Dispute Resolution', () => {
     it('should retrieve all dispute chat messages as a player', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/wagers/${wagerId}/dispute/chat`)
+        .get(`/wagers/${wagerId}/dispute/chat`)
         .set('Authorization', `Bearer ${userOneToken}`);
 
       expect(response.status).toEqual(200);
@@ -708,7 +708,7 @@ describe('E2E Tests', () => {
 
     it('should retrieve all dispute chat messages as an admin', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/wagers/${wagerId}/dispute/chat`)
+        .get(`/wagers/${wagerId}/dispute/chat`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toEqual(200);
@@ -797,7 +797,7 @@ describe('E2E Tests', () => {
       expect(response.status).toEqual(400);
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual(
-        'Insufficient funds. Your balance is $100',
+        'Insufficient funds. Your balance is $120',
       );
     });
 
@@ -845,6 +845,11 @@ describe('E2E Tests', () => {
     });
 
     it('should delete user profile', async () => {
+      await prisma.user.update({
+        where: { email: userTwo.email },
+        data: { balance: 0 },
+      });
+
       const response = await request(app.getHttpServer())
         .delete('/user/profile')
         .set('Authorization', `Bearer ${userTwoToken}`);

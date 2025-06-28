@@ -115,11 +115,13 @@ export class WalletService {
     dto: DepositDTO | WithdrawalDTO,
   ): Promise<Transaction> {
     try {
-      if (dto instanceof DepositDTO) {
+      if ('txIdentifier' in dto) {
         return this.prisma.transaction.create({
           data: {
             userId,
-            ...dto,
+            amount: dto.amount,
+            chain: dto.chain,
+            txIdentifier: dto.txIdentifier,
             status: 'PENDING',
             type: 'DEPOSIT',
           },
@@ -129,7 +131,8 @@ export class WalletService {
       return this.prisma.transaction.create({
         data: {
           userId,
-          ...dto,
+          amount: dto.amount,
+          chain: dto.chain,
           status: 'PENDING',
           type: 'WITHDRAWAL',
         },

@@ -123,8 +123,16 @@ export class WalletController {
         return { message: 'Your withdrawal is still being processed' };
       }
 
+      // Throw if the domain name is an ENS domain
+      if (address.endsWith('.eth')) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Only Basenames and SNS domains are supported at this time',
+        });
+      }
+
       // Resolve recipient's domain name if provided
-      if (address.endsWith('.eth') || address.endsWith('.sol')) {
+      if (address.endsWith('.base.eth') || address.endsWith('.sol')) {
         const resolvedAddress = await this.walletService.resolveDomainName(
           chain,
           address,

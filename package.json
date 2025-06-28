@@ -67,6 +67,7 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
+    "thirdweb": "^5.105.3",
     "web3": "^4.16.0",
     "web3-validator": "^2.0.6",
     "winston": "^3.17.0"

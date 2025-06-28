@@ -39,7 +39,9 @@ export class WagerService {
       // Create new wager
       const wager = await this.prisma.wager.create({
         data: {
-          ...dto,
+          category: dto.category,
+          conditions: dto.conditions,
+          title: dto.title,
           amount: dto.stake * 2,
           inviteCode: randomUUID().split('-')[3],
           playerOne: userId,

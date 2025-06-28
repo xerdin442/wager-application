@@ -34,8 +34,8 @@ export class WalletService {
   private readonly BASE_USDC_TOKEN_ADDRESS: string;
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
 
-  private readonly SOLANA_DERIVATION_PATH = "m/44'/501'/0'/0'";
-  private readonly ETHEREUM_DERIVATION_PATH = "m/44'/60'/0'/0/0";
+  private readonly SOLANA_DERIVATION_PATH = "m/44'/501'/1'/0'";
+  private readonly ETHEREUM_DERIVATION_PATH = "m/44'/60'/0'/0/1";
 
   // Minimum amount in USD for native assets and stablecoins
   private readonly PLATFORM_WALLET_MINIMUM_BALANCE: number = 3500;
@@ -702,12 +702,12 @@ export class WalletService {
 
       // Notify admin if native asset balance is low
       if (lowBalanceCheck) {
+        const admin = await this.prisma.admin.findUniqueOrThrow({
+          where: { id: 1 },
+        });
+
         const content = `The platform wallet on ${chain} has a native asset balance of ${currentBalance}${symbol}`;
-        await this.utils.sendEmail(
-          this.config.getOrThrow<string>('SUPER_ADMIN_EMAIL'),
-          'Low Balance Alert',
-          content,
-        );
+        await this.utils.sendEmail(admin.email, 'Low Balance Alert', content);
 
         this.utils
           .logger()
@@ -771,12 +771,12 @@ export class WalletService {
 
       // Notify admin if balance is low
       if (lowBalanceCheck) {
+        const admin = await this.prisma.admin.findUniqueOrThrow({
+          where: { id: 1 },
+        });
+
         const content = `The platform wallet on ${chain.toLowerCase()} has a stablecoin balance of ${currentBalance}USDC.`;
-        await this.utils.sendEmail(
-          this.config.getOrThrow<string>('SUPER_ADMIN_EMAIL'),
-          'Low Balance Alert',
-          content,
-        );
+        await this.utils.sendEmail(admin.email, 'Low Balance Alert', content);
 
         this.utils
           .logger()

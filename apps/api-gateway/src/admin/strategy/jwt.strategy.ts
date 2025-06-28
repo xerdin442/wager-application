@@ -20,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: Record<string, any>): Promise<Admin | undefined> {
+  async validate(payload: Record<string, any>): Promise<Admin> {
     try {
       // Prompt admin to login if token has expired
       const currentTime = Math.floor(Date.now() / 1000);
@@ -40,6 +40,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         .error(
           `[${this.context}] An error occurred while validating authorization token. Error: ${error.message}\n`,
         );
+
+      throw error;
     }
   }
 }

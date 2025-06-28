@@ -1,3 +1,4 @@
+import { DbService } from '@app/db';
 import {
   CanActivate,
   ExecutionContext,
@@ -29,17 +30,20 @@ export class SuperAdminGuard implements CanActivate {
 
 @Injectable()
 export class AdminGuard implements CanActivate {
-  constructor() {}
+  constructor(private readonly prisma: DbService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>() as Record<
       string,
       any
     >;
-    if (!request.user) {
-      throw new ForbiddenException(
-        'Only an Admin can assign winners after dispute resolution',
-      );
+
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: request.user.email as string },
+    });
+
+    if (!admin) {
+      throw new ForbiddenException('Only an Admin can perform this operation');
     }
 
     return true;

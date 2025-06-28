@@ -24,6 +24,7 @@ export class WalletController {
   ) {}
 
   @Post('deposit')
+  @HttpCode(HttpStatus.OK)
   processDeposit(
     @GetUser() user: User,
     @Body() dto: DepositDTO,

@@ -20,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: Record<string, any>): Promise<User | undefined> {
+  async validate(payload: Record<string, any>): Promise<User> {
     try {
       // Prompt user to login if token has expired
       const currentTime = Math.floor(Date.now() / 1000);
@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: payload.sub as number },
       });
-      user.password = '';
+      user.password = 'X-X-X';
 
       return user;
     } catch (error) {
@@ -40,6 +40,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         .error(
           `[${this.context}] An error occurred while validating authorization token. Error: ${error.message}\n`,
         );
+
+      throw error;
     }
   }
 }

@@ -15,7 +15,7 @@ export class SuperAdminGuard implements CanActivate {
       string,
       any
     >;
-    const adminId = +request.admin.id;
+    const adminId = +request.user.id;
 
     if (adminId !== 1) {
       throw new ForbiddenException(
@@ -36,7 +36,7 @@ export class AdminGuard implements CanActivate {
       string,
       any
     >;
-    if (!request.admin) {
+    if (!request.user) {
       throw new ForbiddenException(
         'Only an Admin can assign winners after dispute resolution',
       );

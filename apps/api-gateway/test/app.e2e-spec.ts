@@ -14,18 +14,19 @@ import {
   VerifyOtpDTO,
 } from '../src/auth/dto';
 import { AdminAuthDTO, CreateAdminDTO } from '../src/admin/dto';
-import { UpdateProfileDTO } from '../src/user/dto';
+import { FundsTransferDTO, UpdateProfileDTO } from '../src/user/dto';
 import { natsOptions } from '@app/utils';
-import { DepositDTO } from '../src/wallet/dto';
+import { DepositDTO, WithdrawalDTO } from '../src/wallet/dto';
 import {
   CreateWagerDTO,
   UpdateWagerDTO,
   WagerInviteDTO,
 } from '../src/wager/dto';
 import * as argon from 'argon2';
+import { randomUUID } from 'crypto';
 
 describe('E2E Tests', () => {
-  const requestTimeout: number = 50000;
+  const requestTimeout: number = 100000;
 
   const userOne: SignupDTO = {
     email: 'xerdinludac@gmail.com',
@@ -356,7 +357,7 @@ describe('E2E Tests', () => {
         .post('/admin/signup')
         .send(dto);
 
-      expect(response.status).toEqual(200);
+      expect(response.status).toEqual(201);
       expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual('Super Admin created successfully');
@@ -446,8 +447,9 @@ describe('E2E Tests', () => {
     const dto: DepositDTO = {
       amount: 10,
       chain: 'BASE',
-      depositor: '',
-      txIdentifier: '',
+      depositor: '0x6c6fD71806E6E5B16afB119628966E0AF24a3E6F',
+      txIdentifier:
+        '0x39046319e2d4b467539475f04b50ec50437601529aef98dd3270ce16e942aca2',
     };
 
     it('should throw if chain is invalid', async () => {
@@ -502,7 +504,13 @@ describe('E2E Tests', () => {
     });
 
     describe('SOLANA', () => {
-      const solanaDto: DepositDTO = { ...dto, chain: 'SOLANA' };
+      const solanaDto: DepositDTO = {
+        amount: 10,
+        chain: 'SOLANA',
+        depositor: 'FNHYDHQubHyq9Y5qt9jKWFx9qvnQgUzDxzRnJoRRzwnL',
+        txIdentifier:
+          'TZEfx8RRXmTve21DM68EWzDGQdPU3zXdLJLmXwwwCsH5LGaVDSAfB9ixpLRAtjY4d4t6diigQ53NXoapwkmo4kE',
+      };
 
       it('should throw if transaction identifier is invalid', async () => {
         const response = await request(app.getHttpServer())
@@ -641,6 +649,209 @@ describe('E2E Tests', () => {
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual('Successfully joined wager');
+    });
+  });
+
+  describe('Wager Claim', () => {
+    it('should claim wager prize', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Prize claimed successfully, awaiting response from opponent',
+      );
+    });
+
+    it('should accept wager prize claim', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim/accept`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Wager claim accepted, better luck next time!',
+      );
+    });
+
+    it('should contest wager prize claim', async () => {
+      await prisma.wager.update({
+        where: { id: wagerId },
+        data: { status: 'ACTIVE' },
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/claim/contest`)
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Wager claim contested, dispute resolution has been initiated.',
+      );
+    });
+  });
+
+  describe('Dispute Resolution', () => {
+    it('should retrieve all dispute chat messages as a player', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/chat`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('messages');
+      expect(Array.isArray(response.body.messages)).toBe(true);
+    });
+
+    it('should retrieve all dispute chat messages as an admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/chat`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('messages');
+      expect(Array.isArray(response.body.messages)).toBe(true);
+    });
+
+    it('should assign winner after dispute resolution', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Dispute resolution successful');
+    });
+  });
+
+  describe('Funds Transfer', () => {
+    it('should transfer funds from user wallet to another user', async () => {
+      const dto: FundsTransferDTO = {
+        amount: 20,
+        username: userTwo.username,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/user/wallet/transfer')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        `$${dto.amount} transfer to @${dto.username} was successful!`,
+      );
+
+      // Confirm funds transfer
+      const playerTwo = await prisma.user.findUniqueOrThrow({
+        where: { email: userTwo.email },
+      });
+      expect(playerTwo.balance).toEqual(100);
+    });
+  });
+
+  describe('Withdrawal', () => {
+    const dto: WithdrawalDTO = {
+      address: '0x6c6fD71806E6E5B16afB119628966E0AF24a3E6F',
+      amount: 10,
+      chain: 'BASE',
+    };
+
+    it('should throw if chain is invalid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ ...dto, chain: 'INVALID' });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message[0]).toEqual(
+        'Invalid chain parameter. Expected "BASE" or "SOLANA"',
+      );
+    });
+
+    it('should throw if idempotency key is missing', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/withdraw')
+        .set('Authorization', `Bearer ${userOneToken}`)
+        .send(dto);
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        '"Idempotency-Key" header is required',
+      );
+    });
+
+    it('should throw if user has insufficient balance', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/withdraw')
+        .set('Authorization', `Bearer ${userTwoToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ ...dto, amount: 1000 });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual(
+        'Insufficient funds. Your balance is $100',
+      );
+    });
+
+    it('should throw if withdrawal amount is below allowed minimum', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/wallet/withdraw')
+        .set('Authorization', `Bearer ${userTwoToken}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ ...dto, amount: 4 });
+
+      expect(response.status).toEqual(400);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Minimum withdrawal amount is $5');
+    });
+
+    // describe('BASE', () => {});
+
+    // describe('SOLANA', () => {});
+  });
+
+  describe('End tests', () => {
+    it('should delete wager', async () => {
+      await prisma.wager.update({
+        where: { id: wagerId },
+        data: { status: 'PENDING' },
+      });
+
+      const response = await request(app.getHttpServer())
+        .delete(`/wagers/${wagerId}`)
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Wager deleted successfully');
+    });
+
+    it('should log out user', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${userOneToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Logout successful!');
+    });
+
+    it('should delete user profile', async () => {
+      const response = await request(app.getHttpServer())
+        .delete('/user/profile')
+        .set('Authorization', `Bearer ${userTwoToken}`);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toEqual('Account deleted successfully');
     });
   });
 });

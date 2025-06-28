@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const admin = await this.prisma.admin.findUniqueOrThrow({
         where: { id: payload.sub as number },
       });
-      admin.passcode = '';
+      admin.passcode = 'X-X-X';
 
       return admin;
     } catch (error) {

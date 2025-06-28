@@ -132,11 +132,13 @@ export class WalletController {
 
         if (!resolvedAddress) {
           let nameService: string = '';
-          chain === 'BASE' ? (nameService = 'ENS') : (nameService = 'SNS');
+          chain === 'BASE'
+            ? (nameService = 'Basename')
+            : (nameService = 'SNS domain');
 
           throw new RpcException({
             status: HttpStatus.BAD_REQUEST,
-            message: `Invalid or unregistered ${nameService} domain`,
+            message: `Invalid or unregistered ${nameService}`,
           });
         }
 

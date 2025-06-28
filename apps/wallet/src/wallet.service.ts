@@ -18,7 +18,12 @@ import {
 } from '@solana/web3.js';
 import { Chain, Transaction, TransactionStatus, User } from '@prisma/client';
 import { hdkey, Wallet } from '@ethereumjs/wallet';
-import { getDomainKeySync, NameRegistryState } from '@bonfida/spl-name-service';
+import {
+  ErrorType,
+  getDomainKeySync,
+  NameRegistryState,
+  SNSError,
+} from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from './dto';
 import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
@@ -26,6 +31,12 @@ import axios from 'axios';
 import * as bip39 from 'bip39';
 import { ETH_WEB3_PROVIDER_TOKEN, SOL_WEB3_PROVIDER_TOKEN } from './providers';
 import { derivePath } from 'ed25519-hd-key';
+import { createThirdwebClient, ThirdwebClient } from 'thirdweb';
+import {
+  resolveAddress,
+  BASENAME_RESOLVER_ADDRESS,
+} from 'thirdweb/extensions/ens';
+import { base } from 'thirdweb/chains';
 
 @Injectable()
 export class WalletService {
@@ -83,8 +94,16 @@ export class WalletService {
   ): Promise<string | null> {
     try {
       if (chain === 'BASE') {
-        const bytes = await this.web3.eth.ens.getAddress(domain);
-        const address = bytes.toString();
+        const client: ThirdwebClient = createThirdwebClient({
+          secretKey: this.config.getOrThrow<string>('THIRDWEB_API_KEY'),
+        });
+
+        const address = await resolveAddress({
+          client,
+          name: domain,
+          resolverAddress: BASENAME_RESOLVER_ADDRESS,
+          resolverChain: base,
+        });
 
         if (address === '0x0000000000000000000000000000000000000000')
           return null;
@@ -100,13 +119,19 @@ export class WalletService {
 
       return registry.owner.toBase58();
     } catch (error) {
+      if (error instanceof SNSError) {
+        if (error.type === ErrorType.AccountDoesNotExist) {
+          return null;
+        }
+      }
+
       this.utils
         .logger()
         .error(
           `[${this.context}] An error occurred while resolving domain name: ${domain}. Error: ${error.message}\n`,
         );
 
-      return null;
+      throw error;
     }
   }
 

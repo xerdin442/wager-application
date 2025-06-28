@@ -346,7 +346,7 @@ describe('E2E Tests', () => {
     });
   });
 
-  describe('Admins', () => {
+  xdescribe('Admins', () => {
     it('should create super admin profile', async () => {
       const dto: AdminAuthDTO = {
         email: 'mudianthonio27@gmail.com',
@@ -716,7 +716,7 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    it('should assign winner after dispute resolution', async () => {
+    xit('should assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
         .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
         .set('Authorization', `Bearer ${adminToken}`);

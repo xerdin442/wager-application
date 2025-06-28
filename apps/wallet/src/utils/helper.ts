@@ -4,6 +4,8 @@ import { Chain } from '@prisma/client';
 import { ChainRPC, USDCTokenAddress } from './constants';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, transfer } from '@solana/spl-token';
+import { isAddress, isHexStrict } from 'web3-validator';
+import bs58 from 'bs58';
 
 @Injectable()
 export class HelperService {
@@ -91,5 +93,25 @@ export class HelperService {
     } catch (error) {
       throw error;
     }
+  }
+
+  validateAddress(chain: Chain, address: string): boolean {
+    if (chain === 'BASE') return isAddress(address);
+
+    try {
+      return PublicKey.isOnCurve(new PublicKey(address));
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+
+  validateTxIdentifier(chain: Chain, identifier: string): boolean {
+    if (chain === 'BASE') {
+      return isHexStrict(identifier) && identifier.length === 66;
+    }
+
+    const decodedBytes = bs58.decode(identifier);
+    return decodedBytes.length === 64;
   }
 }

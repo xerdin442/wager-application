@@ -8,9 +8,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { RedisClientType } from 'redis';
-import { PublicKey } from '@solana/web3.js';
-import { isAddress, isHexStrict } from 'web3-validator';
-import bs58 from 'bs58';
+import { HelperService } from './utils/helper';
 
 @Controller()
 export class WalletController {
@@ -19,6 +17,7 @@ export class WalletController {
   constructor(
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
+    private readonly helper: HelperService,
     private readonly walletService: WalletService,
     @InjectQueue('wallet-queue') private readonly walletQueue: Queue,
   ) {}
@@ -32,22 +31,11 @@ export class WalletController {
       const { dto, user } = data;
       const { depositor, txIdentifier, chain } = dto;
 
-      let validTxIdentifier: boolean;
-      let isValidAddress: boolean;
-
-      if (chain === 'BASE') {
-        validTxIdentifier =
-          isHexStrict(txIdentifier) && txIdentifier.length === 66;
-
-        isValidAddress = isAddress(depositor);
-      } else {
-        const decodedBytes = bs58.decode(txIdentifier);
-        validTxIdentifier = decodedBytes.length === 64;
-
-        isValidAddress = PublicKey.isOnCurve(new PublicKey(depositor));
-      }
-
       // Validate transaction identifier
+      const validTxIdentifier: boolean = this.helper.validateTxIdentifier(
+        chain,
+        txIdentifier,
+      );
       if (!validTxIdentifier) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
@@ -56,6 +44,10 @@ export class WalletController {
       }
 
       // Validate depositor address
+      const isValidAddress: boolean = this.helper.validateAddress(
+        chain,
+        depositor,
+      );
       if (!isValidAddress) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
@@ -152,11 +144,10 @@ export class WalletController {
       }
 
       // Validate recipient address
-      let isValidAddress: boolean;
-      chain === 'BASE'
-        ? (isValidAddress = isAddress(dto.address))
-        : (isValidAddress = PublicKey.isOnCurve(new PublicKey(dto.address)));
-
+      const isValidAddress: boolean = this.helper.validateAddress(
+        chain,
+        dto.address,
+      );
       if (!isValidAddress) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,

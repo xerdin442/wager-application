@@ -1,29 +1,3 @@
-import { ContractAbi as ERC20Abi } from 'web3';
-
-export const contractAbi: ERC20Abi = [
-  {
-    name: 'transfer',
-    type: 'function',
-    constant: false,
-    inputs: [
-      { name: '_to', type: 'address' },
-      { name: '_value', type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    payable: false,
-  },
-  {
-    name: 'balanceOf',
-    type: 'function',
-    constant: true,
-    inputs: [{ name: '_owner', type: 'address' }],
-    outputs: [{ name: 'balance', type: 'uint256' }],
-    stateMutability: 'view',
-    payable: false,
-  },
-];
-
 export enum USDCTokenAddress {
   BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
   BASE_MAINNET = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',

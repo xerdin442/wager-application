@@ -3,10 +3,7 @@ import { WalletGateway } from './wallet.gateway';
 import { DbService } from '@app/db';
 import { MetricsService } from '@app/metrics';
 import { ConfigService } from '@nestjs/config';
-import Web3, {
-  Transaction as EthTransaction,
-  TransactionError as EthTransactionErrror,
-} from 'web3';
+import Web3 from 'web3';
 import { HelperService } from './utils/helper';
 import {
   Connection,
@@ -25,23 +22,30 @@ import {
   SNSError,
 } from '@bonfida/spl-name-service';
 import { DepositDTO, WithdrawalDTO } from './dto';
-import { contractAbi } from './utils/constants';
 import { UtilsService } from '@app/utils';
 import axios from 'axios';
 import * as bip39 from 'bip39';
 import { ETH_WEB3_PROVIDER_TOKEN, SOL_WEB3_PROVIDER_TOKEN } from './providers';
 import { derivePath } from 'ed25519-hd-key';
-import { createThirdwebClient, ThirdwebClient } from 'thirdweb';
+import {
+  createThirdwebClient,
+  ThirdwebClient,
+  sendAndConfirmTransaction,
+  getContract,
+} from 'thirdweb';
+import { Account, privateKeyToAccount } from 'thirdweb/wallets';
+import { transfer, balanceOf } from 'thirdweb/extensions/erc20';
 import {
   resolveAddress,
   BASENAME_RESOLVER_ADDRESS,
 } from 'thirdweb/extensions/ens';
-import { base } from 'thirdweb/chains';
+import { base, baseSepolia } from 'thirdweb/chains';
 
 @Injectable()
 export class WalletService {
   private readonly context: string = WalletService.name;
 
+  private readonly thirdweb: ThirdwebClient;
   private readonly BASE_USDC_TOKEN_ADDRESS: string;
   private readonly SOLANA_USDC_MINT_ADDRESS: string;
 
@@ -65,6 +69,10 @@ export class WalletService {
     this.BASE_USDC_TOKEN_ADDRESS = this.helper.selectUSDCTokenAddress('BASE');
     this.SOLANA_USDC_MINT_ADDRESS =
       this.helper.selectUSDCTokenAddress('SOLANA');
+
+    this.thirdweb = createThirdwebClient({
+      secretKey: this.config.getOrThrow<string>('THIRDWEB_API_KEY'),
+    });
   }
 
   getPlatformWallet(chain: Chain): Wallet | Keypair {
@@ -94,12 +102,8 @@ export class WalletService {
   ): Promise<string | null> {
     try {
       if (chain === 'BASE') {
-        const client: ThirdwebClient = createThirdwebClient({
-          secretKey: this.config.getOrThrow<string>('THIRDWEB_API_KEY'),
-        });
-
         const address = await resolveAddress({
-          client,
+          client: this.thirdweb,
           name: domain,
           resolverAddress: BASENAME_RESOLVER_ADDRESS,
           resolverChain: base,
@@ -271,7 +275,7 @@ export class WalletService {
         recipientAddress = decodedData[0] as string;
 
         // Confirm that the transferred token is USDC
-        const tokenCheck = tx.to && tx.to === this.BASE_USDC_TOKEN_ADDRESS;
+        const tokenCheck = tx.to === this.BASE_USDC_TOKEN_ADDRESS.toLowerCase();
 
         if (tokenCheck) {
           // Convert transfer amount from the smallest unit of USDC
@@ -475,57 +479,45 @@ export class WalletService {
     dto: WithdrawalDTO,
     transaction: Transaction,
   ): Promise<void> {
-    let txHash: string = '';
     const metricLabels: string[] = [dto.chain.toLowerCase()];
 
     try {
       const platformWallet = this.getPlatformWallet('BASE') as Wallet;
       const privateKey = platformWallet.getPrivateKeyString();
 
-      const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
-      const contract = new this.web3.eth.Contract(
-        contractAbi,
-        this.BASE_USDC_TOKEN_ADDRESS,
-      );
+      // Fetch account from private key
+      const account: Account = privateKeyToAccount({
+        client: this.thirdweb,
+        privateKey,
+      });
 
-      // Convert transfer amount to smallest unit of USDC
-      const amountInUSDC = this.web3.utils.toBigInt(dto.amount * 1e6);
-      // Encode the transaction for the transfer function using the ABI
-      const data = contract.methods
-        .transfer(dto.address, amountInUSDC.toString())
-        .encodeABI();
-      // Get gas price estimate based on recent transactions on the network
-      const gasPrice = await this.web3.eth.getGasPrice();
-      // Get the current nonce
-      const nonce = await this.web3.eth.getTransactionCount(
-        account.address,
-        'pending',
-      );
+      // Get USDC contract
+      const usdcContract = getContract({
+        client: this.thirdweb,
+        chain:
+          this.config.getOrThrow<string>('NODE_ENV') === 'production'
+            ? base
+            : baseSepolia,
+        address: this.helper.selectUSDCTokenAddress('BASE'),
+      });
 
       // Configure transaction details
-      const tx: EthTransaction = {
-        from: account.address,
-        to: this.BASE_USDC_TOKEN_ADDRESS,
-        gasPrice,
-        gas: 60000,
-        data,
-        nonce,
-      };
+      const preparedTx = transfer({
+        contract: usdcContract,
+        to: dto.address,
+        amount: dto.amount,
+      });
 
-      // Sign and broadcast the transaction to the network
-      const signedTx = await this.web3.eth.accounts.signTransaction(
-        tx,
-        privateKey,
-      );
-      const receipt = await this.web3.eth.sendSignedTransaction(
-        signedTx.rawTransaction,
-      );
-      txHash = receipt.transactionHash.toString();
+      // Send and confirm transaction on the network
+      const { transactionHash } = await sendAndConfirmTransaction({
+        transaction: preparedTx,
+        account,
+      });
 
       // Update user balance and transaction details
       const { user, updatedTx } = await this.updateDbAfterTransaction(
         transaction,
-        txHash,
+        transactionHash.toString(),
         'SUCCESS',
       );
 
@@ -547,33 +539,11 @@ export class WalletService {
 
       return;
     } catch (error) {
-      if (error instanceof EthTransactionErrror) {
-        // Store failed transaction details
-        const { user, updatedTx } = await this.updateDbAfterTransaction(
-          transaction,
-          txHash,
-          'FAILED',
+      this.utils
+        .logger()
+        .error(
+          `[${this.context}] An error occurred while completing withdrawal from platform ethereum wallet. Error: ${error.message}\n`,
         );
-
-        // Update withdrawal metrics
-        this.metrics.incrementCounter('failed_withdrawals', metricLabels);
-
-        // Notify client of transaction status
-        this.gateway.sendTransactionStatus(user.email, updatedTx);
-
-        // Notify user of failed withdrawal
-        const date: string = updatedTx.createdAt.toISOString();
-        const content = `Your withdrawal of $${dto.amount} on ${date} was unsuccessful. Please try again later.`;
-        await this.utils.sendEmail(user.email, 'Failed Withdrawal', content);
-
-        this.utils
-          .logger()
-          .error(
-            `[${this.context}] An error occurred while completing withdrawal from platform ethereum wallet. Error: ${error.message}\n`,
-          );
-
-        return;
-      }
 
       throw error;
     }
@@ -762,20 +732,24 @@ export class WalletService {
 
       if (chain === 'BASE') {
         const platformWallet = this.getPlatformWallet('BASE') as Wallet;
-        const privateKey = platformWallet.getPrivateKeyString();
 
-        const account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
-        const contract = new this.web3.eth.Contract(
-          contractAbi,
-          this.BASE_USDC_TOKEN_ADDRESS,
-        );
+        // Get USDC contract
+        const usdcContract = getContract({
+          client: this.thirdweb,
+          chain:
+            this.config.getOrThrow<string>('NODE_ENV') === 'production'
+              ? base
+              : baseSepolia,
+          address: this.helper.selectUSDCTokenAddress('BASE'),
+        });
 
-        // Get stablecoin balance
-        const balanceInWei: string = await contract.methods
-          .balanceOf(account.address)
-          .call();
-        const balanceInUSDC = this.web3.utils.fromWei(balanceInWei, 'mwei');
-        currentBalance = parseFloat(balanceInUSDC);
+        // Fetch USDC balance of platform wallet
+        const balanceInDecimals = await balanceOf({
+          contract: usdcContract,
+          address: platformWallet.getAddressString(),
+        });
+
+        currentBalance = Number(balanceInDecimals) / 1e6;
 
         // Check if balance is below allowed minimum
         if (currentBalance < this.PLATFORM_WALLET_MINIMUM_BALANCE)
@@ -788,7 +762,7 @@ export class WalletService {
           platformWallet.publicKey,
         );
 
-        // Get stablecoin balance
+        // Fetch USDC balance of platform wallet
         const balance =
           await this.connection.getTokenAccountBalance(platformTokenAddress);
         currentBalance = balance.value.uiAmount as number;

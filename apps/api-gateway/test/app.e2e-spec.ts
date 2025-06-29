@@ -766,8 +766,8 @@ describe('E2E Tests', () => {
 
   describe('Withdrawal', () => {
     const dto: WithdrawalDTO = {
-      address: '0x6c6fD71806E6E5B16afB119628966E0AF24a3E6F',
-      amount: 30,
+      address: '0xb781Dd91EbdD6a63680b1f9e255a2F0a11E82d1D',
+      amount: 6,
       chain: 'BASE',
     };
 
@@ -883,9 +883,9 @@ describe('E2E Tests', () => {
 
     describe('SOLANA', () => {
       const solanaDto: WithdrawalDTO = {
-        amount: 30,
+        amount: 6,
         chain: 'SOLANA',
-        address: 'FNHYDHQubHyq9Y5qt9jKWFx9qvnQgUzDxzRnJoRRzwnL',
+        address: '3BrAsMnKo7WVvFSVYRJF1JDKDuxZ2FaAorMzMM5t8VCt',
       };
 
       it('should throw if SNS domain is invalid or unregistered', async () => {

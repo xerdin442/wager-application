@@ -122,7 +122,7 @@ export class WalletProcessor {
       this.utils
         .logger()
         .error(
-          `[${this.context}] Failed withdrawal of $${dto.amount} for ${user.email}. Error: $${error.message}\n`,
+          `[${this.context}] Failed withdrawal of $${dto.amount} for ${user.email}. Error: ${error.message}\n`,
         );
 
       throw error;

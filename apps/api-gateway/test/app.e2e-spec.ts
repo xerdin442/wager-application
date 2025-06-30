@@ -887,13 +887,14 @@ describe('E2E Tests', () => {
         chain: 'SOLANA',
         address: '3BrAsMnKo7WVvFSVYRJF1JDKDuxZ2FaAorMzMM5t8VCt',
       };
+      const idempotencyKey: string = randomUUID();
 
       it('should throw if SNS domain is invalid or unregistered', async () => {
         const response = await request(app.getHttpServer())
           .post('/wallet/withdraw')
           .set('Authorization', `Bearer ${userOneToken}`)
           .set('Idempotency-Key', randomUUID())
-          .send({ ...dto, address: 'xerdin442.sol' });
+          .send({ ...solanaDto, address: 'xerdin442.sol' });
 
         expect(response.status).toEqual(400);
         expect(response.body).toHaveProperty('message');
@@ -918,7 +919,7 @@ describe('E2E Tests', () => {
         const response = await request(app.getHttpServer())
           .post('/wallet/withdraw')
           .set('Authorization', `Bearer ${userTwoToken}`)
-          .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+          .set('Idempotency-Key', idempotencyKey)
           .send(solanaDto);
 
         expect(response.status).toEqual(200);
@@ -933,7 +934,7 @@ describe('E2E Tests', () => {
         const response = await request(app.getHttpServer())
           .post('/wallet/withdraw')
           .set('Authorization', `Bearer ${userTwoToken}`)
-          .set('Idempotency-Key', 'IDEMPOTENCY-KEY')
+          .set('Idempotency-Key', idempotencyKey)
           .send(solanaDto);
 
         expect(response.status).toEqual(200);

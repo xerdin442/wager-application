@@ -21,7 +21,7 @@ export const GetAdmin = createParamDecorator(
       any
     >;
 
-    request.admin.passcode = '';
-    return request.admin as Admin;
+    request.user.passcode = '';
+    return request.user as Admin;
   },
 );

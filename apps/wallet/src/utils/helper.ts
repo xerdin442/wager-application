@@ -21,9 +21,9 @@ export class HelperService {
 
   selectRpcUrl(chain: Chain): string {
     let url: string;
-    const isDev = this.NODE_ENV === 'development';
+    const isProd = this.NODE_ENV === 'production';
 
-    if (!isDev) {
+    if (isProd) {
       chain === 'BASE'
         ? (url = `${ChainRPC.BASE_MAINNET}/${this.ALCHEMY_API_KEY}`)
         : (url = `${ChainRPC.SOLANA_MAINNET}=${this.HELIUS_API_KEY}`);
@@ -38,9 +38,9 @@ export class HelperService {
 
   selectUSDCTokenAddress(chain: Chain): string {
     let address: string;
-    const isDev = this.NODE_ENV === 'development';
+    const isProd = this.NODE_ENV === 'production';
 
-    if (!isDev) {
+    if (isProd) {
       chain === 'BASE'
         ? (address = USDCTokenAddress.BASE_MAINNET)
         : (address = USDCTokenAddress.SOLANA_MAINNET);

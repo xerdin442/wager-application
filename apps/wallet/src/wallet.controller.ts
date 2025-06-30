@@ -116,7 +116,8 @@ export class WalletController {
       }
 
       // Throw if the domain name is an ENS domain
-      if (address.endsWith('.eth')) {
+      const isENSdomain = /(?<!\.base)\.eth$/;
+      if (isENSdomain.test(address)) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
           message: 'Only Basenames and SNS domains are supported at this time',

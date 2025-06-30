@@ -119,7 +119,15 @@ export class WalletController {
             `[${this.context}] Duplicate withdrawal attempts by ${user.email}\n`,
           );
 
-        return { message: 'Your withdrawal is still being processed' };
+        const { status } = JSON.parse(existingWithdrawal) as { status: string };
+
+        if (status === 'PROCESSING') {
+          return {
+            message: `Your withdrawal of ${amount} is being processed`,
+          };
+        } else {
+          return { message: `Your withdrawal of ${amount} has been processed` };
+        }
       }
 
       // Throw if the domain name is an ENS domain
@@ -181,23 +189,26 @@ export class WalletController {
         });
       }
 
-      // Initiate a pending transaction and complete processing of withdrawal
+      // Initiate pending withdrawal transaction
       const transaction = await this.walletService.initiateTransaction(
         user.id,
         dto,
       );
-      await this.walletQueue.add('withdrawal', {
-        dto,
-        user,
-        transactionId: transaction.id,
-      });
 
       // Store idempotency key to prevent similar withdrawal attempts within the next 15 mins
       await redis.setEx(
         idempotencyKey,
         900,
-        JSON.stringify({ status: 'processing' }),
+        JSON.stringify({ status: 'PROCESSING' }),
       );
+
+      // Complete processing of withdrawal
+      await this.walletQueue.add('withdrawal', {
+        dto,
+        user,
+        transactionId: transaction.id,
+        idempotencyKey,
+      });
 
       return { transaction };
     } catch (error) {

@@ -40,6 +40,7 @@ import {
   BASENAME_RESOLVER_ADDRESS,
 } from 'thirdweb/extensions/ens';
 import { base, baseSepolia } from 'thirdweb/chains';
+import { RedisClientType } from 'redis';
 
 @Injectable()
 export class WalletService {
@@ -478,8 +479,16 @@ export class WalletService {
   async processWithdrawalOnBase(
     dto: WithdrawalDTO,
     transaction: Transaction,
+    idempotencyKey: string,
   ): Promise<void> {
     const metricLabels: string[] = [dto.chain.toLowerCase()];
+
+    // Initialize Redis connection
+    const redis: RedisClientType = await this.utils.connectToRedis(
+      this.config.getOrThrow<string>('REDIS_URL'),
+      'Idempotency Keys',
+      this.config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
+    );
 
     try {
       const platformWallet = this.getPlatformWallet('BASE') as Wallet;
@@ -532,6 +541,11 @@ export class WalletService {
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);
 
+      // Update status of idempotency key
+      const ttl = await redis.ttl(idempotencyKey);
+      await redis.set(idempotencyKey, JSON.stringify({ status: 'COMPLETE' }));
+      await redis.expire(idempotencyKey, ttl);
+
       // Notify user of successful withdrawal
       const date: string = updatedTx.createdAt.toISOString();
       const content = `Your withdrawal of $${dto.amount} on ${date} was successful. Your balance is $${user.balance}`;
@@ -546,15 +560,25 @@ export class WalletService {
         );
 
       throw error;
+    } finally {
+      await redis.disconnect();
     }
   }
 
   async processWithdrawalOnSolana(
     dto: WithdrawalDTO,
     transaction: Transaction,
+    idempotencyKey: string,
   ): Promise<void> {
     let signature: string = '';
     const metricLabels: string[] = [dto.chain.toLowerCase()];
+
+    // Initialize Redis connection
+    const redis: RedisClientType = await this.utils.connectToRedis(
+      this.config.getOrThrow<string>('REDIS_URL'),
+      'Idempotency Keys',
+      this.config.getOrThrow<number>('IDEMPOTENCY_KEYS_STORE_INDEX'),
+    );
 
     try {
       const sender = this.getPlatformWallet('SOLANA') as Keypair;
@@ -585,6 +609,11 @@ export class WalletService {
 
       // Notify client of transaction status
       this.gateway.sendTransactionStatus(user.email, updatedTx);
+
+      // Update status of idempotency key
+      const ttl = await redis.ttl(idempotencyKey);
+      await redis.set(idempotencyKey, JSON.stringify({ status: 'COMPLETE' }));
+      await redis.expire(idempotencyKey, ttl);
 
       // Notify user of successful withdrawal
       const date: string = updatedTx.createdAt.toISOString();
@@ -622,6 +651,8 @@ export class WalletService {
       }
 
       throw error;
+    } finally {
+      await redis.disconnect();
     }
   }
 
@@ -683,7 +714,7 @@ export class WalletService {
         currentBalance = parseFloat(currentBalanceInEther);
 
         // Check if balance is below allowed minimum
-        if (currentBalance < minimumBalance) lowBalanceCheck = true;
+        if (currentBalance < Math.ceil(minimumBalance)) lowBalanceCheck = true;
       }
 
       if (chain === 'SOLANA') {
@@ -696,7 +727,7 @@ export class WalletService {
         currentBalance = currentBalanceInLamports / LAMPORTS_PER_SOL;
 
         // Check if balance is below allowed minimum
-        if (currentBalance < minimumBalance) lowBalanceCheck = true;
+        if (currentBalance < Math.ceil(minimumBalance)) lowBalanceCheck = true;
       }
 
       // Notify admin if native asset balance is low

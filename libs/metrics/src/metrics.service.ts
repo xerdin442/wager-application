@@ -25,7 +25,7 @@ export class MetricsService {
           .replace(/_/g, ' ')
           .split(' ')
           .map((word) => word[0].toUpperCase())
-          .join(' '),
+          .join('-'),
         labelNames: labels || [],
         registers: [this.registry],
       });
@@ -50,7 +50,7 @@ export class MetricsService {
           .replace(/_/g, ' ')
           .split(' ')
           .map((word) => word[0].toUpperCase())
-          .join(' '),
+          .join('-'),
         labelNames: labels || [],
         registers: [this.registry],
       });

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { DbModule } from '@app/db';
-import { NatsModule, UtilsModule } from '@app/utils';
+import { UtilsModule } from '@app/utils';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
@@ -12,7 +12,6 @@ import { ConfigModule } from '@nestjs/config';
     }),
     DbModule,
     UtilsModule,
-    NatsModule,
   ],
   controllers: [UserController],
   providers: [UserService],

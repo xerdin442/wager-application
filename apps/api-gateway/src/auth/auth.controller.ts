@@ -47,6 +47,7 @@ export class AuthController {
   ) {}
 
   @Get('metrics')
+  @UseGuards(AuthGuard('jwt'))
   getMetrics(): Observable<any> {
     return this.natsClient
       .send('auth-metrics', {})

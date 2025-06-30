@@ -11,6 +11,7 @@ interface TransactionJob {
   dto: DepositDTO | WithdrawalDTO;
   user: User;
   transactionId: number;
+  idempotencyKey?: string;
 }
 
 @Injectable()
@@ -97,7 +98,7 @@ export class WalletProcessor {
 
   @Process('withdrawal')
   async processWithdrawal(job: Job<TransactionJob>): Promise<void> {
-    const { user, transactionId } = job.data;
+    const { user, transactionId, idempotencyKey } = job.data;
     const dto = job.data.dto as WithdrawalDTO;
 
     const transaction = await this.prisma.transaction.findUniqueOrThrow({
@@ -106,8 +107,16 @@ export class WalletProcessor {
 
     try {
       dto.chain === 'BASE'
-        ? await this.walletService.processWithdrawalOnBase(dto, transaction)
-        : await this.walletService.processWithdrawalOnSolana(dto, transaction);
+        ? await this.walletService.processWithdrawalOnBase(
+            dto,
+            transaction,
+            idempotencyKey as string,
+          )
+        : await this.walletService.processWithdrawalOnSolana(
+            dto,
+            transaction,
+            idempotencyKey as string,
+          );
 
       this.utils
         .logger()

@@ -4,7 +4,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { GoogleStrategy } from './strategy/google.strategy';
-import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
@@ -15,7 +14,6 @@ import { PassportModule } from '@nestjs/passport';
       }),
       inject: [ConfigService],
     }),
-    PassportModule.register({ session: true }),
   ],
   controllers: [AuthController],
   providers: [JwtStrategy, GoogleStrategy],

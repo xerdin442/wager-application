@@ -40,7 +40,7 @@ export class AdminController {
   }
 
   @Get()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
   getAllAdmins(): Observable<any> {
     return this.natsClient.send('all-admins', {}).pipe(catchError(handleError));
@@ -48,7 +48,7 @@ export class AdminController {
 
   @Post('add')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
   addAdmin(@Body() dto: CreateAdminDTO): Observable<any> {
     return this.natsClient.send('add', { dto }).pipe(catchError(handleError));
@@ -56,7 +56,7 @@ export class AdminController {
 
   @Post('remove')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
   removeAdmin(@Query('email') email: string): Observable<any> {
     return this.natsClient
@@ -65,7 +65,7 @@ export class AdminController {
   }
 
   @Get('disputes')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt-admin'))
   getDisputeChats(@GetAdmin() admin: Admin): Observable<any> {
     return this.natsClient
       .send('dispute-chats', { adminId: admin.id })

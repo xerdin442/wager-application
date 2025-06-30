@@ -61,7 +61,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         // Sign in existing user
         const authResponse = await lastValueFrom(
           this.natsClient
-            .send<GoogleAuthUser>('login', { dto })
+            .send<GoogleAuthUser>('auth-login', { dto })
             .pipe(catchError(handleError)),
         );
 
@@ -77,7 +77,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         // Sign up and onboard new user
         const authResponse = await lastValueFrom(
           this.natsClient
-            .send<GoogleAuthUser>('signup', { details })
+            .send<GoogleAuthUser>('auth-signup', { details })
             .pipe(catchError(handleError)),
         );
 

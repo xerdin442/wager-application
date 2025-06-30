@@ -6,8 +6,8 @@ import { DbService } from '@app/db';
 import { UtilsService } from '@app/utils';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly context = JwtStrategy.name;
+export class AdminJwtStrategy extends PassportStrategy(Strategy, 'jwt-admin') {
+  private readonly context = AdminJwtStrategy.name;
 
   constructor(
     private readonly prisma: DbService,

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -22,6 +23,13 @@ export class WalletController {
   constructor(
     @Inject('WALLET_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
+
+  @Get('metrics')
+  getMetrics(): Observable<any> {
+    return this.natsClient
+      .send('wallet-metrics', {})
+      .pipe(catchError(handleError));
+  }
 
   @Post('deposit')
   @HttpCode(HttpStatus.OK)

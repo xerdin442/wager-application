@@ -85,8 +85,6 @@ services:
     depends_on:
       - database
       - nats-server
-    secrets:
-      - platform_wallet_keyphrase
 
   wallet-redis:
     image: redis:latest
@@ -193,7 +191,3 @@ networks:
   wager-network:
   wallet-network:
   monitoring:
-
-secrets:
-  platform_wallet_keyphrase:
-    file: ./phrase.txt

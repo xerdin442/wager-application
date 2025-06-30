@@ -29,6 +29,13 @@ export class WagerController {
     @Inject('WAGER_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
+  @Get('metrics')
+  getMetrics(): Observable<any> {
+    return this.natsClient
+      .send('wager-metrics', {})
+      .pipe(catchError(handleError));
+  }
+
   @Post('create')
   createWager(
     @GetUser() user: User,

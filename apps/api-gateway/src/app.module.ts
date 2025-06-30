@@ -6,8 +6,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { NatsModule, UtilsModule } from '@app/utils';
 import { WagerModule } from './wager/wager.module';
 import { WalletModule } from './wallet/wallet.module';
-import { MetricsModule } from '@app/metrics';
-import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { UserModule } from './user/user.module';
@@ -37,7 +35,6 @@ import { UserModule } from './user/user.module';
     DbModule,
     NatsModule,
     UtilsModule,
-    MetricsModule,
     WagerModule,
     WalletModule,
     AuthModule,
@@ -50,6 +47,5 @@ import { UserModule } from './user/user.module';
       useClass: ThrottlerGuard,
     },
   ],
-  controllers: [AppController],
 })
 export class AppModule {}

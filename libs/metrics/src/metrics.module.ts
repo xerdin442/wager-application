@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
-import { Registry } from 'prom-client';
+import { collectDefaultMetrics, Registry } from 'prom-client';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Global()
@@ -19,6 +19,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         registry.setDefaultLabels({
           app: config.getOrThrow<string>('APP_NAME'),
         });
+        collectDefaultMetrics({ register: registry });
         return registry;
       },
       inject: [ConfigService],

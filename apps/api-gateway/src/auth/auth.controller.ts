@@ -46,6 +46,13 @@ export class AuthController {
     @Inject('AUTH_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
+  @Get('metrics')
+  getMetrics(): Observable<any> {
+    return this.natsClient
+      .send('auth-metrics', {})
+      .pipe(catchError(handleError));
+  }
+
   @Post('signup')
   @UseInterceptors(
     FileInterceptor('profileImage', {

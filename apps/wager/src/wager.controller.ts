@@ -4,6 +4,7 @@ import { MessagePattern } from '@nestjs/microservices';
 import { Message, User, Wager } from '@prisma/client';
 import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
 import { UtilsService } from '@app/utils';
+import { MetricsService } from '@app/metrics';
 
 @Controller()
 export class WagerController {
@@ -11,7 +12,13 @@ export class WagerController {
   constructor(
     private readonly wagerService: WagerService,
     private readonly utils: UtilsService,
+    private readonly metrics: MetricsService,
   ) {}
+
+  @MessagePattern('wager-metrics')
+  async getMetrics(): Promise<Record<string, any>> {
+    return this.metrics.getMetrics();
+  }
 
   @MessagePattern('create')
   async createWager(data: {

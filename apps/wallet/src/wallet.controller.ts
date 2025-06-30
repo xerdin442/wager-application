@@ -9,6 +9,7 @@ import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { RedisClientType } from 'redis';
 import { HelperService } from './utils/helper';
+import { MetricsService } from '@app/metrics';
 
 @Controller()
 export class WalletController {
@@ -18,9 +19,15 @@ export class WalletController {
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
     private readonly helper: HelperService,
+    private readonly metrics: MetricsService,
     private readonly walletService: WalletService,
     @InjectQueue('wallet-queue') private readonly walletQueue: Queue,
   ) {}
+
+  @MessagePattern('wallet-metrics')
+  async getMetrics(): Promise<Record<string, any>> {
+    return this.metrics.getMetrics();
+  }
 
   @MessagePattern('deposit')
   async processDeposit(data: {

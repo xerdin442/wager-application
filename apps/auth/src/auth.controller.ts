@@ -12,6 +12,7 @@ import {
 } from './dto';
 import { User } from '@prisma/client';
 import { UtilsService } from '@app/utils';
+import { MetricsService } from '@app/metrics';
 
 @Controller()
 export class AuthController {
@@ -21,7 +22,13 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly utils: UtilsService,
+    private readonly metrics: MetricsService,
   ) {}
+
+  @MessagePattern('auth-metrics')
+  async getMetrics(): Promise<Record<string, any>> {
+    return this.metrics.getMetrics();
+  }
 
   @MessagePattern('auth-signup')
   async signup(data: {

@@ -77,8 +77,6 @@ services:
       - test-db
       - test-redis
       - nats-server
-    secrets:
-      - platform_wallet_keyphrase
     command: >
       sh -c "npm run start:dev wallet"
 
@@ -113,7 +111,3 @@ services:
       - nats-server
     command: >
       sh -c "npm run start:dev user"
-
-secrets:
-  platform_wallet_keyphrase:
-    file: phrase.txt

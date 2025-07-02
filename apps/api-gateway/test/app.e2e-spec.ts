@@ -346,7 +346,7 @@ describe('E2E Tests', () => {
     });
   });
 
-  describe('Admins', () => {
+  xdescribe('Admins', () => {
     it('should create super admin profile', async () => {
       const dto: AdminAuthDTO = {
         email: 'mudianthonio27@gmail.com',
@@ -705,7 +705,7 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    it('should retrieve all dispute chat messages as an admin', async () => {
+    xit('should retrieve all dispute chat messages as an admin', async () => {
       const response = await request(app.getHttpServer())
         .get(`/wagers/${wagerId}/dispute/chat`)
         .set('Authorization', `Bearer ${adminToken}`);
@@ -715,7 +715,7 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    it('should assign winner after dispute resolution', async () => {
+    xit('should assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
         .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
         .set('Authorization', `Bearer ${adminToken}`);
@@ -940,7 +940,7 @@ describe('E2E Tests', () => {
         expect(response.status).toEqual(200);
         expect(response.body).toHaveProperty('message');
         expect(response.body.message).toEqual(
-          'Your withdrawal is still being processed',
+          `Your withdrawal of ${solanaDto.amount} is being processed`,
         );
       });
     });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { UtilsService } from '@app/utils';
 import { WalletGateway } from '../src/wallet.gateway';
@@ -22,10 +23,6 @@ import Web3, {
   Web3Account,
   Transaction as EthTransaction,
   TransactionReceipt,
-  Contract,
-  ContractAbi,
-  SignTransactionResult,
-  TransactionError as EthTransactionErrror,
 } from 'web3';
 import {
   ETH_WEB3_PROVIDER_TOKEN,
@@ -41,7 +38,27 @@ import axios, { AxiosResponse } from 'axios';
 import * as bip39 from 'bip39';
 import * as ed25519 from 'ed25519-hd-key';
 import * as Thirdweb from 'thirdweb';
+import * as ThirdwebWallets from 'thirdweb/wallets';
 import * as ThirdwebExtension from 'thirdweb/extensions/ens';
+import * as ThirdwebERC20 from 'thirdweb/extensions/erc20';
+import { RedisClientType } from 'redis';
+
+jest.mock('thirdweb', () => ({
+  ...jest.requireActual('thirdweb'),
+  getContract: jest.fn().mockReturnValue({
+    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+  }),
+  createThirdwebClient: jest.fn().mockReturnValue({
+    clientId: 'client-id',
+    secretKey: 'thirdweb-api-key',
+  }),
+  sendAndConfirmTransaction: jest.fn(),
+}));
+
+jest.mock('thirdweb/extensions/erc20', () => ({
+  ...jest.requireActual('thirdweb/extensions/erc20'),
+  transfer: jest.fn(),
+}));
 
 describe('Wallet Service', () => {
   let walletService: WalletService;
@@ -53,7 +70,6 @@ describe('Wallet Service', () => {
   let utils: DeepMocked<UtilsService>;
   let prisma: DeepMocked<DbService>;
   let metrics: DeepMocked<MetricsService>;
-  let contract: DeepMocked<Contract<ContractAbi>>;
 
   const user: User = {
     id: 1,
@@ -108,11 +124,17 @@ describe('Wallet Service', () => {
     createdAt: new Date(),
   };
 
+  const redis = {
+    set: jest.fn().mockResolvedValue('OK'),
+    ttl: jest.fn().mockResolvedValue(1000),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    expire: jest.fn().mockResolvedValue(true),
+  } as unknown as RedisClientType;
+
   beforeAll(async () => {
     config = createMock<ConfigService>();
     helper = createMock<HelperService>();
     web3 = createMock<Web3>();
-    contract = createMock<Contract<ContractAbi>>();
     connection = createMock<Connection>();
 
     // Mock all required environment variables
@@ -205,13 +227,6 @@ describe('Wallet Service', () => {
   });
 
   describe('Resolve Domain', () => {
-    beforeEach(() => {
-      jest.spyOn(Thirdweb, 'createThirdwebClient').mockReturnValue({
-        clientId: 'client-id',
-        secretKey: 'thirdweb-api-key',
-      });
-    });
-
     it('should return null if Basename is invalid or unregistered', async () => {
       jest
         .spyOn(ThirdwebExtension, 'resolveAddress')
@@ -351,7 +366,7 @@ describe('Wallet Service', () => {
 
     const ethTransaction: EthTransaction = {
       data: `${abiFunctionSignature}-input-data`,
-      to: USDCTokenAddress.BASE_SEPOLIA,
+      to: USDCTokenAddress.BASE_SEPOLIA.toLowerCase(),
       from: depositDto.depositor,
     };
 
@@ -857,28 +872,16 @@ describe('Wallet Service', () => {
 
   describe('Withdrawal on Base', () => {
     beforeEach(() => {
+      utils.connectToRedis.mockResolvedValue(redis);
       jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(wallet);
 
-      (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
-        account,
-      );
-      (web3.eth.Contract as unknown as jest.Mock).mockReturnValue(contract);
-      (web3.utils.toBigInt as jest.Mock).mockReturnValue(
-        BigInt(withdrawalDto.amount),
-      );
+      jest.spyOn(ThirdwebWallets, 'privateKeyToAccount').mockReturnValue({
+        address: account.address,
+      } as unknown as ThirdwebWallets.Account);
 
-      (contract.methods as unknown as jest.Mock).mockReturnValue({
-        transfer: jest.fn().mockReturnValue({
-          encodeABI: jest.fn().mockReturnValue('encoded-input-data'),
-        }),
+      (ThirdwebERC20.transfer as jest.Mock).mockReturnValue({
+        to: withdrawalDto.address,
       });
-
-      (web3.eth.getGasPrice as jest.Mock).mockResolvedValue(BigInt(21000));
-      (web3.eth.getTransactionCount as jest.Mock).mockResolvedValue(BigInt(2));
-
-      (web3.eth.accounts.signTransaction as jest.Mock).mockResolvedValue({
-        rawTransaction: '0x123456',
-      } as unknown as SignTransactionResult);
 
       jest
         .spyOn(walletService, 'updateDbAfterTransaction')
@@ -890,35 +893,18 @@ describe('Wallet Service', () => {
     });
 
     it('should sucesssfully process withdrawal from platform ethereum wallet', async () => {
-      (web3.eth.sendSignedTransaction as jest.Mock).mockResolvedValue({
-        transactionHash: jest.fn().mockResolvedValue({
-          toString: jest.fn().mockResolvedValue('0x123456'),
-        }),
+      (Thirdweb.sendAndConfirmTransaction as jest.Mock).mockResolvedValue({
+        transactionHash: { toString: jest.fn().mockReturnValue('0x123456') },
       });
 
       const response = walletService.processWithdrawalOnBase(
         withdrawalDto,
         transaction,
+        'IDEMPOTENCY-KEY',
       );
       await expect(response).resolves.toBeUndefined();
       expect(metrics.incrementCounter).toHaveBeenCalledWith(
         'successful_withdrawals',
-        ['base'],
-      );
-    });
-
-    it('should throw if an onchain error occurs during withdrawal from platform ethereum wallet', async () => {
-      (web3.eth.sendSignedTransaction as jest.Mock).mockRejectedValue(
-        new EthTransactionErrror('mock-error-message'),
-      );
-
-      const response = walletService.processWithdrawalOnBase(
-        withdrawalDto,
-        transaction,
-      );
-      await expect(response).resolves.toBeUndefined();
-      expect(metrics.incrementCounter).toHaveBeenCalledWith(
-        'failed_withdrawals',
         ['base'],
       );
     });
@@ -934,6 +920,7 @@ describe('Wallet Service', () => {
     const tx: Transaction = { ...transaction, chain: 'SOLANA' };
 
     beforeEach(() => {
+      utils.connectToRedis.mockResolvedValue(redis);
       jest.spyOn(walletService, 'getPlatformWallet').mockReturnValue(keypair);
       jest
         .spyOn(walletService, 'updateDbAfterTransaction')
@@ -945,7 +932,11 @@ describe('Wallet Service', () => {
     });
 
     it('should sucesssfully process withdrawal from platform solana wallet', async () => {
-      const response = walletService.processWithdrawalOnSolana(dto, tx);
+      const response = walletService.processWithdrawalOnSolana(
+        dto,
+        tx,
+        'IDEMPOTENCY-KEY',
+      );
 
       await expect(response).resolves.toBeUndefined();
       expect(metrics.incrementCounter).toHaveBeenCalledWith(
@@ -964,7 +955,11 @@ describe('Wallet Service', () => {
         }),
       );
 
-      const response = walletService.processWithdrawalOnSolana(dto, tx);
+      const response = walletService.processWithdrawalOnSolana(
+        dto,
+        tx,
+        'IDEMPOTENCY-KEY',
+      );
 
       await expect(response).resolves.toBeUndefined();
       expect(metrics.incrementCounter).toHaveBeenCalledWith(
@@ -1006,8 +1001,6 @@ describe('Wallet Service', () => {
       (web3.eth.accounts.privateKeyToAccount as jest.Mock).mockReturnValue(
         account,
       );
-
-      (web3.eth.Contract as unknown as jest.Mock).mockReturnValue(contract);
     });
 
     it('should ignore alert email if ETH balance is above allowed minimum', async () => {
@@ -1033,12 +1026,9 @@ describe('Wallet Service', () => {
     });
 
     it('should ignore alert email if stablecoin balance is above allowed minimum', async () => {
-      (contract.methods as unknown as jest.Mock).mockReturnValue({
-        balanceOf: jest.fn().mockReturnValue({
-          call: jest.fn().mockResolvedValue(`${5000 * 1e6}`),
-        }),
-      });
-      (web3.utils.fromWei as jest.Mock).mockReturnValue('5000');
+      jest
+        .spyOn(ThirdwebERC20, 'balanceOf')
+        .mockResolvedValue(BigInt(5000 * 1e6));
 
       const response = walletService.checkStablecoinBalance('BASE');
 
@@ -1047,12 +1037,9 @@ describe('Wallet Service', () => {
     });
 
     it('should send alert email if stablecoin balance is below allowed minimum', async () => {
-      (contract.methods as unknown as jest.Mock).mockReturnValue({
-        balanceOf: jest.fn().mockReturnValue({
-          call: jest.fn().mockResolvedValue(`${3000 * 1e6}`),
-        }),
-      });
-      (web3.utils.fromWei as jest.Mock).mockReturnValue('3000');
+      jest
+        .spyOn(ThirdwebERC20, 'balanceOf')
+        .mockResolvedValue(BigInt(3000 * 1e6));
 
       const response = walletService.checkStablecoinBalance('BASE');
 

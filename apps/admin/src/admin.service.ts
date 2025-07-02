@@ -71,6 +71,7 @@ export class AdminService {
       }
 
       const payload = { sub: admin.id, email: admin.email }; // Create JWT payload
+      admin.passcode = 'X-X-X';
 
       return { admin, token: await this.jwt.signAsync(payload) };
     } catch (error) {

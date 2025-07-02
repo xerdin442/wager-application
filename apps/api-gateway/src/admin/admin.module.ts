@@ -3,7 +3,6 @@ import { AdminController } from './admin.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AdminJwtStrategy } from './strategy/jwt.strategy';
-import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
@@ -14,7 +13,6 @@ import { PassportModule } from '@nestjs/passport';
       }),
       inject: [ConfigService],
     }),
-    PassportModule,
   ],
   controllers: [AdminController],
   providers: [AdminJwtStrategy],

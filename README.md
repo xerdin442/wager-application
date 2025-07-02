@@ -16,9 +16,9 @@ This API is a robust backend service for a stablecoin-powered wager application 
 
 ## Coming up...
 
-- **Multi-Player Contests**: Multi-player wager contests for games such as Call of Duty Mobile and Fantasy Premier League (FPL).
+- **Multi-Player Contests**: Multi-player prize contests for games such as Call of Duty Mobile and Fantasy Premier League (FPL).
 - **Savings**: Feature to enable auto-save on winnings. The savings will be staked onchain, and yields will be accumulated to grow the user's balance over time.
-- **Rewards**: Onchain reward system to allocate points for consistent players based on individual wins, winning streak and points on public leaderboard.
+- **Rewards**: Onchain reward system to allocate points on public leaderboard for consistent players based on individual wins and winning streak.
 
 ## Deployment
 

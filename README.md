@@ -48,30 +48,35 @@ This API is a robust backend service for a stablecoin-powered wager application 
 Clone this repository and follow the instructions to set up the project locally:
 
 ### 1. Installation
+
 - Run `npm install` to install all the project dependencies.
 
 ### 2. Environment Variables
+
 - [Use the sample here](./.env.example) to create two files - `.env` and `.env.local` - for storing and managing the required global environment variables. Look for `.env.example` file in each service in `apps` folder to see if there are service-level environment variables. If any, create a `.env` file at the root of the service directory and the variables.
 - `.env.test` file is a combination of all service-level environment variables across the individual services and those in the global `.env` file. If there are overlapping variables, use just one.
 - `localhost` should be the hostname for all external service urls (db, redis and nats) in the `.env.test` file. This will connect the test environment to the same docker instances as `docker.host.internal` in the `compose.test.yml` file.
 
 ### 3. Database Migrations
+
 The database schema is located [here](prisma/schema.prisma). If no schema changes are needed, move to the next step. If you make changes to the schema, follow these steps to run migrations locally:
 
 - Start the database container: `npm run compose:db` (**ensure Docker Desktop is running!**)
 - Apply the migrations: `npm run migrate:local`
 
 ### 4. Initialization
+
 - Start the dev containers `npm run compose:dev`
 - Check the logs of the `api-gateway` container on Docker Desktop. When the Nest application is fully initialized, the application should be running at: `http://localhost:3000/`
 - If you make changes in any of the services, restart the service using: `npm run compose:restart -- service-name`
 
 ### 5. Tests
+
 - For unit tests, run: `npm run test`
 - For end-to-end tests, run;
 
-   * Start the test containers: `npm run compose:test`
-   * Run the tests: `npm run test:e2e`
+  - Start the test containers: `npm run compose:test`
+  - Run the tests: `npm run test:e2e`
 
 <br>
 
@@ -97,16 +102,16 @@ The database schema is located [here](prisma/schema.prisma). If no schema change
 
 ### Admin API
 
-| Method | Path            | Description                             |
-| ------ | --------------- | --------------------------------------- |
-| POST   | /admin/signup   | Create Super Admin profile              |
-| POST   | /admin/login    | Sign in an existing admin               |
-| GET    | /admin          | Retrieve all admins                     |
-| POST   | /admin/add      | Add new admin                           |
-| POST   | /admin/remove   | Remove existing admin                   |
-| POST   | /admin/disputes | Retrieve all dispute chats for an admin |
+| Method | Path                          | Description                             |
+| ------ | ----------------------------- | --------------------------------------- |
+| POST   | /admin/signup                 | Create Super Admin profile              |
+| POST   | /admin/login                  | Sign in an existing admin               |
+| GET    | /admin?email=                 | Retrieve all admins                     |
+| POST   | /admin/add?email=             | Add new admin                           |
+| POST   | /admin/remove/:adminId?email= | Remove existing admin                   |
+| POST   | /admin/disputes/:adminId      | Retrieve all dispute chats for an admin |
 
-### User API
+### Users API
 
 | Method | Path                                    | Description                         |
 | ------ | --------------------------------------- | ----------------------------------- |
@@ -119,20 +124,20 @@ The database schema is located [here](prisma/schema.prisma). If no schema change
 
 ### Wagers API
 
-| Method | Path                             | Description                            |
-| ------ | -------------------------------- | -------------------------------------- |
-| POST   | /wagers/create                   | Create new wager                       |
-| POST   | /wagers/invite                   | Find wager by invite code              |
-| GET    | /wagers/:wagerId                 | Get wager details                      |
-| PATCH  | /wagers/:wagerId                 | Update wager details                   |
-| POST   | /wagers/:wagerId/join            | Join a pending wager                   |
-| POST   | /wagers/:wagerId/claim           | Claim wager prize                      |
-| POST   | /wagers/:wagerId/claim/accept    | Accept wager prize claim               |
-| POST   | /wagers/:wagerId/claim/contest   | Contest wager prize claim              |
-| GET    | /wagers/:wagerId/dispute/chat    | Retrieve dispute chat messages         |
-| GET    | /wagers/:wagerId/dispute/resolve | Assign winner after dispute resolution |
-| DELETE | /wagers/:wagerId                 | Delete a pending wager                 |
-| GET    | /wagers/metrics                  | Retrieve wager-related metrics         |
+| Method | Path                                    | Description                            |
+| ------ | --------------------------------------- | -------------------------------------- |
+| POST   | /wagers/create                          | Create new wager                       |
+| POST   | /wagers/invite                          | Find wager by invite code              |
+| GET    | /wagers/:wagerId                        | Get wager details                      |
+| PATCH  | /wagers/:wagerId                        | Update wager details                   |
+| POST   | /wagers/:wagerId/join                   | Join a pending wager                   |
+| POST   | /wagers/:wagerId/claim                  | Claim wager prize                      |
+| POST   | /wagers/:wagerId/claim/accept           | Accept wager prize claim               |
+| POST   | /wagers/:wagerId/claim/contest          | Contest wager prize claim              |
+| GET    | /wagers/:wagerId/dispute/chat           | Retrieve dispute chat messages         |
+| GET    | /wagers/:wagerId/dispute/resolve?admin= | Assign winner after dispute resolution |
+| DELETE | /wagers/:wagerId                        | Delete a pending wager                 |
+| GET    | /wagers/metrics                         | Retrieve wager-related metrics         |
 
 ### Wallet API
 

@@ -44,3 +44,9 @@ export class WagerInviteDTO {
   @IsNotEmpty()
   inviteCode: string;
 }
+
+export class DisputeResolutionDTO {
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+}

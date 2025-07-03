@@ -2,7 +2,12 @@ import { Controller } from '@nestjs/common';
 import { WagerService } from './wager.service';
 import { MessagePattern } from '@nestjs/microservices';
 import { Message, User, Wager } from '@prisma/client';
-import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
+import {
+  CreateWagerDTO,
+  DisputeResolutionDTO,
+  UpdateWagerDTO,
+  WagerInviteDTO,
+} from './dto';
 import { UtilsService } from '@app/utils';
 import { MetricsService } from '@app/metrics';
 
@@ -237,11 +242,11 @@ export class WagerController {
   @MessagePattern('resolve-dispute')
   async assignWinnerAfterResolution(data: {
     wagerId: number;
-    username: string;
+    dto: DisputeResolutionDTO;
   }): Promise<{ message: string }> {
     try {
-      const { username, wagerId } = data;
-      await this.wagerService.assignWinnerAfterResolution(wagerId, username);
+      const { dto, wagerId } = data;
+      await this.wagerService.assignWinnerAfterResolution(wagerId, dto);
 
       return { message: 'Dispute resolution successful' };
     } catch (error) {

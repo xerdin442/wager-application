@@ -16,8 +16,10 @@ export class SuperAdminGuard implements CanActivate {
       string,
       any
     >;
+
+    const email = (request.query.email as string) || 'email';
     const admin = await this.prisma.admin.findUnique({
-      where: { email: request.query.email as string },
+      where: { email },
     });
 
     if (!admin || admin.id !== 1) {
@@ -40,8 +42,9 @@ export class AdminGuard implements CanActivate {
       any
     >;
 
+    const email = (request.query.admin as string) || 'email';
     const admin = await this.prisma.admin.findUnique({
-      where: { email: request.query.admin as string },
+      where: { email },
     });
 
     if (!admin) {

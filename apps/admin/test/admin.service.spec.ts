@@ -6,7 +6,6 @@ import { RpcException } from '@nestjs/microservices';
 import { UtilsService } from '@app/utils';
 import { DbService } from '@app/db';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import * as argon from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { Admin } from '@prisma/client';
@@ -20,7 +19,6 @@ describe('Admin Service', () => {
   let adminService: AdminService;
   let utils: DeepMocked<UtilsService>;
   let config: DeepMocked<ConfigService>;
-  let jwt: DeepMocked<JwtService>;
   let prisma: DeepMocked<DbService>;
 
   const authDto: AdminAuthDTO = {
@@ -53,7 +51,6 @@ describe('Admin Service', () => {
     adminService = module.get<AdminService>(AdminService);
     utils = module.get(UtilsService);
     config = module.get(ConfigService);
-    jwt = module.get(JwtService);
     prisma = module.get(DbService);
   });
 
@@ -70,12 +67,11 @@ describe('Admin Service', () => {
     };
 
     it('should signup and create Super Admin profile', async () => {
-      jwt.signAsync.mockResolvedValue('signed-jwt-string');
       (prisma.admin.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.admin.create as jest.Mock).mockResolvedValue(superAdmin);
 
       const response = adminService.signup(authDto);
-      await expect(response).resolves.toBe('signed-jwt-string');
+      await expect(response).resolves.toBeUndefined();
     });
 
     it('should throw if Super Admin profile already exists', async () => {
@@ -130,7 +126,6 @@ describe('Admin Service', () => {
         return undefined;
       });
 
-      jwt.signAsync.mockResolvedValue('signed-jwt-string');
       (prisma.admin.findUnique as jest.Mock).mockResolvedValue(admin);
     });
 
@@ -163,9 +158,8 @@ describe('Admin Service', () => {
     it('should login', async () => {
       jest.spyOn(argon, 'verify').mockResolvedValue(true);
 
-      const response = await adminService.login(authDto);
-      expect(response.token).toEqual('signed-jwt-string');
-      expect(response.admin).toEqual(admin);
+      const response = adminService.login(authDto);
+      await expect(response).resolves.toEqual(admin);
     });
   });
 

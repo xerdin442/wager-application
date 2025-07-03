@@ -2,24 +2,26 @@ import { DbService } from '@app/db';
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
-  constructor() {}
+  constructor(private readonly prisma: DbService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>() as Record<
       string,
       any
     >;
-    const adminId = +request.user.id;
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: request.query.email as string },
+    });
 
-    if (adminId !== 1) {
-      throw new ForbiddenException(
+    if (!admin || admin.id !== 1) {
+      throw new UnauthorizedException(
         'Only the Super Admin is authorized to perform this operation',
       );
     }
@@ -39,11 +41,13 @@ export class AdminGuard implements CanActivate {
     >;
 
     const admin = await this.prisma.admin.findUnique({
-      where: { email: request.user.email as string },
+      where: { email: request.query.admin as string },
     });
 
     if (!admin) {
-      throw new ForbiddenException('Only an Admin can perform this operation');
+      throw new UnauthorizedException(
+        'Only an Admin can perform this operation',
+      );
     }
 
     return true;

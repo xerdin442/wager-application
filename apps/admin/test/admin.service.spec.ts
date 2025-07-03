@@ -200,8 +200,8 @@ describe('Admin Service', () => {
     it('should remove existing admin', async () => {
       (prisma.admin.delete as jest.Mock).mockResolvedValue(admin);
 
-      const response = adminService.removeAddmin(createAdminDto.email);
-      await expect(response).resolves.toBeUndefined();
+      const response = adminService.removeAddmin(admin.id);
+      await expect(response).resolves.toEqual(admin.email);
     });
   });
 });

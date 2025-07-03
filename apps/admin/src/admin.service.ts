@@ -1,6 +1,5 @@
 import { DbService } from '@app/db';
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { Admin, Chat } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { AdminAuthDTO, CreateAdminDTO } from './dto';
@@ -14,12 +13,11 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 export class AdminService {
   constructor(
     private readonly prisma: DbService,
-    private readonly jwt: JwtService,
     private readonly utils: UtilsService,
     private readonly config: ConfigService,
   ) {}
 
-  async signup(dto: AdminAuthDTO): Promise<string> {
+  async signup(dto: AdminAuthDTO): Promise<void> {
     try {
       const admins = await this.prisma.admin.findMany();
       if (admins.length === 1) {
@@ -30,25 +28,23 @@ export class AdminService {
       }
 
       const hash = await argon.hash(dto.passcode);
-      const admin = await this.prisma.admin.create({
+      await this.prisma.admin.create({
         data: {
           ...dto,
           passcode: hash,
-          name: 'Admin',
+          name: 'Super Admin',
           category: 'OTHERS',
           disputes: 0,
         },
       });
 
-      const payload = { sub: admin.id, email: admin.email }; // Create JWT payload
-
-      return this.jwt.signAsync(payload);
+      return;
     } catch (error) {
       throw error;
     }
   }
 
-  async login(dto: AdminAuthDTO): Promise<{ admin: Admin; token: string }> {
+  async login(dto: AdminAuthDTO): Promise<Admin> {
     try {
       const admin = await this.prisma.admin.findUnique({
         where: { email: dto.email },
@@ -70,10 +66,9 @@ export class AdminService {
         });
       }
 
-      const payload = { sub: admin.id, email: admin.email }; // Create JWT payload
       admin.passcode = 'X-X-X';
 
-      return { admin, token: await this.jwt.signAsync(payload) };
+      return admin;
     } catch (error) {
       throw error;
     }
@@ -91,7 +86,7 @@ export class AdminService {
 
   async addAddmin(dto: CreateAdminDTO): Promise<void> {
     try {
-      const passcode = randomUUID().split('-').slice(1, 3).join('-');
+      const passcode = randomUUID().split('-').slice(1, 4).join('-');
       const hash = await argon.hash(passcode);
 
       const admin = await this.prisma.admin.create({
@@ -123,11 +118,13 @@ export class AdminService {
     }
   }
 
-  async removeAddmin(email: string): Promise<void> {
+  async removeAddmin(adminId: number): Promise<string> {
     try {
-      await this.prisma.admin.delete({
-        where: { email },
+      const admin = await this.prisma.admin.delete({
+        where: { id: adminId },
       });
+
+      return admin.email;
     } catch (error) {
       throw error;
     }

@@ -5,18 +5,16 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Param,
+  ParseIntPipe,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, Observable } from 'rxjs';
 import { AdminAuthDTO, CreateAdminDTO } from './dto';
 import { handleError } from '../utils/error';
-import { AuthGuard } from '@nestjs/passport';
 import { SuperAdminGuard } from '../custom/guards/admin.guard';
-import { Admin } from '@prisma/client';
-import { GetAdmin } from '../custom/decorators';
 
 @Controller('admin')
 export class AdminController {
@@ -40,7 +38,6 @@ export class AdminController {
   }
 
   @Get()
-  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
   getAllAdmins(): Observable<any> {
     return this.natsClient.send('all-admins', {}).pipe(catchError(handleError));
@@ -48,27 +45,28 @@ export class AdminController {
 
   @Post('add')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
   addAdmin(@Body() dto: CreateAdminDTO): Observable<any> {
     return this.natsClient.send('add', { dto }).pipe(catchError(handleError));
   }
 
-  @Post('remove')
+  @Post('remove/:adminId')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt-admin'))
   @UseGuards(SuperAdminGuard)
-  removeAdmin(@Query('email') email: string): Observable<any> {
+  removeAdmin(
+    @Param('adminId', ParseIntPipe) adminId: number,
+  ): Observable<any> {
     return this.natsClient
-      .send('remove', { email })
+      .send('remove', { adminId })
       .pipe(catchError(handleError));
   }
 
-  @Get('disputes')
-  @UseGuards(AuthGuard('jwt-admin'))
-  getDisputeChats(@GetAdmin() admin: Admin): Observable<any> {
+  @Get('disputes/:adminId')
+  getDisputeChats(
+    @Param('adminId', ParseIntPipe) adminId: number,
+  ): Observable<any> {
     return this.natsClient
-      .send('dispute-chats', { adminId: admin.id })
+      .send('dispute-chats', { adminId })
       .pipe(catchError(handleError));
   }
 }

@@ -10,7 +10,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
@@ -19,7 +18,12 @@ import { User } from '@prisma/client';
 import { Observable, catchError } from 'rxjs';
 import { GetUser } from '../custom/decorators';
 import { handleError } from '../utils/error';
-import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
+import {
+  CreateWagerDTO,
+  DisputeResolutionDTO,
+  UpdateWagerDTO,
+  WagerInviteDTO,
+} from './dto';
 import { AdminGuard } from '../custom/guards/admin.guard';
 
 @Controller('wagers')
@@ -140,10 +144,10 @@ export class WagerController {
   @UseGuards(AdminGuard)
   assignWinnerAfterResolution(
     @Param('wagerId', ParseIntPipe) wagerId: number,
-    @Query('username') username: string,
+    @Body() dto: DisputeResolutionDTO,
   ): Observable<any> {
     return this.natsClient
-      .send('resolve-dispute', { username, wagerId })
+      .send('resolve-dispute', { wagerId, dto })
       .pipe(catchError(handleError));
   }
 }

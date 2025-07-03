@@ -15,12 +15,10 @@ export class AdminController {
   ) {}
 
   @MessagePattern('admin-signup')
-  async signup(data: {
-    dto: AdminAuthDTO;
-  }): Promise<{ message: string; token: string }> {
+  async signup(data: { dto: AdminAuthDTO }): Promise<{ message: string }> {
     try {
       const { dto } = data;
-      const token = await this.adminService.signup(dto);
+      await this.adminService.signup(dto);
 
       this.utils
         .logger()
@@ -28,7 +26,7 @@ export class AdminController {
           `[${this.context}] Super Admin profile created by ${dto.email}.\n`,
         );
 
-      return { message: 'Super Admin created successfully', token };
+      return { message: 'Super Admin created successfully' };
     } catch (error) {
       this.utils
         .logger()
@@ -41,12 +39,10 @@ export class AdminController {
   }
 
   @MessagePattern('admin-login')
-  async login(data: {
-    dto: AdminAuthDTO;
-  }): Promise<{ admin: Admin; token: string }> {
+  async login(data: { dto: AdminAuthDTO }): Promise<{ admin: Admin }> {
     try {
       const { dto } = data;
-      const response = await this.adminService.login(dto);
+      const admin = await this.adminService.login(dto);
 
       this.utils
         .logger()
@@ -54,7 +50,7 @@ export class AdminController {
           `[${this.context}] Admin profile login successful. Email: ${dto.email}.\n`,
         );
 
-      return response;
+      return { admin };
     } catch (error) {
       this.utils
         .logger()
@@ -106,10 +102,10 @@ export class AdminController {
   }
 
   @MessagePattern('remove')
-  async removeAdmin(data: { email: string }): Promise<{ message: string }> {
+  async removeAdmin(data: { adminId: number }): Promise<{ message: string }> {
     try {
-      const { email } = data;
-      await this.adminService.removeAddmin(email);
+      const { adminId } = data;
+      const email = await this.adminService.removeAddmin(adminId);
 
       this.utils
         .logger()

@@ -416,10 +416,9 @@ describe('Wager Service', () => {
     it('should throw if username is invalid', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const response = wagerService.assignWinnerAfterResolution(
-        wager.id,
-        'invalidUsername',
-      );
+      const response = wagerService.assignWinnerAfterResolution(wager.id, {
+        username: 'invalidUsername',
+      });
 
       await expect(response).rejects.toBeInstanceOf(RpcException);
       await expect(response).rejects.toThrow('Invalid username');
@@ -430,10 +429,9 @@ describe('Wager Service', () => {
       (prisma.user.update as jest.Mock).mockResolvedValue(playerOne);
       (prisma.wager.update as jest.Mock).mockResolvedValue(wager);
 
-      const response = wagerService.assignWinnerAfterResolution(
-        wager.id,
-        playerOne.username,
-      );
+      const response = wagerService.assignWinnerAfterResolution(wager.id, {
+        ...playerOne,
+      });
       await expect(response).resolves.toBeUndefined();
     });
   });

@@ -4,7 +4,12 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { Wager, Message } from '@prisma/client';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
-import { CreateWagerDTO, UpdateWagerDTO, WagerInviteDTO } from './dto';
+import {
+  CreateWagerDTO,
+  DisputeResolutionDTO,
+  UpdateWagerDTO,
+  WagerInviteDTO,
+} from './dto';
 import { RpcException } from '@nestjs/microservices';
 import { calculatePlatformFee } from './utils';
 
@@ -365,11 +370,11 @@ export class WagerService {
 
   async assignWinnerAfterResolution(
     wagerId: number,
-    username: string,
+    dto: DisputeResolutionDTO,
   ): Promise<void> {
     try {
       const user = await this.prisma.user.findUnique({
-        where: { username },
+        where: { username: dto.username },
       });
       if (!user) {
         throw new RpcException({
@@ -389,7 +394,7 @@ export class WagerService {
 
       // Subtract platform fee and add winnings to the winner's balance
       await this.prisma.user.update({
-        where: { username },
+        where: { username: dto.username },
         data: {
           balance: {
             increment: wager.amount - calculatePlatformFee(wager.amount),

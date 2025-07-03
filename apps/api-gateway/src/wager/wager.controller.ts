@@ -27,13 +27,13 @@ import {
 import { AdminGuard } from '../custom/guards/admin.guard';
 
 @Controller('wagers')
-@UseGuards(AuthGuard('jwt'))
 export class WagerController {
   constructor(
     @Inject('WAGER_SERVICE') private readonly natsClient: ClientProxy,
   ) {}
 
   @Get('metrics')
+  @UseGuards(AuthGuard('jwt'))
   getMetrics(): Observable<any> {
     return this.natsClient
       .send('wager-metrics', {})
@@ -41,6 +41,7 @@ export class WagerController {
   }
 
   @Post('create')
+  @UseGuards(AuthGuard('jwt'))
   createWager(
     @GetUser() user: User,
     @Body() dto: CreateWagerDTO,
@@ -51,6 +52,7 @@ export class WagerController {
   }
 
   @Patch(':wagerId')
+  @UseGuards(AuthGuard('jwt'))
   updateWager(
     @GetUser() user: User,
     @Param('wagerId', ParseIntPipe) wagerId: number,
@@ -62,6 +64,7 @@ export class WagerController {
   }
 
   @Post('invite')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   findWagerByInviteCode(@Body() dto: WagerInviteDTO): Observable<any> {
     return this.natsClient
@@ -70,6 +73,7 @@ export class WagerController {
   }
 
   @Get(':wagerId')
+  @UseGuards(AuthGuard('jwt'))
   getWagerDetails(
     @Param('wagerId', ParseIntPipe) wagerId: number,
   ): Observable<any> {
@@ -79,6 +83,7 @@ export class WagerController {
   }
 
   @Post(':wagerId/join')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   joinWager(
     @GetUser() user: User,
@@ -90,6 +95,7 @@ export class WagerController {
   }
 
   @Post(':wagerId/claim')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   claimWager(
     @GetUser() user: User,
@@ -101,6 +107,7 @@ export class WagerController {
   }
 
   @Post(':wagerId/claim/accept')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   acceptWagerClaim(
     @Param('wagerId', ParseIntPipe) wagerId: number,
@@ -111,6 +118,7 @@ export class WagerController {
   }
 
   @Post(':wagerId/claim/contest')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   contestWagerClaim(
     @Param('wagerId', ParseIntPipe) wagerId: number,
@@ -121,6 +129,7 @@ export class WagerController {
   }
 
   @Delete(':wagerId')
+  @UseGuards(AuthGuard('jwt'))
   deleteWager(
     @GetUser() user: User,
     @Param('wagerId', ParseIntPipe) wagerId: number,
@@ -131,6 +140,7 @@ export class WagerController {
   }
 
   @Get(':wagerId/dispute/chat')
+  @UseGuards(AuthGuard('jwt'))
   getDisputeChatMessages(
     @Param('wagerId', ParseIntPipe) wagerId: number,
   ): Observable<any> {

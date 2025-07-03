@@ -48,6 +48,10 @@ describe('E2E Tests', () => {
     category: 'FOOTBALL',
     name: 'Ozuna Biraz',
   };
+  const superAdmin: AdminAuthDTO = {
+    email: 'mudianthonio27@gmail.com',
+    passcode: 'SuperAdminPasscode',
+  };
 
   let app: INestApplication<App>;
   let prisma: DbService;
@@ -55,8 +59,7 @@ describe('E2E Tests', () => {
   let userTwoToken: string;
   let wagerId: number;
   let wagerInviteCode: string;
-  let superAdminToken: string;
-  let adminToken: string;
+  let adminId: number;
 
   beforeAll(async () => {
     jest.useRealTimers();
@@ -346,29 +349,29 @@ describe('E2E Tests', () => {
     });
   });
 
-  xdescribe('Admins', () => {
+  describe('Admins', () => {
     it('should create super admin profile', async () => {
-      const dto: AdminAuthDTO = {
-        email: 'mudianthonio27@gmail.com',
-        passcode: 'SuperAdminPasscode',
-      };
-
       const response = await request(app.getHttpServer())
         .post('/admin/signup')
-        .send(dto);
+        .send(superAdmin);
 
       expect(response.status).toEqual(201);
-      expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual('Super Admin created successfully');
+    });
 
-      superAdminToken = response.body.token as string;
+    it('should login admin', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/admin/login')
+        .send(superAdmin);
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('admin');
     });
 
     it('should add new admin', async () => {
       const response = await request(app.getHttpServer())
-        .post('/admin/add')
-        .set('Authorization', `Bearer ${superAdminToken}`)
+        .post(`/admin/add?email=${superAdmin.email}`)
         .send(admin);
 
       expect(response.status).toEqual(200);
@@ -377,9 +380,18 @@ describe('E2E Tests', () => {
     });
 
     it('should remove existing admin', async () => {
-      const response = await request(app.getHttpServer())
-        .post(`/admin/remove?email=${admin.email}`)
-        .set('Authorization', `Bearer ${superAdminToken}`);
+      const deletedAdmin = await prisma.admin.create({
+        data: {
+          ...admin,
+          email: 'admin2@example.com',
+          disputes: 0,
+          passcode: await argon.hash('AdminPasscode'),
+        },
+      });
+
+      const response = await request(app.getHttpServer()).post(
+        `/admin/remove/${deletedAdmin.id}?email=${superAdmin.email}`,
+      );
 
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('message');
@@ -388,31 +400,10 @@ describe('E2E Tests', () => {
       );
     });
 
-    it('should login admin', async () => {
-      const newAdmin = await prisma.admin.create({
-        data: {
-          ...admin,
-          disputes: 0,
-          passcode: await argon.hash('AdminPasscode'),
-        },
-      });
-      const dto: AdminAuthDTO = { ...newAdmin };
-
-      const response = await request(app.getHttpServer())
-        .post('/admin/login')
-        .send(dto);
-
-      expect(response.status).toEqual(200);
-      expect(response.body).toHaveProperty('admin');
-      expect(response.body).toHaveProperty('token');
-
-      adminToken = response.body.token as string;
-    });
-
     it('should retrieve all admins', async () => {
-      const response = await request(app.getHttpServer())
-        .get(`/admin`)
-        .set('Authorization', `Bearer ${superAdminToken}`);
+      const response = await request(app.getHttpServer()).get(
+        `/admin?email=${superAdmin.email}`,
+      );
 
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('admins');
@@ -420,9 +411,19 @@ describe('E2E Tests', () => {
     });
 
     it('should retrieve all dispute resolution chats for an admin', async () => {
-      const response = await request(app.getHttpServer())
-        .get(`/admin/disputes`)
-        .set('Authorization', `Bearer ${adminToken}`);
+      const newAdmin = await prisma.admin.create({
+        data: {
+          ...admin,
+          email: 'admin@example.com',
+          disputes: 0,
+          passcode: await argon.hash('AdminPasscode'),
+        },
+      });
+      adminId = newAdmin.id;
+
+      const response = await request(app.getHttpServer()).get(
+        `/admin/disputes/${adminId}`,
+      );
 
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('chats');
@@ -431,11 +432,10 @@ describe('E2E Tests', () => {
 
     it('should throw if a protected endpoint is not accessed by the super admin', async () => {
       const response = await request(app.getHttpServer())
-        .post('/admin/add')
-        .set('Authorization', `Bearer ${adminToken}`)
+        .post(`/admin/add?email=${admin.email}`)
         .send(admin);
 
-      expect(response.status).toEqual(403);
+      expect(response.status).toEqual(401);
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual(
         'Only the Super Admin is authorized to perform this operation',
@@ -705,20 +705,10 @@ describe('E2E Tests', () => {
       expect(Array.isArray(response.body.messages)).toBe(true);
     });
 
-    xit('should retrieve all dispute chat messages as an admin', async () => {
+    it('should assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/wagers/${wagerId}/dispute/chat`)
-        .set('Authorization', `Bearer ${adminToken}`);
-
-      expect(response.status).toEqual(200);
-      expect(response.body).toHaveProperty('messages');
-      expect(Array.isArray(response.body.messages)).toBe(true);
-    });
-
-    xit('should assign winner after dispute resolution', async () => {
-      const response = await request(app.getHttpServer())
-        .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
-        .set('Authorization', `Bearer ${adminToken}`);
+        .post(`/wagers/${wagerId}/dispute/resolve?admin=${admin.email}`)
+        .send({ username: userOne.username });
 
       expect(response.status).toEqual(200);
       expect(response.body).toHaveProperty('message');
@@ -727,10 +717,10 @@ describe('E2E Tests', () => {
 
     it('should throw if a non-admin attempts to assign winner after dispute resolution', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/wagers/${wagerId}/dispute/resolve?username=${userOne.username}`)
-        .set('Authorization', `Bearer ${userTwoToken}`);
+        .post(`/wagers/${wagerId}/dispute/resolve?admin=${userTwo.email}`)
+        .send({ username: userOne.username });
 
-      expect(response.status).toEqual(403);
+      expect(response.status).toEqual(401);
       expect(response.body).toHaveProperty('message');
       expect(response.body.message).toEqual(
         'Only an Admin can perform this operation',

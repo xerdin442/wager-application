@@ -1,0 +1,51 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Building the Docker image for API Gateway...
+      - docker build -f apps/api-gateway/Dockerfile -t wager-app/api-gateway:latest .
+      - docker tag wager-app/api-gateway:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/api-gateway:latest
+    
+      - echo Building the Docker image for Admin Service...
+      - docker build -f apps/admin/Dockerfile -t wager-app/admin-service:latest .
+      - docker tag wager-app/admin-service:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/admin-service:latest
+
+      - echo Building the Docker image for Auth Service...
+      - docker build -f apps/auth/Dockerfile -t wager-app/auth-service:latest .
+      - docker tag wager-app/auth-service:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/auth-service:latest
+
+      - echo Building the Docker image for User Service...
+      - docker build -f apps/user/Dockerfile -t wager-app/user-service:latest .
+      - docker tag wager-app/user-service:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/user-service:latest
+
+      - echo Building the Docker image for Wager Service...
+      - docker build -f apps/wager/Dockerfile -t wager-app/wager-service:latest .
+      - docker tag wager-app/wager-service:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/wager-service:latest
+
+      - echo Building the Docker image for Wallet Service...
+      - docker build -f apps/wallet/Dockerfile -t wager-app/wallet-service:latest .
+      - docker tag wager-app/wallet-service:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/wallet-service:latest
+  post_build:
+    commands:
+      - echo Pushing the Docker Image for API Gateway...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/api-gateway:latest
+
+      - echo Pushing the Docker Image for Admin Service...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/admin-service:latest
+
+      - echo Pushing the Docker Image for Auth Service...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/auth-service:latest
+
+      - echo Pushing the Docker Image for User Service...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/user-service:latest
+
+      - echo Pushing the Docker Image for Wager Service...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/wager-service:latest
+
+      - echo Pushing the Docker Image for Wallet Service...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wager-app/wallet-service:latest

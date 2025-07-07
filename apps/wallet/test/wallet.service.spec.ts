@@ -143,7 +143,6 @@ describe('Wallet Service', () => {
         return 'platform-wallet-keyphrase';
       if (key === 'NODE_ENV') return 'test';
       if (key === 'COINGECKO_API_KEY') return 'coingecko-api-key';
-      if (key === 'SUPER_ADMIN_EMAIL') return 'super-admin-email';
       if (key === 'THIRDWEB_API_KEY') return 'thirdweb-api-key';
 
       return undefined;
